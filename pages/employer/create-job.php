@@ -245,7 +245,7 @@ if (isset($_POST['create_job'])) {
 
     <br><br>
 
-    <label>Hourly Rate (PHP) *</label>
+    <label>Hourly Rate (USD) *</label>
     <input
         type="number"
         name="hourly_rate"

@@ -87,6 +87,10 @@ if (isset($_POST['login'])) {
 
                         header('Location: pages/employer/dashboard.php');
                         exit;
+                    } elseif ($_SESSION['role'] === 'admin') {
+
+                        header('Location: pages/admin/dashboard.php');
+                        exit;
                     }
                 } else {
                     $message = 'Unable to retrieve your account profile.';
