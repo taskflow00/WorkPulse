@@ -350,10 +350,7 @@ require_once '../../includes/header.php';
 
                                             <i class="bi bi-cash"></i>
 
-                                            ₱<?= number_format(
-                                                    (float)($job['hourly_rate'] ?? 0),
-                                                    2
-                                                ) ?>/hr
+                                            $<?= number_format((float)($job['hourly_rate'] ?? 0), 2) ?>/hr
 
                                         </span>
 
