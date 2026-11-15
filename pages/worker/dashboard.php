@@ -8,6 +8,7 @@ echo "Welcome, Worker!";
 
 <a href="../../logout.php">Logout</a>
 <a href="offers.php">Employment Offers</a>
+<a href="invitations.php">My Invitations</a>
 <a href="employment.php">My Employment</a>
 <a href="tasks.php">My Tasks</a>
 <a href="time-tracker.php">Time Tracker</a>

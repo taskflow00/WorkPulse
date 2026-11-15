@@ -5,18 +5,10 @@ require_once '../../includes/auth.php';
 $employer_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];
 
-$message = '';
-
 // Common headers for authenticated requests.
 $headers =
     "apikey: " . SUPABASE_KEY . "\r\n" .
     "Authorization: Bearer " . $access_token . "\r\n";
-
-// 1. Retrieve tasks assigned by this employer.
-$url = SUPABASE_URL .
-    '/rest/v1/tasks?select=*&employer_id=eq.' .
-    urlencode($employer_id) .
-    '&order=created_at.desc';
 
 $options = [
     'http' => [
@@ -26,23 +18,90 @@ $options = [
     ]
 ];
 
+// --------------------------------------------------
+// 1. Retrieve tasks assigned by this employer.
+// --------------------------------------------------
+
+$url = SUPABASE_URL .
+    '/rest/v1/tasks?select=*&employer_id=eq.' .
+    urlencode($employer_id) .
+    '&order=created_at.desc';
+
 $context = stream_context_create($options);
 $response = @file_get_contents($url, false, $context);
 
 $result = json_decode($response ?: '', true);
 
-$tasks = (
-    is_array($result) && isset($result[0])
-) ? $result : [];
+$tasks = is_array($result) && array_is_list($result)
+    ? $result
+    : [];
 
-// 2. Retrieve employee names.
+$task_lookup = [];
+
+foreach ($tasks as $task) {
+    $task_lookup[$task['id']] = $task;
+}
+
+// --------------------------------------------------
+// 2. Retrieve pending task submissions.
+// --------------------------------------------------
+
+$pending_reviews = [];
+
+if (!empty($task_lookup)) {
+
+    $task_ids = array_keys($task_lookup);
+
+    $ids = implode(',', array_map('urlencode', $task_ids));
+
+    $submission_url = SUPABASE_URL .
+        '/rest/v1/task_submissions?select=' .
+        'id,task_id,worker_id,message,status,submitted_at,' .
+        'task_submission_files(id,file_name,file_path,uploaded_at)' .
+        '&task_id=in.(' . $ids . ')' .
+        '&status=eq.pending_review' .
+        '&order=submitted_at.desc';
+
+    $context = stream_context_create($options);
+
+    $submission_response = @file_get_contents(
+        $submission_url,
+        false,
+        $context
+    );
+
+    $submission_result = json_decode(
+        $submission_response ?: '',
+        true
+    );
+
+    if (
+        is_array($submission_result) &&
+        array_is_list($submission_result)
+    ) {
+        $pending_reviews = $submission_result;
+    }
+}
+
+// --------------------------------------------------
+// 3. Retrieve worker names.
+// --------------------------------------------------
+
 $workers = [];
 
-if (!empty($tasks)) {
+$worker_ids = [];
 
-    $worker_ids = array_unique(
-        array_column($tasks, 'worker_id')
-    );
+foreach ($tasks as $task) {
+    $worker_ids[] = $task['worker_id'];
+}
+
+foreach ($pending_reviews as $submission) {
+    $worker_ids[] = $submission['worker_id'];
+}
+
+$worker_ids = array_unique($worker_ids);
+
+if (!empty($worker_ids)) {
 
     $ids = implode(',', array_map('urlencode', $worker_ids));
 
@@ -51,6 +110,7 @@ if (!empty($tasks)) {
         $ids . ')';
 
     $context = stream_context_create($options);
+
     $profile_response = @file_get_contents(
         $profile_url,
         false,
@@ -66,7 +126,10 @@ if (!empty($tasks)) {
     }
 }
 
-// 3. Count task statuses.
+// --------------------------------------------------
+// 4. Count task statuses.
+// --------------------------------------------------
+
 $total_tasks = count($tasks);
 $pending_tasks = 0;
 $in_progress_tasks = 0;
@@ -82,6 +145,8 @@ foreach ($tasks as $task) {
         $completed_tasks++;
     }
 }
+
+$pending_review_count = count($pending_reviews);
 ?>
 
 <!DOCTYPE html>
@@ -103,6 +168,8 @@ foreach ($tasks as $task) {
 
     <hr>
 
+    <!-- Task Overview -->
+
     <h2>Task Overview</h2>
 
     <p>Total Tasks: <?php echo $total_tasks; ?></p>
@@ -114,6 +181,92 @@ foreach ($tasks as $task) {
     <p>Completed: <?php echo $completed_tasks; ?></p>
 
     <hr>
+
+    <!-- Pending Reviews -->
+
+    <h2>Pending Reviews</h2>
+
+    <p>
+        Submissions waiting for your approval:
+        <strong><?php echo $pending_review_count; ?></strong>
+    </p>
+
+    <?php if (empty($pending_reviews)): ?>
+
+        <p>No submissions are waiting for review.</p>
+
+    <?php else: ?>
+
+        <?php foreach ($pending_reviews as $submission): ?>
+
+            <?php
+            $task = $task_lookup[$submission['task_id']] ?? null;
+
+            $worker_name = $workers[$submission['worker_id']]
+                ?? 'Unknown Worker';
+
+            $files = $submission['task_submission_files'] ?? [];
+            ?>
+
+            <hr>
+
+            <h3>
+                <?php echo htmlspecialchars(
+                    $task['title'] ?? 'Unknown Task',
+                    ENT_QUOTES,
+                    'UTF-8'
+                ); ?>
+            </h3>
+
+            <p>
+                <strong>Submitted By:</strong>
+
+                <?php echo htmlspecialchars(
+                    $worker_name,
+                    ENT_QUOTES,
+                    'UTF-8'
+                ); ?>
+            </p>
+
+            <p>
+                <strong>Submitted At:</strong>
+
+                <?php echo htmlspecialchars(date(
+                    'F j, Y g:i A',
+                    strtotime($submission['submitted_at'])
+                )); ?>
+            </p>
+
+            <p>
+                <strong>Worker's Message:</strong>
+            </p>
+
+            <p>
+                <?php echo nl2br(htmlspecialchars(
+                    $submission['message'],
+                    ENT_QUOTES,
+                    'UTF-8'
+                )); ?>
+            </p>
+
+            <p>
+                <strong>Screenshots:</strong>
+                <?php echo count($files); ?> uploaded
+            </p>
+
+            <a href="review-submission.php?id=<?php echo urlencode(
+                                                    $submission['id']
+                                                ); ?>">
+                Review Submission
+            </a>
+
+        <?php endforeach; ?>
+
+    <?php endif; ?>
+
+    <hr>
+
+    <!-- Assigned Tasks -->
 
     <h2>Assigned Tasks</h2>
 
@@ -128,26 +281,41 @@ foreach ($tasks as $task) {
             <hr>
 
             <h3>
-                <?php echo htmlspecialchars($task['title']); ?>
+                <?php echo htmlspecialchars(
+                    $task['title'],
+                    ENT_QUOTES,
+                    'UTF-8'
+                ); ?>
             </h3>
 
             <p>
                 <strong>Assigned To:</strong>
+
                 <?php echo htmlspecialchars(
-                    $workers[$task['worker_id']] ?? 'Unknown Worker'
+                    $workers[$task['worker_id']] ?? 'Unknown Worker',
+                    ENT_QUOTES,
+                    'UTF-8'
                 ); ?>
             </p>
 
             <p>
                 <strong>Description:</strong>
+
                 <?php echo htmlspecialchars(
-                    $task['description'] ?? 'No description provided.'
+                    $task['description'] ?? 'No description provided.',
+                    ENT_QUOTES,
+                    'UTF-8'
                 ); ?>
             </p>
 
             <p>
                 <strong>Priority:</strong>
-                <?php echo htmlspecialchars(ucfirst($task['priority'])); ?>
+
+                <?php echo htmlspecialchars(
+                    ucfirst($task['priority']),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ); ?>
             </p>
 
             <p>
@@ -171,13 +339,17 @@ foreach ($tasks as $task) {
 
             <p>
                 <strong>Status:</strong>
+
                 <?php echo htmlspecialchars(
-                    ucwords(str_replace('_', ' ', $task['status']))
+                    ucwords(str_replace('_', ' ', $task['status'])),
+                    ENT_QUOTES,
+                    'UTF-8'
                 ); ?>
             </p>
 
             <p>
                 <strong>Assigned Date:</strong>
+
                 <?php echo htmlspecialchars(date(
                     'F j, Y',
                     strtotime($task['created_at'])

@@ -14,3 +14,4 @@ require_once '../../includes/auth.php';
 <a href="time-proofs.php">Daily Time Proofs</a>
 <a href="earnings.php">Labor Costs</a>
 <a href="jobs.php">My Job Listings</a>
+<a href="find-freelancers.php">Find Freelancers</a>

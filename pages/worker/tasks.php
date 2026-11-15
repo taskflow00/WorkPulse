@@ -7,16 +7,15 @@ $access_token = $_SESSION['access_token'];
 
 $message = '';
 
-// Show messages after redirect.
 if (isset($_GET['success'])) {
     if ($_GET['success'] === 'started') {
         $message = 'Task started successfully!';
-    } elseif ($_GET['success'] === 'completed') {
-        $message = 'Task marked as completed!';
+    } elseif ($_GET['success'] === 'submitted') {
+        $message = 'Your work was submitted successfully! Awaiting employer review.';
     }
 }
 
-// Common headers.
+// Common headers for Supabase requests.
 $headers =
     "apikey: " . SUPABASE_KEY . "\r\n" .
     "Authorization: Bearer " . $access_token . "\r\n";
@@ -27,7 +26,10 @@ if (isset($_POST['update_task'])) {
     $task_id = $_POST['task_id'] ?? '';
     $new_status = $_POST['new_status'] ?? '';
 
-    if (!in_array($new_status, ['in_progress', 'completed'], true)) {
+    // Workers can only start tasks directly.
+    // Completing a task now requires employer approval.
+    if ($new_status !== 'in_progress') {
+
         $message = 'Invalid task action.';
     } else {
 
@@ -66,21 +68,18 @@ if (isset($_POST['update_task'])) {
 
         if ($status_code === 200 && ($result['success'] ?? false)) {
 
-            header(
-                'Location: tasks.php?success=' .
-                    ($new_status === 'in_progress' ? 'started' : 'completed')
-            );
+            header('Location: tasks.php?success=started');
             exit;
         } else {
 
             $message = is_array($result)
-                ? ($result['message'] ?? 'Unable to update task.')
+                ? ($result['message'] ?? $result['msg'] ?? 'Unable to update task.')
                 : 'Unable to update task. Please try again.';
         }
     }
 }
 
-// 2. Retrieve this worker's tasks.
+// 2. Retrieve this worker's assigned tasks.
 $url = SUPABASE_URL .
     '/rest/v1/tasks?select=*&worker_id=eq.' .
     urlencode($worker_id) .
@@ -100,6 +99,39 @@ $response = @file_get_contents($url, false, $context);
 $result = json_decode($response ?: '', true);
 $tasks = is_array($result) ? $result : [];
 
+// 3. Retrieve this worker's task submissions.
+$url = SUPABASE_URL .
+    '/rest/v1/task_submissions?select=id,task_id,message,status,submitted_at,employer_feedback,reviewed_at' .
+    '&worker_id=eq.' . urlencode($worker_id) .
+    '&order=submitted_at.desc';
+
+$options = [
+    'http' => [
+        'method' => 'GET',
+        'header' => $headers,
+        'ignore_errors' => true
+    ]
+];
+
+$context = stream_context_create($options);
+$response = file_get_contents($url, false, $context);
+
+$result = json_decode($response ?: '', true);
+$submissions = is_array($result) ? $result : [];
+
+// Get the latest submission for each task.
+$latest_submissions = [];
+
+foreach ($submissions as $submission) {
+
+    $submission_task_id = $submission['task_id'];
+
+    // Results are newest first, so keep only the first one.
+    if (!isset($latest_submissions[$submission_task_id])) {
+        $latest_submissions[$submission_task_id] = $submission;
+    }
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -108,6 +140,7 @@ $tasks = is_array($result) ? $result : [];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>My Tasks - WorkPulse</title>
 </head>
 
@@ -118,8 +151,14 @@ $tasks = is_array($result) ? $result : [];
     <p>View and manage the tasks assigned to you.</p>
 
     <?php if ($message !== ''): ?>
-        <p><?php echo htmlspecialchars($message); ?></p>
+
+        <p>
+            <?php echo htmlspecialchars($message); ?>
+        </p>
+
     <?php endif; ?>
+
+
 
     <?php if (empty($tasks)): ?>
 
@@ -129,6 +168,11 @@ $tasks = is_array($result) ? $result : [];
 
         <?php foreach ($tasks as $task): ?>
 
+            <?php
+            // Find the latest submission for this task.
+            $latest_submission = $latest_submissions[$task['id']] ?? null;
+            ?>
+
             <hr>
 
             <h2>
@@ -137,36 +181,56 @@ $tasks = is_array($result) ? $result : [];
 
             <p>
                 <strong>Description:</strong>
-                <?php echo htmlspecialchars($task['description'] ?? 'No description provided.'); ?>
+
+                <?php echo htmlspecialchars(
+                    $task['description'] ?? 'No description provided.'
+                ); ?>
             </p>
 
             <p>
                 <strong>Priority:</strong>
-                <?php echo htmlspecialchars(ucfirst($task['priority'])); ?>
+
+                <?php echo htmlspecialchars(
+                    ucfirst($task['priority'] ?? 'Not specified')
+                ); ?>
             </p>
 
             <p>
                 <strong>Deadline:</strong>
-                <?php echo !empty($task['due_date'])
+
+                <?php
+                echo !empty($task['due_date'])
                     ? htmlspecialchars(date('F j, Y', strtotime($task['due_date'])))
-                    : 'No deadline'; ?>
+                    : 'No deadline';
+                ?>
             </p>
 
             <p>
                 <strong>Estimated Hours:</strong>
-                <?php echo $task['estimated_hours'] !== null
-                    ? htmlspecialchars($task['estimated_hours']) . ' hours'
-                    : 'Not specified'; ?>
+
+                <?php
+                echo isset($task['estimated_hours'])
+                    ? htmlspecialchars((string)$task['estimated_hours']) . ' hours'
+                    : 'Not specified';
+                ?>
             </p>
 
             <p>
                 <strong>Status:</strong>
-                <?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $task['status']))); ?>
+
+                <?php
+                echo htmlspecialchars(
+                    ucwords(str_replace('_', ' ', $task['status']))
+                );
+                ?>
             </p>
+
 
             <?php if ($task['status'] === 'pending'): ?>
 
+                <!-- Worker can start a pending task. -->
                 <form method="POST" action="tasks.php">
+
                     <input
                         type="hidden"
                         name="task_id"
@@ -180,35 +244,91 @@ $tasks = is_array($result) ? $result : [];
                     <button type="submit" name="update_task">
                         Start Task
                     </button>
+
                 </form>
+
 
             <?php elseif ($task['status'] === 'in_progress'): ?>
 
-                <form method="POST" action="tasks.php">
-                    <input
-                        type="hidden"
-                        name="task_id"
-                        value="<?php echo htmlspecialchars($task['id']); ?>">
 
-                    <input
-                        type="hidden"
-                        name="new_status"
-                        value="completed">
+                <?php if (
+                    $latest_submission &&
+                    $latest_submission['status'] === 'pending_review'
+                ): ?>
 
-                    <button type="submit" name="update_task">
-                        Complete Task
-                    </button>
-                </form>
+                    <!-- Submission is waiting for employer review. -->
+                    <p>
+                        <strong>Submission Status:</strong>
+                        Awaiting employer review.
+                    </p>
+
+                    <p>
+                        <strong>Submitted On:</strong>
+
+                        <?php echo htmlspecialchars(
+                            date(
+                                'F j, Y g:i A',
+                                strtotime($latest_submission['submitted_at'])
+                            )
+                        ); ?>
+                    </p>
+
+
+                <?php elseif (
+                    $latest_submission &&
+                    $latest_submission['status'] === 'revision_requested'
+                ): ?>
+
+                    <!-- Employer requested changes. -->
+                    <p>
+                        <strong>Submission Status:</strong>
+                        Revisions requested.
+                    </p>
+
+                    <p>
+                        <strong>Employer Feedback:</strong>
+                    </p>
+
+                    <p>
+                        <?php echo nl2br(htmlspecialchars(
+                            $latest_submission['employer_feedback'] ?? 'No feedback provided.'
+                        )); ?>
+                    </p>
+
+                    <a href="submit-task.php?task_id=<?php echo urlencode($task['id']); ?>">
+                        Resubmit Work
+                    </a>
+
+
+                <?php else: ?>
+
+                    <!-- No submission yet. -->
+                    <a href="submit-task.php?task_id=<?php echo urlencode($task['id']); ?>">
+                        Submit Completed Work
+                    </a>
+
+                <?php endif; ?>
+
 
             <?php elseif ($task['status'] === 'completed'): ?>
 
-                <p>Task completed.</p>
+                <p>
+                    Task completed and approved!
+                </p>
+
+
+            <?php elseif ($task['status'] === 'cancelled'): ?>
+
+                <p>
+                    This task has been cancelled.
+                </p>
 
             <?php endif; ?>
 
         <?php endforeach; ?>
 
     <?php endif; ?>
+
 
     <br>
 

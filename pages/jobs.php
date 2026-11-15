@@ -202,7 +202,7 @@ if ($response === false) {
 
                 <p>
                     Hourly Rate:
-                    ₱<?php echo number_format((float)$job['hourly_rate'], 2); ?>/hour
+                    $<?php echo number_format((float)$job['hourly_rate'], 2); ?>/hour
                 </p>
 
                 <p>
