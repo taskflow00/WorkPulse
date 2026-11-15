@@ -406,7 +406,7 @@ if (isset($_POST['apply'])) {
                             </span>
 
                             <strong>
-                                ₱<?= number_format((float)$job['hourly_rate'], 2) ?>/hr
+                                $<?= number_format((float)$job['hourly_rate'], 2) ?>/hr
                             </strong>
 
                         </div>
@@ -725,7 +725,7 @@ if (isset($_POST['apply'])) {
                         <div class="job-summary-item">
                             <span><i class="bi bi-cash-stack"></i> Hourly rate</span>
                             <strong class="job-summary-rate">
-                                ₱<?= number_format((float)$job['hourly_rate'], 2) ?>/hr
+                                $<?= number_format((float)$job['hourly_rate'], 2) ?>/hr
                             </strong>
                         </div>
 

@@ -1,12 +1,7 @@
 
 <?php
 
-// Start the session if it hasn't started yet.
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-require_once __DIR__ . '/../config/supabase.php';
+require_once __DIR__ . '/session.php';
 
 
 // Get the current website address.
@@ -37,6 +32,79 @@ if (
 ) {
     header('Location: ' . $login_url);
     exit;
+}
+
+// Refresh the Supabase access token before it expires.
+if (
+    empty($_SESSION['refresh_token']) ||
+    (int) ($_SESSION['token_expires_at'] ?? 0) <= time() + 60
+) {
+
+    $refresh_url = SUPABASE_URL .
+        '/auth/v1/token?grant_type=refresh_token';
+
+    $refresh_data = [
+        'refresh_token' => $_SESSION['refresh_token'] ?? ''
+    ];
+
+    $refresh_options = [
+        'http' => [
+            'method' => 'POST',
+            'header' =>
+            "Content-Type: application/json\r\n" .
+                "apikey: " . SUPABASE_KEY . "\r\n",
+
+            'content' => json_encode($refresh_data),
+            'ignore_errors' => true,
+            'timeout' => 15
+        ]
+    ];
+
+    $refresh_context = stream_context_create($refresh_options);
+
+    $refresh_response = file_get_contents(
+        $refresh_url,
+        false,
+        $refresh_context
+    );
+
+    // Keep the session if the refresh service is temporarily unavailable.
+    if ($refresh_response === false) {
+        die('Unable to refresh your session. Please try again.');
+    }
+
+    $refresh_result = json_decode($refresh_response, true);
+
+    $refresh_headers = http_get_last_response_headers();
+
+    $refresh_status = 0;
+
+    foreach ($refresh_headers as $header) {
+        if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $matches)) {
+            $refresh_status = (int) $matches[1];
+        }
+    }
+
+    // The refresh token is invalid or the session has expired.
+    if (
+        $refresh_status < 200 ||
+        $refresh_status >= 300 ||
+        empty($refresh_result['access_token']) ||
+        empty($refresh_result['refresh_token'])
+    ) {
+        workpulse_end_session();
+
+        header('Location: ' . $login_url);
+        exit;
+    }
+
+    // Save the new tokens.
+    $_SESSION['access_token'] = $refresh_result['access_token'];
+
+    $_SESSION['refresh_token'] = $refresh_result['refresh_token'];
+
+    $_SESSION['token_expires_at'] = time() +
+        (int) ($refresh_result['expires_in'] ?? 3600);
 }
 
 
@@ -74,8 +142,7 @@ $profile = json_decode($response, true);
 if (!isset($profile[0]['role'])) {
 
     // The account or profile could not be retrieved.
-    $_SESSION = [];
-    session_destroy();
+    workpulse_end_session();
 
     header('Location: ' . $login_url);
     exit;
@@ -93,8 +160,7 @@ $restricted_until = $profile[0]['restricted_until'] ?? null;
 // Check account restrictions.
 if ($account_status === 'banned') {
 
-    $_SESSION = [];
-    session_destroy();
+    workpulse_end_session();
 
     header('Location: ' . $login_url . '?status=banned');
     exit;
@@ -111,8 +177,7 @@ if ($account_status === 'banned') {
         $restriction_time > time()
     ) {
 
-        $_SESSION = [];
-        session_destroy();
+        workpulse_end_session();
 
         header('Location: ' . $login_url . '?status=suspended');
         exit;

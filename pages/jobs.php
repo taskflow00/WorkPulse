@@ -478,7 +478,7 @@ if ($response === false) {
                             <div>
                                 <small>Hourly rate</small>
                                 <strong class="wp-job-budget">
-                                    ₱<?= number_format((float)$job['hourly_rate'], 2) ?>
+                                    $<?= number_format((float)$job['hourly_rate'], 2) ?>
                                     <span>/hr</span>
                                 </strong>
                             </div>

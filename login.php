@@ -1,8 +1,6 @@
 <?php
 
-session_start();
-
-require_once 'config/supabase.php';
+require_once __DIR__ . '/includes/session.php';
 
 date_default_timezone_set('Asia/Manila');
 
@@ -284,14 +282,21 @@ if (isset($_POST['login'])) {
                             // CONTINUE LOGIN IF ACCOUNT IS ACTIVE
                             if ($message == '') {
 
+                                // Generate a new session ID after successful login.
                                 session_regenerate_id(true);
 
-                                $_SESSION['access_token'] = $access_token;
+                                // Store the Supabase authentication tokens server-side.
+                                $_SESSION['access_token'] = $result['access_token'];
 
+                                $_SESSION['refresh_token'] = $result['refresh_token'];
+
+                                $_SESSION['token_expires_at'] = time() +
+                                    (int) ($result['expires_in'] ?? 3600);
+
+                                // Store the authenticated user.
                                 $_SESSION['user'] = $result['user'];
 
                                 $_SESSION['role'] = $role;
-
 
                                 // Check if the user came from a job details page
                                 $redirect = $_GET['redirect'] ?? '';

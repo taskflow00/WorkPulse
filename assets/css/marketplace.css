@@ -1,13 +1,13 @@
 
 /* ========================================
    WORKPULSE — MARKETPLACE
-   Uses the existing global design system
-   Visual style follows landing.css
+   Marketplace and Job Details
+   Uses the shared landing page design system
 ======================================== */
 
 
 /* ========================================
-   NAVIGATION
+   1. NAVIGATION
 ======================================== */
 
 .marketplace-active {
@@ -17,7 +17,7 @@
 
 
 /* ========================================
-   MARKETPLACE HERO
+   2. MARKETPLACE HERO
 ======================================== */
 
 .marketplace-hero {
@@ -74,7 +74,7 @@
 }
 
 
-/* HERO STATS */
+/* MARKETPLACE HERO STATS */
 
 .marketplace-hero-stats {
     display: flex;
@@ -105,7 +105,7 @@
 }
 
 
-/* HERO VISUAL */
+/* MARKETPLACE HERO VISUAL */
 
 .marketplace-hero-visual {
     position: relative;
@@ -209,7 +209,7 @@
 
 
 /* ========================================
-   MARKETPLACE CONTENT
+   3. MARKETPLACE CONTENT
 ======================================== */
 
 .marketplace-main {
@@ -241,7 +241,7 @@
 
 
 /* ========================================
-   FILTER PANEL
+   4. FILTER PANEL
 ======================================== */
 
 .marketplace-filter-panel {
@@ -334,7 +334,7 @@
 
 
 /* ========================================
-   RESULTS HEADING
+   5. RESULTS HEADING
 ======================================== */
 
 .marketplace-results-heading {
@@ -361,7 +361,7 @@
 
 
 /* ========================================
-   JOB CARDS
+   6. JOB CARDS
 ======================================== */
 
 .wp-job-grid {
@@ -539,7 +539,7 @@
 
 
 /* ========================================
-   EMPTY STATES
+   7. EMPTY STATES
 ======================================== */
 
 .marketplace-empty {
@@ -575,102 +575,104 @@
 
 
 /* ========================================
-   JOB DETAILS PAGE
+   8. JOB DETAILS PAGE
+   The page itself controls the layout.
+
+   Desktop:
+   - Back link: full width
+   - Hero: full width
+   - Details: left column
+   - Summary: right column
 ======================================== */
 
 .job-details-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+    column-gap: 28px;
+    row-gap: 0;
+
     width: min(1180px, 88%);
     min-height: 70vh;
-    padding: 40px 0 85px;
+    padding: 30px 0 85px;
     margin: 0 auto;
 }
 
+
+/* BACK LINK */
+
 .job-back-link {
+    grid-column: 1 / -1;
+    justify-self: start;
+
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 25px;
-    color: var(--wp-muted);
+    gap: 10px;
+
+    padding: 11px 17px;
+    margin-bottom: 28px;
+
+    color: var(--wp-text);
+    background: #FFFFFF;
+    border: 1px solid #E9DDE2;
+    border-radius: 10px;
+
     font-size: 12px;
-    font-weight: 650;
+    font-weight: 750;
     text-decoration: none;
-    transition: color .2s ease;
+
+    box-shadow: 0 3px 10px rgba(37,35,42,.035);
+    transition: all .25s ease;
+}
+
+.job-back-link i {
+    width: 25px;
+    height: 25px;
+    display: grid;
+    place-items: center;
+
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 7px;
+
+    font-size: 14px;
+    transition: transform .25s ease;
 }
 
 .job-back-link:hover {
     color: var(--wp-primary-hover);
+    background: #FFF9FB;
+    border-color: var(--wp-primary);
+    box-shadow: 0 7px 18px rgba(114,75,94,.09);
+    transform: translateY(-2px);
 }
 
-.job-details-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
-    align-items: start;
-    gap: 27px;
-}
-
-.job-details-main {
-    min-width: 0;
+.job-back-link:hover i {
+    transform: translateX(-3px);
 }
 
 
-/* EXISTING JOB DETAILS HEADER */
+/* NOT FOUND MESSAGE */
 
-.job-details-header {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    padding: 30px;
-    margin-bottom: 22px;
-    background:
-        radial-gradient(circle at 90% 10%, rgba(255,255,255,.9), transparent 35%),
-        linear-gradient(120deg, #fff, #FAF4F6 65%, #F3E5EB);
-    border: 1px solid #E8DDE2;
-    border-radius: 17px;
-    box-shadow: 0 8px 28px rgba(45,32,39,.05);
-}
-
-.job-details-company-icon {
-    width: 65px;
-    height: 65px;
-    font-size: 27px;
-}
-
-.job-details-heading {
-    min-width: 0;
-}
-
-.job-details-heading h1 {
-    margin: 10px 0 7px;
-    color: var(--wp-text);
-    font-size: 30px;
-    font-weight: 850;
-    line-height: 1.25;
-    letter-spacing: -.5px;
-    overflow-wrap: anywhere;
-}
-
-.job-details-heading > p {
-    margin: 0;
-    color: var(--wp-muted);
-    font-size: 12px;
-}
-
-.job-details-heading > p i {
-    margin-right: 5px;
-    color: var(--wp-primary-hover);
+.job-not-found {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 600px;
+    justify-self: center;
+    margin: 45px auto;
 }
 
 
 /* ========================================
-   OPTIONAL LANDING-STYLE JOB DETAILS HERO
-
-   Supports the redesigned hero markup
-   while keeping the existing header styles.
+   9. JOB DETAILS HERO
+   Reuses the shared landing page hero.
 ======================================== */
 
-.job-detail-hero {
+.job-details-page > .job-detail-hero {
+    grid-column: 1 / -1;
+    width: 100%;
     min-height: 520px;
-    margin-bottom: 45px;
+    margin: 0 0 45px;
 }
 
 .job-detail-hero .wp-hero-title {
@@ -698,10 +700,12 @@
     align-items: center;
     gap: 7px;
     padding: 9px 12px;
+
     color: var(--wp-muted);
     background: rgba(255,255,255,.82);
     border: 1px solid #EADDE3;
     border-radius: 8px;
+
     font-size: 11px;
     font-weight: 650;
 }
@@ -717,47 +721,93 @@
 
 
 /* ========================================
-   JOB DETAILS SECTIONS
+   10. JOB DETAILS CONTENT
 ======================================== */
 
+.job-details-layout {
+    grid-column: 1;
+
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+
+    min-width: 0;
+    width: 100%;
+}
+
+
+/* Individual information sections */
+
 .wp-job-details-section {
+    width: 100%;
+    min-width: 0;
     padding: 28px;
-    margin-bottom: 18px;
-    background: #fff;
-    border: 1px solid #EAE2E6;
+    margin: 0;
+
+    background: #FFFFFF;
+    border: 1px solid #EAE4E7;
     border-radius: 16px;
-    box-shadow: 0 7px 24px rgba(45,32,39,.045);
+
+    box-shadow: 0 4px 16px rgba(37,35,42,.035);
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.wp-job-details-section:hover {
+    border-color: #E2C5D1;
+    box-shadow: 0 8px 22px rgba(114,75,94,.055);
 }
 
 .wp-job-details-section h2 {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: 11px;
+
     padding-bottom: 15px;
-    margin: 0 0 19px;
-    border-bottom: 1px solid var(--wp-border);
+    margin: 0 0 20px;
+
     color: var(--wp-text);
-    font-size: 18px;
+    border-bottom: 1px solid #F0E9EC;
+
+    font-size: 16px;
     font-weight: 850;
+    letter-spacing: -.2px;
 }
 
 .wp-job-details-section h2 i {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+
     color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 9px;
+
+    font-size: 16px;
 }
 
 .wp-job-details-section > p {
+    margin: 0;
     color: var(--wp-muted);
     font-size: 13px;
     line-height: 1.8;
 }
 
 .job-details-description {
-    color: var(--wp-muted);
+    color: #66616A;
     font-size: 13px;
-    line-height: 1.95;
+    line-height: 2;
+    overflow-wrap: anywhere;
 }
 
+
+/* REQUIRED SKILLS */
+
 .job-details-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
     margin: 0;
 }
 
@@ -767,23 +817,44 @@
     font-size: 12px;
 }
 
+.job-details-skills .wp-job-skill {
+    padding: 8px 13px;
+    font-size: 11px;
+    font-weight: 700;
+    transition: .2s ease;
+}
+
+.job-details-skills .wp-job-skill:hover {
+    color: #FFFFFF;
+    background: var(--wp-primary-hover);
+    border-color: var(--wp-primary-hover);
+}
+
 
 /* ========================================
-   JOB SUMMARY SIDEBAR
+   11. JOB SUMMARY SIDEBAR
 ======================================== */
 
 .job-details-sidebar {
+    grid-column: 2;
+    grid-row: 3;
+
     position: sticky;
     top: 100px;
     align-self: start;
+
+    width: 100%;
+    min-width: 0;
 }
 
 .job-summary-card {
     padding: 27px;
-    background: #fff;
-    border: 1px solid #E8DDE2;
+
+    background: #FFFFFF;
+    border: 1px solid #EADDE3;
     border-radius: 17px;
-    box-shadow: 0 12px 32px rgba(45,32,39,.07);
+
+    box-shadow: 0 7px 25px rgba(37,35,42,.055);
     transition: transform .25s ease, box-shadow .25s ease;
 }
 
@@ -792,18 +863,24 @@
     box-shadow: 0 18px 38px rgba(92,58,73,.12);
 }
 
+.job-summary-card > .landing-section-label {
+    display: inline-block;
+    margin-bottom: 9px;
+}
+
 .job-summary-card h3 {
-    margin: 7px 0 22px;
+    margin: 7px 0 20px;
     color: var(--wp-text);
-    font-size: 19px;
+    font-size: 20px;
     font-weight: 850;
+    letter-spacing: -.4px;
 }
 
 .job-summary-item {
     display: flex;
     flex-direction: column;
-    gap: 7px;
-    padding: 14px 0;
+    gap: 8px;
+    padding: 16px 0;
     border-bottom: 1px solid var(--wp-border);
 }
 
@@ -829,7 +906,7 @@
 
 .job-summary-item .job-summary-rate {
     color: var(--wp-success);
-    font-size: 20px;
+    font-size: 23px;
 }
 
 .job-summary-divider {
@@ -840,15 +917,27 @@
 
 .job-summary-apply {
     width: 100%;
-    min-height: 47px;
+    min-height: 48px;
+    border-radius: 10px;
+
+    box-shadow: 0 5px 14px rgba(169,117,137,.2);
+    transition: .25s ease;
+}
+
+.job-summary-apply:hover {
+    box-shadow: 0 8px 20px rgba(169,117,137,.3);
+    transform: translateY(-2px);
 }
 
 .job-summary-note {
     display: flex;
     align-items: flex-start;
+    justify-content: center;
     gap: 7px;
+
     margin: 14px 0 0;
     color: var(--wp-muted);
+
     font-size: 10px;
     line-height: 1.7;
 }
@@ -859,10 +948,11 @@
 
 
 /* ========================================
-   APPLICATION FORM
+   12. APPLICATION FORM
 ======================================== */
 
 .job-application-section {
+    border: 1px solid #EADDE3;
     border-top: 3px solid var(--wp-primary);
 }
 
@@ -871,32 +961,39 @@
     align-items: center;
     justify-content: space-between;
     gap: 15px;
+
+    padding-bottom: 20px;
     margin-bottom: 25px;
+
+    border-bottom: 1px solid #F0E9EC;
 }
 
 .job-application-heading h2 {
     padding: 0;
     margin: 7px 0 6px;
     border: 0;
-    font-size: 21px;
+    font-size: 22px;
 }
 
 .job-application-heading p {
     margin: 0;
     color: var(--wp-muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.7;
 }
 
 .job-application-icon {
-    width: 49px;
-    height: 49px;
+    width: 53px;
+    height: 53px;
     display: grid;
     place-items: center;
     flex-shrink: 0;
+
     color: var(--wp-primary-hover);
     background: var(--wp-primary-light);
-    border-radius: 13px;
+    border: 1px solid #EEDCE4;
+    border-radius: 15px;
+
     font-size: 21px;
 }
 
@@ -911,19 +1008,33 @@
     font-size: 10px;
 }
 
+
+/* EXISTING RESUME */
+
 .existing-resume {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 14px;
+
+    padding: 16px;
     margin-bottom: 10px;
+
     background: var(--wp-success-light);
     border: 1px solid #D5EBDD;
-    border-radius: 10px;
+    border-radius: 11px;
 }
 
 .existing-resume > i {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+
     color: var(--wp-success);
+    background: #FFFFFF;
+    border-radius: 10px;
+
     font-size: 23px;
 }
 
@@ -946,6 +1057,7 @@
 }
 
 .job-resume-input {
+    width: 100%;
     padding: 10px;
     font-size: 11px;
 }
@@ -955,19 +1067,33 @@
     margin-top: 5px;
 }
 
+
+/* LOGIN PROMPT */
+
 .job-login-prompt {
     display: flex;
     align-items: flex-start;
     gap: 13px;
-    padding: 16px;
+
+    padding: 19px;
     margin-bottom: 18px;
+
     background: var(--wp-primary-light);
     border: 1px solid #EEDCE4;
-    border-radius: 11px;
+    border-radius: 12px;
 }
 
 .job-login-prompt > i {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+
     color: var(--wp-primary-hover);
+    background: #FFFFFF;
+    border-radius: 10px;
+
     font-size: 21px;
 }
 
@@ -983,14 +1109,9 @@
     line-height: 1.7;
 }
 
-.job-not-found {
-    max-width: 600px;
-    margin: 45px auto;
-}
-
 
 /* ========================================
-   RESPONSIVE — TABLET
+   13. RESPONSIVE — TABLET
 ======================================== */
 
 @media (max-width: 1000px) {
@@ -1003,19 +1124,21 @@
         grid-column: 1 / -1;
     }
 
-    .job-details-layout,
-    .job-details-refresh-layout {
+    .job-details-page {
         grid-template-columns: minmax(0, 1fr) 280px;
+        column-gap: 22px;
     }
 
 }
 
 
 /* ========================================
-   RESPONSIVE — MOBILE
+   14. RESPONSIVE — MOBILE
 ======================================== */
 
 @media (max-width: 768px) {
+
+    /* Marketplace hero */
 
     .marketplace-hero {
         min-height: auto;
@@ -1041,8 +1164,10 @@
         min-height: 300px;
     }
 
-    .marketplace-main,
-    .job-details-page {
+
+    /* Marketplace content */
+
+    .marketplace-main {
         width: 90%;
     }
 
@@ -1050,24 +1175,62 @@
         grid-template-columns: 1fr;
     }
 
-    .job-details-layout,
-    .job-details-refresh-layout {
-        grid-template-columns: 1fr;
+
+    /* Job details */
+
+    .job-details-page {
+        width: 90%;
+        grid-template-columns: minmax(0, 1fr);
+        padding-top: 25px;
+    }
+
+    .job-details-page > .job-detail-hero {
+        grid-column: 1;
+        min-height: auto;
+        margin-bottom: 30px;
+    }
+
+    .job-details-layout {
+        grid-column: 1;
     }
 
     .job-details-sidebar {
+        grid-column: 1;
+        grid-row: auto;
         position: static;
-        grid-row: 1;
+        margin-top: 20px;
+    }
+
+    .job-details-header {
+        padding: 24px;
+    }
+
+    .job-details-main {
+        gap: 14px;
+    }
+
+    .job-summary-card {
+        padding: 22px;
+    }
+
+    .wp-job-details-section {
+        padding: 22px;
+    }
+
+    .job-detail-hero-meta {
+        justify-content: center;
     }
 
 }
 
 
 /* ========================================
-   RESPONSIVE — SMALL MOBILE
+   15. RESPONSIVE — SMALL MOBILE
 ======================================== */
 
 @media (max-width: 576px) {
+
+    /* Marketplace hero */
 
     .marketplace-hero {
         padding: 50px 6%;
@@ -1106,6 +1269,9 @@
         height: 40px;
     }
 
+
+    /* Marketplace content */
+
     .marketplace-main {
         padding: 50px 0 65px;
     }
@@ -1113,6 +1279,10 @@
     .marketplace-heading {
         align-items: flex-start;
         flex-direction: column;
+    }
+
+    .marketplace-heading h2 {
+        font-size: 26px;
     }
 
     .marketplace-filter-panel {
@@ -1149,381 +1319,24 @@
         width: 100%;
     }
 
+
+    /* Job details */
+
     .job-details-page {
-        padding-top: 28px;
+        padding-top: 20px;
+    }
+
+    .job-back-link {
+        margin-bottom: 20px;
+    }
+
+    .job-details-page > .job-detail-hero {
+        margin-bottom: 25px;
     }
 
     .job-details-header {
         align-items: flex-start;
         flex-direction: column;
-        padding: 23px;
-    }
-
-    .job-details-heading h1 {
-        font-size: 24px;
-    }
-
-    .wp-job-details-section,
-    .job-summary-card {
-        padding: 21px;
-    }
-
-    .job-application-heading {
-        align-items: flex-start;
-    }
-
-    .job-detail-hero-meta {
-        justify-content: center;
-    }
-
-}
-
-/* FULL-WIDTH JOB DETAILS HERO */
-
-.job-details-page {
-    width: 100%;
-    padding-top: 25px;
-}
-
-.job-details-page > .job-detail-hero {
-    width: 100%;
-    margin: 0 0 45px;
-}
-
-/* Keep the details content centered */
-.job-details-page > .job-details-refresh-layout,
-.job-details-page > .job-details-layout {
-    width: min(1180px, 88%);
-    margin: 0 auto;
-}
-
-@media (max-width: 768px) {
-    .job-details-page > .job-details-refresh-layout,
-    .job-details-page > .job-details-layout {
-        width: 90%;
-    }
-}
-
-
-/* ========================================
-   WORKPULSE - JOB DETAILS UI POLISH
-======================================== */
-
-/* BACK TO OPPORTUNITIES BUTTON */
-
-.job-back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 11px 17px;
-    margin-bottom: 28px;
-    color: var(--wp-text);
-    background: #FFFFFF;
-    border: 1px solid #E9DDE2;
-    border-radius: 10px;
-    font-size: 12px;
-    font-weight: 750;
-    text-decoration: none;
-    box-shadow: 0 3px 10px rgba(37, 35, 42, 0.035);
-    transition: all .25s ease;
-}
-
-.job-back-link i {
-    display: grid;
-    place-items: center;
-    width: 25px;
-    height: 25px;
-    color: var(--wp-primary-hover);
-    background: var(--wp-primary-light);
-    border-radius: 7px;
-    font-size: 14px;
-    transition: transform .25s ease;
-}
-
-.job-back-link:hover {
-    color: var(--wp-primary-hover);
-    background: #FFF9FB;
-    border-color: var(--wp-primary);
-    box-shadow: 0 7px 18px rgba(114, 75, 94, .09);
-    transform: translateY(-2px);
-}
-
-.job-back-link:hover i {
-    transform: translateX(-3px);
-}
-
-
-/* JOB DETAILS LAYOUT */
-
-.job-details-layout {
-    gap: 28px;
-}
-
-.job-details-main {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-
-/* JOB TITLE HEADER */
-
-.job-details-header {
-    position: relative;
-    padding: 32px;
-    margin-bottom: 0;
-    gap: 22px;
-    background:
-        radial-gradient(circle at 100% 0%, rgba(193, 139, 159, .12), transparent 35%),
-        linear-gradient(135deg, #FFFFFF, #FCF6F8);
-    border: 1px solid #EBDDE3;
-    border-radius: 18px;
-    box-shadow: 0 7px 24px rgba(37, 35, 42, .04);
-}
-
-.job-details-company-icon {
-    width: 68px;
-    height: 68px;
-    border-radius: 17px;
-    font-size: 28px;
-}
-
-.job-details-heading h1 {
-    margin: 13px 0 8px;
-    font-size: clamp(24px, 3vw, 32px);
-    letter-spacing: -.8px;
-    line-height: 1.2;
-}
-
-.job-details-heading > p {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--wp-muted);
-    font-size: 13px;
-}
-
-
-/* INFORMATION CARDS */
-
-.wp-job-details-section {
-    padding: 28px;
-    margin-bottom: 0;
-    background: #FFFFFF;
-    border: 1px solid #EAE4E7;
-    border-radius: 16px;
-    box-shadow: 0 4px 16px rgba(37, 35, 42, .035);
-    transition: border-color .2s ease, box-shadow .2s ease;
-}
-
-.wp-job-details-section:hover {
-    border-color: #E2C5D1;
-    box-shadow: 0 8px 22px rgba(114, 75, 94, .055);
-}
-
-.wp-job-details-section h2 {
-    gap: 11px;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #F0E9EC;
-    font-size: 16px;
-    letter-spacing: -.2px;
-}
-
-.wp-job-details-section h2 i {
-    display: grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    color: var(--wp-primary-hover);
-    background: var(--wp-primary-light);
-    border-radius: 9px;
-    font-size: 16px;
-}
-
-.job-details-description {
-    color: #66616A;
-    font-size: 13px;
-    line-height: 2;
-    overflow-wrap: anywhere;
-}
-
-
-/* REQUIRED SKILLS */
-
-.job-details-skills {
-    gap: 9px;
-}
-
-.job-details-skills .wp-job-skill {
-    padding: 8px 13px;
-    font-size: 11px;
-    font-weight: 700;
-    transition: .2s ease;
-}
-
-.job-details-skills .wp-job-skill:hover {
-    color: #FFFFFF;
-    background: var(--wp-primary-hover);
-    border-color: var(--wp-primary-hover);
-}
-
-
-/* INTERVIEW INFORMATION */
-
-.wp-job-details-section > p {
-    color: var(--wp-muted);
-    font-size: 13px;
-    line-height: 1.8;
-}
-
-
-/* JOB OVERVIEW SIDEBAR */
-
-.job-summary-card {
-    padding: 27px;
-    border: 1px solid #EADDE3;
-    border-radius: 17px;
-    box-shadow: 0 7px 25px rgba(37, 35, 42, .055);
-}
-
-.job-summary-card > .landing-section-label {
-    display: inline-block;
-    margin-bottom: 9px;
-}
-
-.job-summary-card h3 {
-    margin-bottom: 20px;
-    font-size: 20px;
-    letter-spacing: -.4px;
-}
-
-.job-summary-item {
-    gap: 8px;
-    padding: 16px 0;
-}
-
-.job-summary-item span {
-    font-size: 11px;
-}
-
-.job-summary-item strong {
-    font-size: 13px;
-}
-
-.job-summary-item .job-summary-rate {
-    font-size: 23px;
-}
-
-.job-summary-apply {
-    min-height: 48px;
-    border-radius: 10px;
-    box-shadow: 0 5px 14px rgba(169, 117, 137, .2);
-    transition: .25s ease;
-}
-
-.job-summary-apply:hover {
-    box-shadow: 0 8px 20px rgba(169, 117, 137, .3);
-    transform: translateY(-2px);
-}
-
-.job-summary-note {
-    justify-content: center;
-    font-size: 10px;
-}
-
-
-/* APPLICATION SECTION */
-
-.job-application-section {
-    border: 1px solid #EADDE3;
-    border-top: 3px solid var(--wp-primary);
-}
-
-.job-application-heading {
-    padding-bottom: 20px;
-    border-bottom: 1px solid #F0E9EC;
-}
-
-.job-application-heading h2 {
-    font-size: 22px;
-}
-
-.job-application-heading p {
-    color: var(--wp-muted);
-    font-size: 12px;
-    line-height: 1.7;
-}
-
-.job-application-icon {
-    width: 53px;
-    height: 53px;
-    border: 1px solid #EEDCE4;
-    border-radius: 15px;
-}
-
-
-/* EXISTING RESUME */
-
-.existing-resume {
-    padding: 16px;
-    border-radius: 11px;
-}
-
-.existing-resume > i {
-    display: grid;
-    place-items: center;
-    width: 40px;
-    height: 40px;
-    background: #FFFFFF;
-    border-radius: 10px;
-}
-
-
-/* LOGIN PROMPT */
-
-.job-login-prompt {
-    padding: 19px;
-    border-radius: 12px;
-}
-
-.job-login-prompt > i {
-    display: grid;
-    place-items: center;
-    width: 38px;
-    height: 38px;
-    flex-shrink: 0;
-    background: #FFFFFF;
-    border-radius: 10px;
-}
-
-
-/* RESPONSIVE */
-
-@media (max-width: 768px) {
-    .job-details-header {
-        padding: 24px;
-    }
-
-    .job-details-main {
-        gap: 14px;
-    }
-
-    .job-summary-card {
-        padding: 22px;
-    }
-
-    .wp-job-details-section {
-        padding: 22px;
-    }
-}
-
-@media (max-width: 576px) {
-    .job-back-link {
-        margin-bottom: 20px;
-    }
-
-    .job-details-header {
         padding: 21px;
     }
 
@@ -1531,6 +1344,10 @@
         width: 56px;
         height: 56px;
         font-size: 23px;
+    }
+
+    .job-details-heading h1 {
+        font-size: 24px;
     }
 
     .wp-job-details-section {
@@ -1541,7 +1358,57 @@
         font-size: 15px;
     }
 
+    .job-summary-card {
+        padding: 20px;
+    }
+
+    .job-application-heading {
+        align-items: flex-start;
+    }
+
     .job-application-heading h2 {
         font-size: 19px;
     }
+
+    .job-application-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+    }
+
+    .job-login-prompt {
+        padding: 15px;
+    }
+
+}
+
+
+/* ========================================
+   16. EXTRA SMALL SCREENS
+======================================== */
+
+@media (max-width: 380px) {
+
+    .marketplace-hero h1 {
+        font-size: 34px;
+    }
+
+    .marketplace-hero-card {
+        padding: 19px;
+    }
+
+    .job-details-page {
+        width: 92%;
+    }
+
+    .job-detail-hero-meta {
+        gap: 7px;
+    }
+
+    .job-detail-hero-meta span,
+    .job-detail-hero-meta strong {
+        padding: 8px 9px;
+        font-size: 10px;
+    }
+
 }
