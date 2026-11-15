@@ -8,6 +8,46 @@ $access_token = $_SESSION['access_token'];
 $message = '';
 $message_type = '';
 
+// Check whether the worker already has an active employment.
+$url = SUPABASE_URL .
+    '/rest/v1/employments?select=id&worker_id=eq.' .
+    urlencode($worker_id) .
+    '&status=eq.active&limit=1';
+
+$options = [
+    'http' => [
+        'method' => 'GET',
+        'header' =>
+        "apikey: " . SUPABASE_KEY . "\r\n" .
+            "Authorization: Bearer " . $access_token . "\r\n",
+        'ignore_errors' => true
+    ]
+];
+
+$context = stream_context_create($options);
+$response = @file_get_contents($url, false, $context);
+
+preg_match(
+    '/\s(\d{3})\s/',
+    $http_response_header[0] ?? '',
+    $matches
+);
+
+$status_code = (int)($matches[1] ?? 0);
+$active_employments = json_decode($response ?: '', true);
+
+// Fail safely if we cannot verify the worker's employment status.
+$employment_check_failed = !(
+    $status_code >= 200 &&
+    $status_code < 300 &&
+    is_array($active_employments)
+);
+
+$has_active_employment = (
+    !$employment_check_failed &&
+    !empty($active_employments)
+);
+
 // Handle accepting or declining an offer.
 if (isset($_POST['respond_offer'])) {
 
@@ -22,6 +62,12 @@ if (isset($_POST['respond_offer'])) {
         $message_type = 'error';
     } elseif (!in_array($decision, ['accepted', 'declined'])) {
         $message = 'Invalid response.';
+        $message_type = 'error';
+    } elseif ($decision === 'accepted' && $employment_check_failed) {
+        $message = 'We could not verify your current employment. Please refresh the page and try again.';
+        $message_type = 'error';
+    } elseif ($decision === 'accepted' && $has_active_employment) {
+        $message = 'You already have an active employment. Please end your current employment before accepting another offer.';
         $message_type = 'error';
     } else {
 
@@ -59,16 +105,36 @@ if (isset($_POST['respond_offer'])) {
         $result = json_decode($response ?: '', true);
 
         if ($status_code >= 200 && $status_code < 300) {
-            $message = $decision === 'accepted'
-                ? 'You have accepted the employment offer!'
-                : 'You have declined the employment offer.';
+
+            if ($decision === 'accepted') {
+                $message = 'You have accepted the employment offer!';
+                $has_active_employment = true;
+            } else {
+                $message = 'You have declined the employment offer.';
+            }
 
             $message_type = 'success';
         } else {
-            $message = $result['message']
-                ?? 'Unable to process your response. Please try again.';
 
-            $message_type = 'error';
+            // Translate the database's duplicate active employment error.
+            $error_text = ($result['message'] ?? '') . ' ' .
+                ($result['details'] ?? '') . ' ' .
+                ($result['hint'] ?? '');
+
+            if (
+                ($result['code'] ?? '') === '23505' ||
+                stripos($error_text, 'employments_one_active_per_worker_idx') !== false
+            ) {
+                $message = 'You already have an active employment. Please end your current employment before accepting another offer.';
+                $message_type = 'error';
+                $has_active_employment = true;
+            } else {
+                $message = $decision === 'accepted'
+                    ? 'Unable to accept this offer. Please try again.'
+                    : 'Unable to decline this offer. Please try again.';
+
+                $message_type = 'error';
+            }
         }
     }
 }
@@ -116,9 +182,34 @@ if (!is_array($offers)) {
     <p>Review employment offers sent by employers.</p>
 
     <?php if ($message !== ''): ?>
-        <p>
-            <?php echo htmlspecialchars($message); ?>
+        <p
+            class="<?php echo htmlspecialchars($message_type); ?>"
+            role="alert">
+            <?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?>
         </p>
+    <?php endif; ?>
+
+    <?php if ($employment_check_failed): ?>
+
+        <p class="warning" role="alert">
+            We couldn't verify your current employment status.
+            Please refresh the page before accepting an offer.
+            You can still decline offers.
+        </p>
+
+    <?php elseif ($has_active_employment): ?>
+
+        <div class="warning" role="alert">
+            <strong>You already have an active employment.</strong>
+
+            <p>
+                You must end your current employment before accepting another offer.
+                You can still review and decline other offers.
+            </p>
+
+            <a href="employment.php">View My Employment</a>
+        </div>
+
     <?php endif; ?>
 
     <?php if (empty($offers)): ?>
@@ -131,6 +222,7 @@ if (!is_array($offers)) {
 
             <?php
             $job = $offer['jobs'] ?? [];
+
             $is_expired = (
                 $offer['status'] === 'pending' &&
                 strtotime($offer['expires_at']) <= time()
@@ -151,7 +243,7 @@ if (!is_array($offers)) {
             <p>
                 Hourly Rate:
                 <strong>
-                    ₱<?php echo number_format((float)$offer['hourly_rate'], 2); ?>
+                    $<?php echo number_format((float)$offer['hourly_rate'], 2); ?>
                 </strong>
             </p>
 
@@ -204,13 +296,23 @@ if (!is_array($offers)) {
                         name="offer_id"
                         value="<?php echo htmlspecialchars($offer['id']); ?>">
 
-                    <button
-                        type="submit"
-                        name="respond_offer"
-                        value="1"
-                        onclick="this.form.querySelector('[name=decision]').value='accepted'; return confirm('Are you sure you want to accept this employment offer?');">
-                        Accept Offer
-                    </button>
+                    <?php if (!$has_active_employment && !$employment_check_failed): ?>
+
+                        <button
+                            type="submit"
+                            name="respond_offer"
+                            value="1"
+                            onclick="this.form.querySelector('[name=decision]').value='accepted'; return confirm('Are you sure you want to accept this employment offer?');">
+                            Accept Offer
+                        </button>
+
+                    <?php else: ?>
+
+                        <button type="button" disabled>
+                            Accept Unavailable
+                        </button>
+
+                    <?php endif; ?>
 
                     <button
                         type="submit"
