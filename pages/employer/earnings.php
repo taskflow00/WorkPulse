@@ -1,481 +1,751 @@
 <?php
+
+// ==========================================
+// EMPLOYER EARNINGS / LABOR COSTS
+// ==========================================
+
 $required_role = 'employer';
+$page_title = 'Labor Costs';
+$active_page = 'earnings';
+
 require_once '../../includes/auth.php';
 
-$employerId = $_SESSION['user']['id'];
-$accessToken = $_SESSION['access_token'];
+$employer_id = $_SESSION['user']['id'];
+$access_token = $_SESSION['access_token'];
 
-// Common Supabase request headers.
-$headers = [
-    "apikey: " . SUPABASE_KEY,
-    "Authorization: Bearer " . $accessToken,
-    "Content-Type: application/json"
-];
+// Philippine timezone.
+date_default_timezone_set('Asia/Manila');
 
-$headerText = implode("\r\n", $headers);
+// Common Supabase headers.
+$headers =
+    "apikey: " . SUPABASE_KEY . "\r\n" .
+    "Authorization: Bearer " . $access_token . "\r\n" .
+    "Accept: application/json\r\n";
 
-$context = stream_context_create([
+// Common GET request options.
+$getOptions = [
     'http' => [
         'method' => 'GET',
-        'header' => $headerText,
+        'header' => $headers,
         'ignore_errors' => true
     ]
-]);
+];
 
-// Initialize data.
-$earningsRecords = [];
+$context = stream_context_create($getOptions);
+
+// ==========================================
+// INITIALIZE DATA
+// ==========================================
+
 $employments = [];
-$workers = [];
-$jobs = [];
+$earnings_records = [];
 
-$workerNames = [];
-$jobTitles = [];
-$employmentInfo = [];
+$employment_map = [];
+$worker_names = [];
+$job_titles = [];
 
-$monthlyTotals = [];
+$monthly_totals = [];
 
-$confirmedEarnings = 0;
-$pendingEarnings = 0;
+$confirmed_earnings = 0;
+$pending_earnings = 0;
 
-$approvedHours = 0;
-$pendingHours = 0;
+$approved_hours = 0;
+$pending_hours = 0;
 
-$errorMessage = "";
+$error_message = '';
+
 
 // ==========================================
-// 1. GET EMPLOYMENTS BELONGING TO EMPLOYER
+// 1. GET EMPLOYER EMPLOYMENTS
 // ==========================================
 
-$employmentUrl = SUPABASE_URL .
-    "/rest/v1/employments" .
-    "?select=id,worker_id,job_id" .
-    "&employer_id=eq." . urlencode($employerId);
+$employment_url = SUPABASE_URL .
+    '/rest/v1/employments?select=id,worker_id,job_id' .
+    '&employer_id=eq.' . urlencode($employer_id);
 
-$employmentResponse = file_get_contents($employmentUrl, false, $context);
+$employment_response = file_get_contents(
+    $employment_url,
+    false,
+    $context
+);
 
-if ($employmentResponse === false) {
+$employment_data = json_decode(
+    $employment_response ?: '',
+    true
+);
 
-    $errorMessage = "Unable to retrieve employment records.";
+if (
+    $employment_response === false ||
+    !is_array($employment_data) ||
+    isset($employment_data['code'])
+) {
+
+    $error_message = 'Unable to retrieve employment records.';
 } else {
 
-    $employmentData = json_decode($employmentResponse, true);
-
-    if (!is_array($employmentData) || isset($employmentData['code'])) {
-
-        $errorMessage = "Unable to read employment records.";
-    } else {
-
-        $employments = $employmentData;
-    }
+    $employments = $employment_data;
 }
+
 
 // ==========================================
 // 2. GET EARNINGS RECORDS
 // ==========================================
 
-if ($errorMessage === "") {
+if ($error_message === '') {
 
-    $earningsUrl = SUPABASE_URL .
-        "/rest/v1/earnings_records" .
-        "?select=*" .
-        "&employer_id=eq." . urlencode($employerId) .
-        "&timesheet_status=in.(submitted,approved)" .
-        "&order=month.desc";
+    $earnings_url = SUPABASE_URL .
+        '/rest/v1/earnings_records?select=*' .
+        '&employer_id=eq.' . urlencode($employer_id) .
+        '&timesheet_status=in.(submitted,approved)' .
+        '&order=month.desc';
 
-    $earningsResponse = file_get_contents($earningsUrl, false, $context);
+    $earnings_response = file_get_contents(
+        $earnings_url,
+        false,
+        $context
+    );
 
-    if ($earningsResponse === false) {
+    $earnings_data = json_decode(
+        $earnings_response ?: '',
+        true
+    );
 
-        $errorMessage = "Unable to retrieve earnings records.";
+    if (
+        $earnings_response === false ||
+        !is_array($earnings_data) ||
+        isset($earnings_data['code'])
+    ) {
+
+        $error_message = 'Unable to retrieve earnings records.';
     } else {
 
-        $earningsData = json_decode($earningsResponse, true);
-
-        if (!is_array($earningsData) || isset($earningsData['code'])) {
-
-            $errorMessage = "Unable to read earnings records.";
-        } else {
-
-            $earningsRecords = $earningsData;
-        }
+        $earnings_records = $earnings_data;
     }
 }
+
 
 // ==========================================
 // 3. PREPARE EMPLOYMENT INFORMATION
 // ==========================================
 
-$workerIds = [];
-$jobIds = [];
+$worker_ids = [];
+$job_ids = [];
 
 foreach ($employments as $employment) {
 
-    $employmentInfo[$employment['id']] = $employment;
+    $employment_map[$employment['id']] = $employment;
 
-    $workerIds[] = $employment['worker_id'];
-    $jobIds[] = $employment['job_id'];
+    $worker_ids[] = $employment['worker_id'];
+    $job_ids[] = $employment['job_id'];
 }
 
-$workerIds = array_unique($workerIds);
-$jobIds = array_unique($jobIds);
+$worker_ids = array_unique($worker_ids);
+$job_ids = array_unique($job_ids);
+
 
 // ==========================================
 // 4. GET WORKER NAMES
 // ==========================================
 
-if ($errorMessage === "" && count($workerIds) > 0) {
+if ($error_message === '' && !empty($worker_ids)) {
 
-    $workerUrl = SUPABASE_URL .
-        "/rest/v1/profiles" .
-        "?select=id,full_name" .
-        "&id=in.(" . implode(',', $workerIds) . ")";
+    $worker_url = SUPABASE_URL .
+        '/rest/v1/profiles?select=id,full_name' .
+        '&id=in.(' . implode(',', $worker_ids) . ')';
 
-    $workerResponse = file_get_contents($workerUrl, false, $context);
+    $worker_response = file_get_contents(
+        $worker_url,
+        false,
+        $context
+    );
 
-    if ($workerResponse !== false) {
+    $worker_data = json_decode(
+        $worker_response ?: '',
+        true
+    );
 
-        $workerData = json_decode($workerResponse, true);
+    if (is_array($worker_data) && !isset($worker_data['code'])) {
 
-        if (is_array($workerData) && !isset($workerData['code'])) {
+        foreach ($worker_data as $worker) {
 
-            $workers = $workerData;
-
-            foreach ($workers as $worker) {
-                $workerNames[$worker['id']] = $worker['full_name'];
-            }
+            $worker_names[$worker['id']] = $worker['full_name'];
         }
     }
 }
+
 
 // ==========================================
 // 5. GET JOB TITLES
 // ==========================================
 
-if ($errorMessage === "" && count($jobIds) > 0) {
+if ($error_message === '' && !empty($job_ids)) {
 
-    $jobUrl = SUPABASE_URL .
-        "/rest/v1/jobs" .
-        "?select=id,title" .
-        "&id=in.(" . implode(',', $jobIds) . ")";
+    $job_url = SUPABASE_URL .
+        '/rest/v1/jobs?select=id,title' .
+        '&id=in.(' . implode(',', $job_ids) . ')';
 
-    $jobResponse = file_get_contents($jobUrl, false, $context);
+    $job_response = file_get_contents(
+        $job_url,
+        false,
+        $context
+    );
 
-    if ($jobResponse !== false) {
+    $job_data = json_decode(
+        $job_response ?: '',
+        true
+    );
 
-        $jobData = json_decode($jobResponse, true);
+    if (is_array($job_data) && !isset($job_data['code'])) {
 
-        if (is_array($jobData) && !isset($jobData['code'])) {
+        foreach ($job_data as $job) {
 
-            $jobs = $jobData;
-
-            foreach ($jobs as $job) {
-                $jobTitles[$job['id']] = $job['title'];
-            }
+            $job_titles[$job['id']] = $job['title'];
         }
     }
 }
+
 
 // ==========================================
 // 6. CALCULATE LABOR COSTS
 // ==========================================
 
-foreach ($earningsRecords as $record) {
+foreach ($earnings_records as $record) {
 
-    $workingSeconds = (int) $record['total_working_seconds'];
+    $working_seconds = (int) $record['total_working_seconds'];
 
-    $workingHours = $workingSeconds / 3600;
+    $working_hours = $working_seconds / 3600;
 
     $amount = (float) $record['earnings_amount'];
 
     $month = $record['month'];
 
-    // Create monthly summary if it does not exist.
-    if (!isset($monthlyTotals[$month])) {
+    $status = $record['timesheet_status'];
 
-        $monthlyTotals[$month] = [
+    // Prepare monthly totals.
+    if (!isset($monthly_totals[$month])) {
+
+        $monthly_totals[$month] = [
             'approved' => 0,
             'pending' => 0
         ];
     }
 
     // Approved timesheets are confirmed labor costs.
-    if ($record['timesheet_status'] === 'approved') {
+    if ($status === 'approved') {
 
-        $confirmedEarnings += $amount;
-        $approvedHours += $workingHours;
+        $confirmed_earnings += $amount;
+        $approved_hours += $working_hours;
 
-        $monthlyTotals[$month]['approved'] += $amount;
+        $monthly_totals[$month]['approved'] += $amount;
     }
 
     // Submitted timesheets are pending labor costs.
-    elseif ($record['timesheet_status'] === 'submitted') {
+    elseif ($status === 'submitted') {
 
-        $pendingEarnings += $amount;
-        $pendingHours += $workingHours;
+        $pending_earnings += $amount;
+        $pending_hours += $working_hours;
 
-        $monthlyTotals[$month]['pending'] += $amount;
+        $monthly_totals[$month]['pending'] += $amount;
     }
 }
 
-$totalLaborCost = $confirmedEarnings + $pendingEarnings;
-$totalWorkingHours = $approvedHours + $pendingHours;
+// Newest month first.
+krsort($monthly_totals);
+
+// Calculate combined totals.
+$total_labor_cost = $confirmed_earnings + $pending_earnings;
+
+$total_working_hours = $approved_hours + $pending_hours;
+
+
+// ==========================================
+// LOAD SHARED DASHBOARD HEADER
+// ==========================================
+
+require_once '../../includes/header.php';
 
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<div class="wp-page">
 
-    <title>Employer Earnings | WorkPulse</title>
-</head>
+    <!-- PAGE HEADING -->
 
-<body>
+    <section class="wp-dashboard-welcome">
 
-    <a href="dashboard.php">Back to Dashboard</a>
+        <div>
 
-    <h1>Labor Costs</h1>
+            <span class="wp-dashboard-eyebrow">
+                FINANCIAL OVERVIEW
+            </span>
 
-    <p>
-        Monitor your workforce's labor costs using submitted
-        and approved timesheets.
-    </p>
+            <h1 class="wp-page-title">
+                Labor Costs
+            </h1>
 
-    <p>Currency: USD ($)</p>
+            <p class="wp-page-description">
+                Monitor your workforce's earnings and monthly labor costs.
+            </p>
 
-    <?php if ($errorMessage !== ""): ?>
+        </div>
 
-        <p>
-            <?= htmlspecialchars($errorMessage, ENT_QUOTES, 'UTF-8') ?>
-        </p>
+        <span class="wp-earnings-currency">
+            USD ($)
+        </span>
+
+    </section>
+
+
+    <?php if ($error_message !== ''): ?>
+
+        <section class="wp-panel">
+
+            <div class="wp-panel-body">
+
+                <p class="text-danger mb-0">
+                    <i class="bi bi-exclamation-circle me-2"></i>
+                    <?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>
+                </p>
+
+            </div>
+
+        </section>
 
     <?php else: ?>
 
-        <!-- ==================================
-             LABOR COST SUMMARY
-        =================================== -->
 
-        <h2>Labor Cost Summary</h2>
+        <!-- LABOR COST SUMMARY -->
 
-        <h3>Confirmed Labor Cost</h3>
+        <section class="wp-dashboard-stats">
 
-        <p>
-            $<?= number_format($confirmedEarnings, 2) ?>
-        </p>
+            <div class="wp-stat-card">
 
-        <p>From approved timesheets.</p>
+                <div class="wp-stat-top">
 
+                    <span>Confirmed Labor Cost</span>
 
-        <h3>Pending Labor Cost</h3>
+                    <div class="wp-stat-icon green">
+                        <i class="bi bi-wallet2"></i>
+                    </div>
 
-        <p>
-            $<?= number_format($pendingEarnings, 2) ?>
-        </p>
+                </div>
 
-        <p>Awaiting employer approval.</p>
+                <h2>
+                    $<?= number_format($confirmed_earnings, 2) ?>
+                </h2>
 
+                <small>From approved timesheets</small>
 
-        <h3>Total Labor Cost</h3>
+            </div>
 
-        <p>
-            $<?= number_format($totalLaborCost, 2) ?>
-        </p>
 
-        <p>Approved and submitted timesheets combined.</p>
+            <div class="wp-stat-card">
 
+                <div class="wp-stat-top">
 
-        <!-- ==================================
-             WORKING HOURS
-        =================================== -->
+                    <span>Pending Labor Cost</span>
 
-        <h2>Working Hours</h2>
+                    <div class="wp-stat-icon yellow">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
 
-        <h3>Approved Hours</h3>
+                </div>
 
-        <p>
-            <?= number_format($approvedHours, 2) ?> hours
-        </p>
+                <h2>
+                    $<?= number_format($pending_earnings, 2) ?>
+                </h2>
 
+                <small>Awaiting approval</small>
 
-        <h3>Pending Hours</h3>
+            </div>
 
-        <p>
-            <?= number_format($pendingHours, 2) ?> hours
-        </p>
 
+            <div class="wp-stat-card">
 
-        <h3>Total Recorded Hours</h3>
+                <div class="wp-stat-top">
 
-        <p>
-            <?= number_format($totalWorkingHours, 2) ?> hours
-        </p>
+                    <span>Approved Hours</span>
 
+                    <div class="wp-stat-icon blue">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
 
-        <!-- ==================================
-             MONTHLY LABOR COST
-        =================================== -->
+                </div>
 
-        <h2>Monthly Labor Cost</h2>
+                <h2>
+                    <?= number_format($approved_hours, 2) ?>
+                </h2>
 
-        <?php if (count($monthlyTotals) > 0): ?>
+                <small>Hours from approved timesheets</small>
 
-            <table border="1">
+            </div>
 
-                <thead>
-                    <tr>
-                        <th>Month</th>
-                        <th>Confirmed Cost</th>
-                        <th>Pending Cost</th>
-                        <th>Total Cost</th>
-                    </tr>
-                </thead>
 
-                <tbody>
+            <div class="wp-stat-card">
 
-                    <?php foreach ($monthlyTotals as $month => $totals): ?>
+                <div class="wp-stat-top">
 
-                        <tr>
+                    <span>Pending Hours</span>
 
-                            <td>
-                                <?= date('F Y', strtotime($month)) ?>
-                            </td>
+                    <div class="wp-stat-icon rose">
+                        <i class="bi bi-clock"></i>
+                    </div>
 
-                            <td>
-                                $<?= number_format($totals['approved'], 2) ?>
-                            </td>
+                </div>
 
-                            <td>
-                                $<?= number_format($totals['pending'], 2) ?>
-                            </td>
+                <h2>
+                    <?= number_format($pending_hours, 2) ?>
+                </h2>
 
-                            <td>
-                                $<?= number_format(
-                                        $totals['approved'] + $totals['pending'],
-                                        2
-                                    ) ?>
-                            </td>
+                <small>Hours awaiting approval</small>
 
-                        </tr>
+            </div>
 
-                    <?php endforeach; ?>
+        </section>
 
-                </tbody>
 
-            </table>
+        <!-- TOTAL LABOR COST -->
 
-        <?php else: ?>
+        <section class="wp-panel wp-earnings-overview">
 
-            <p>No monthly labor cost records found yet.</p>
+            <div class="wp-panel-header">
 
-        <?php endif; ?>
+                <div>
 
+                    <h3 class="wp-panel-title">
+                        Total Recorded Labor Cost
+                    </h3>
 
-        <!-- ==================================
-             LABOR COST BY WORKER
-        =================================== -->
+                    <p class="wp-panel-description">
+                        Combined approved and pending labor costs.
+                    </p>
 
-        <h2>Labor Cost by Worker</h2>
+                </div>
 
-        <?php if (count($earningsRecords) > 0): ?>
+                <div class="wp-earnings-total-icon">
+                    <i class="bi bi-graph-up-arrow"></i>
+                </div>
 
-            <table border="1">
+            </div>
 
-                <thead>
-                    <tr>
-                        <th>Month</th>
-                        <th>Worker</th>
-                        <th>Job</th>
-                        <th>Working Hours</th>
-                        <th>Hourly Rate</th>
-                        <th>Labor Cost</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
+            <div class="wp-panel-body">
 
-                <tbody>
+                <h2 class="wp-earnings-total">
+                    $<?= number_format($total_labor_cost, 2) ?>
+                </h2>
 
-                    <?php foreach ($earningsRecords as $record): ?>
+                <p class="wp-earnings-total-description">
+                    <?= number_format($total_working_hours, 2) ?>
+                    total recorded working hours
+                </p>
 
-                        <?php
-                        $employmentId = $record['employment_id'];
+            </div>
 
-                        $employment = $employmentInfo[$employmentId] ?? [];
+        </section>
 
-                        $workerId = $employment['worker_id'] ?? '';
-                        $jobId = $employment['job_id'] ?? '';
 
-                        $workerName = $workerNames[$workerId] ?? 'Unknown Worker';
-                        $jobTitle = $jobTitles[$jobId] ?? 'Unknown Job';
+        <!-- MONTHLY LABOR COST -->
 
-                        $workingHours = (int) $record['total_working_seconds'] / 3600;
+        <section class="wp-panel wp-earnings-history">
 
-                        $hourlyRate = (float) $record['hourly_rate'];
-                        $earningsAmount = (float) $record['earnings_amount'];
+            <div class="wp-panel-header">
 
-                        $status = $record['timesheet_status'];
-                        ?>
+                <div>
 
-                        <tr>
+                    <h3 class="wp-panel-title">
+                        Monthly Labor Costs
+                    </h3>
 
-                            <td>
-                                <?= date('F Y', strtotime($record['month'])) ?>
-                            </td>
+                    <p class="wp-panel-description">
+                        Compare confirmed and pending costs each month.
+                    </p>
 
-                            <td>
-                                <?= htmlspecialchars($workerName, ENT_QUOTES, 'UTF-8') ?>
-                            </td>
+                </div>
 
-                            <td>
-                                <?= htmlspecialchars($jobTitle, ENT_QUOTES, 'UTF-8') ?>
-                            </td>
+            </div>
 
-                            <td>
-                                <?= number_format($workingHours, 2) ?>
-                            </td>
+            <div class="wp-panel-body">
 
-                            <td>
-                                $<?= number_format($hourlyRate, 2) ?>/hr
-                            </td>
+                <?php if (empty($monthly_totals)): ?>
 
-                            <td>
-                                $<?= number_format($earningsAmount, 2) ?>
-                            </td>
+                    <div class="wp-earnings-empty">
 
-                            <td>
-                                <?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>
-                            </td>
+                        <div class="wp-earnings-empty-icon">
+                            <i class="bi bi-calendar3"></i>
+                        </div>
 
-                        </tr>
+                        <h4>No Monthly Records Yet</h4>
 
-                    <?php endforeach; ?>
+                        <p>
+                            Monthly labor costs will appear once workers submit timesheets.
+                        </p>
 
-                </tbody>
+                    </div>
 
-            </table>
+                <?php else: ?>
 
-        <?php else: ?>
+                    <div class="wp-earnings-table-wrapper">
 
-            <p>No earnings records found yet.</p>
+                        <table class="wp-earnings-table">
 
-        <?php endif; ?>
+                            <thead>
+
+                                <tr>
+                                    <th>Month</th>
+                                    <th>Confirmed Cost</th>
+                                    <th>Pending Cost</th>
+                                    <th class="text-end">Total Cost</th>
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                <?php foreach ($monthly_totals as $month => $totals): ?>
+
+                                    <?php
+                                    $month_total =
+                                        $totals['approved'] +
+                                        $totals['pending'];
+                                    ?>
+
+                                    <tr>
+
+                                        <td>
+                                            <strong>
+                                                <?= htmlspecialchars(
+                                                    date('F Y', strtotime($month)),
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
+                                            </strong>
+                                        </td>
+
+                                        <td>
+                                            $<?= number_format($totals['approved'], 2) ?>
+                                        </td>
+
+                                        <td>
+                                            $<?= number_format($totals['pending'], 2) ?>
+                                        </td>
+
+                                        <td class="text-end">
+                                            <strong>
+                                                $<?= number_format($month_total, 2) ?>
+                                            </strong>
+                                        </td>
+
+                                    </tr>
+
+                                <?php endforeach; ?>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                <?php endif; ?>
+
+            </div>
+
+        </section>
+
+
+        <!-- LABOR COST BY WORKER -->
+
+        <section class="wp-panel wp-earnings-history">
+
+            <div class="wp-panel-header">
+
+                <div>
+
+                    <h3 class="wp-panel-title">
+                        Labor Cost by Worker
+                    </h3>
+
+                    <p class="wp-panel-description">
+                        Review each worker's recorded hours and labor costs.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="wp-panel-body">
+
+                <?php if (empty($earnings_records)): ?>
+
+                    <div class="wp-earnings-empty">
+
+                        <div class="wp-earnings-empty-icon">
+                            <i class="bi bi-people"></i>
+                        </div>
+
+                        <h4>No Earnings Records Yet</h4>
+
+                        <p>
+                            Worker labor costs will appear here after timesheets are submitted.
+                        </p>
+
+                    </div>
+
+                <?php else: ?>
+
+                    <div class="wp-earnings-table-wrapper">
+
+                        <table class="wp-earnings-table">
+
+                            <thead>
+
+                                <tr>
+                                    <th>Month</th>
+                                    <th>Worker</th>
+                                    <th>Job</th>
+                                    <th>Working Hours</th>
+                                    <th>Hourly Rate</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Labor Cost</th>
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                <?php foreach ($earnings_records as $record): ?>
+
+                                    <?php
+
+                                    $employment = $employment_map[$record['employment_id']] ?? [];
+
+                                    $worker_id = $record['worker_id']
+                                        ?? ($employment['worker_id'] ?? '');
+
+                                    $job_id = $employment['job_id'] ?? '';
+
+                                    $worker_name = $worker_names[$worker_id]
+                                        ?? 'Unknown Worker';
+
+                                    $job_title = $job_titles[$job_id]
+                                        ?? 'Unknown Job';
+
+                                    $working_hours =
+                                        (int) $record['total_working_seconds'] / 3600;
+
+                                    $hourly_rate = (float) $record['hourly_rate'];
+
+                                    $amount = (float) $record['earnings_amount'];
+
+                                    $status = $record['timesheet_status'];
+
+                                    $status_class = $status === 'approved'
+                                        ? 'success'
+                                        : 'warning';
+
+                                    ?>
+
+                                    <tr>
+
+                                        <td>
+                                            <?= htmlspecialchars(
+                                                date('F Y', strtotime($record['month'])),
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ) ?>
+                                        </td>
+
+                                        <td>
+                                            <strong>
+                                                <?= htmlspecialchars(
+                                                    $worker_name,
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
+                                            </strong>
+                                        </td>
+
+                                        <td>
+                                            <?= htmlspecialchars(
+                                                $job_title,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ) ?>
+                                        </td>
+
+                                        <td>
+                                            <?= number_format($working_hours, 2) ?> hrs
+                                        </td>
+
+                                        <td>
+                                            $<?= number_format($hourly_rate, 2) ?>/hr
+                                        </td>
+
+                                        <td>
+                                            <span class="wp-earnings-status <?= $status_class ?>">
+                                                <?= htmlspecialchars(
+                                                    ucfirst($status),
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
+                                            </span>
+                                        </td>
+
+                                        <td class="text-end">
+
+                                            <strong class="wp-earnings-amount">
+                                                $<?= number_format($amount, 2) ?>
+                                            </strong>
+
+                                        </td>
+
+                                    </tr>
+
+                                <?php endforeach; ?>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                <?php endif; ?>
+
+            </div>
+
+        </section>
+
+
+        <!-- INFORMATION NOTICE -->
+
+        <section class="wp-earnings-notice">
+
+            <div class="wp-earnings-notice-icon">
+                <i class="bi bi-info-circle"></i>
+            </div>
+
+            <div>
+
+                <strong>About labor costs</strong>
+
+                <p>
+                    Labor costs are calculated using recorded working hours
+                    multiplied by each worker's agreed hourly rate. Idle time is excluded.
+                </p>
+
+                <p>
+                    Pending costs are based on submitted timesheets and are
+                    not confirmed until approved. These figures do not mean
+                    that payments have already been released.
+                </p>
+
+            </div>
+
+        </section>
+
 
     <?php endif; ?>
 
-    <hr>
+</div>
 
-    <p>
-        Labor costs are calculated using working hours multiplied by
-        the agreed hourly rate. Idle time is excluded.
-    </p>
 
-    <p>
-        Pending labor costs are not confirmed until the employer
-        approves the timesheet. These figures do not mean that
-        payment has already been made.
-    </p>
-
-</body>
-
-</html>
+<?php require_once '../../includes/footer.php'; ?>
