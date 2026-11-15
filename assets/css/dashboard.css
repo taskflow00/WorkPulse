@@ -3170,3 +3170,449 @@
         width: 100%;
     }
 }
+
+
+
+/* ========================================
+   WORKPULSE - STOPWATCH TIME TRACKER
+======================================== */
+
+.wp-time-tracker {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.wp-stopwatch-card {
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: 20px;
+    box-shadow: var(--wp-shadow);
+    overflow: hidden;
+}
+
+.wp-stopwatch-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--wp-border);
+}
+
+.wp-stopwatch-brand {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+}
+
+.wp-stopwatch-icon {
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--wp-primary-light);
+    color: var(--wp-primary);
+    border-radius: 13px;
+    font-size: 22px;
+}
+
+.wp-stopwatch-brand h2 {
+    font-size: 16px;
+    font-weight: 750;
+    margin: 0 0 3px;
+}
+
+.wp-stopwatch-brand p {
+    font-size: 12px;
+    color: var(--wp-muted);
+    margin: 0;
+}
+
+.wp-timer-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 13px;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #f1f1f1;
+    color: #666;
+}
+
+.wp-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.wp-status-running {
+    background: #e8f7ee;
+    color: #198754;
+}
+
+.wp-status-running .wp-status-dot {
+    animation: wp-status-pulse 1.5s infinite;
+}
+
+.wp-status-paused {
+    background: #fff5df;
+    color: #bd8424;
+}
+
+.wp-status-idle {
+    background: #fff0f0;
+    color: #d34f4f;
+}
+
+.wp-status-stopped {
+    background: #f1f1f1;
+    color: #777;
+}
+
+@keyframes wp-status-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .35; }
+}
+
+.wp-stopwatch-body {
+    padding: 42px 28px 30px;
+    text-align: center;
+}
+
+.wp-stopwatch-ring {
+    width: 290px;
+    height: 290px;
+    max-width: 100%;
+    margin: 0 auto 30px;
+    border-radius: 50%;
+    border: 10px solid var(--wp-primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 0 0 8px rgba(193, 139, 159, .06);
+}
+
+.wp-stopwatch-ring::before {
+    content: "";
+    position: absolute;
+    inset: 9px;
+    border: 1px dashed rgba(193, 139, 159, .4);
+    border-radius: 50%;
+}
+
+.wp-stopwatch-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.wp-stopwatch-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    font-weight: 750;
+    color: var(--wp-muted);
+}
+
+.wp-stopwatch-inner h1 {
+    font-size: clamp(32px, 6vw, 43px);
+    font-weight: 750;
+    letter-spacing: -2px;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    color: var(--wp-text);
+}
+
+.wp-stopwatch-caption {
+    font-size: 11px;
+    color: var(--wp-muted);
+}
+
+.wp-stopwatch-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    min-height: 48px;
+}
+
+.wp-stopwatch-controls form,
+.wp-idle-modal-actions form {
+    margin: 0;
+}
+
+.wp-stopwatch-button {
+    min-width: 145px;
+    min-height: 46px;
+    padding: 12px 20px;
+    border: 0;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: .2s ease;
+}
+
+.wp-stopwatch-button:hover {
+    transform: translateY(-2px);
+    filter: brightness(.96);
+}
+
+.wp-stopwatch-button i {
+    font-size: 17px;
+}
+
+.wp-stopwatch-start {
+    color: #fff;
+    background: #198754;
+}
+
+.wp-stopwatch-pause {
+    color: #fff;
+    background: #d99a35;
+}
+
+.wp-stopwatch-stop {
+    color: #fff;
+    background: #dc5555;
+}
+
+.wp-stopwatch-divider {
+    height: 1px;
+    background: var(--wp-border);
+    margin: 30px 0 24px;
+}
+
+.wp-stopwatch-extra {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 70px;
+}
+
+.wp-stopwatch-extra-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+}
+
+.wp-extra-icon {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    font-size: 18px;
+}
+
+.wp-extra-icon-idle {
+    background: #fff5df;
+    color: #bd8424;
+}
+
+.wp-extra-icon-date {
+    background: var(--wp-primary-light);
+    color: var(--wp-primary);
+}
+
+.wp-stopwatch-extra-item span {
+    display: block;
+    font-size: 11px;
+    color: var(--wp-muted);
+    margin-bottom: 3px;
+}
+
+.wp-stopwatch-extra-item strong {
+    font-size: 15px;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+}
+
+.wp-stopwatch-info {
+    display: flex;
+    gap: 13px;
+    padding: 19px 21px;
+    margin-top: 22px;
+    background: var(--wp-primary-light);
+    border: 1px solid rgba(193, 139, 159, .2);
+    border-radius: 13px;
+}
+
+.wp-stopwatch-info-icon {
+    color: var(--wp-primary);
+    font-size: 19px;
+}
+
+.wp-stopwatch-info strong {
+    font-size: 13px;
+}
+
+.wp-stopwatch-info p {
+    font-size: 12px;
+    color: var(--wp-muted);
+    margin: 4px 0 0;
+    line-height: 1.6;
+}
+
+.wp-idle-page-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    color: #bd8424;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* ========================================
+   IDLE MODAL
+======================================== */
+
+.wp-idle-modal[hidden] {
+    display: none !important;
+}
+
+.wp-idle-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.wp-idle-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(24, 21, 27, .58);
+    backdrop-filter: blur(5px);
+    animation: wp-modal-fade .2s ease;
+}
+
+.wp-idle-modal-content {
+    position: relative;
+    width: 100%;
+    max-width: 430px;
+    padding: 35px 30px 25px;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: 20px;
+    box-shadow: 0 20px 70px rgba(0, 0, 0, .2);
+    text-align: center;
+    animation: wp-modal-enter .25s ease;
+}
+
+.wp-idle-modal-icon {
+    width: 68px;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    background: #fff5df;
+    color: #bd8424;
+    font-size: 29px;
+}
+
+.wp-idle-modal-label {
+    display: block;
+    margin-bottom: 9px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #bd8424;
+}
+
+.wp-idle-modal-content h2 {
+    font-size: 23px;
+    font-weight: 750;
+    margin-bottom: 10px;
+}
+
+.wp-idle-modal-content > p {
+    color: var(--wp-muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.wp-idle-modal-question {
+    margin-top: 20px;
+    margin-bottom: 18px;
+    color: var(--wp-text) !important;
+    font-weight: 650;
+}
+
+.wp-idle-modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wp-idle-modal-actions .wp-stopwatch-button {
+    width: 100%;
+}
+
+.wp-idle-modal-footer {
+    display: block;
+    margin-top: 22px;
+    font-size: 11px;
+    color: var(--wp-muted);
+}
+
+@keyframes wp-modal-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes wp-modal-enter {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (max-width: 576px) {
+    .wp-stopwatch-top {
+        padding: 19px;
+    }
+
+    .wp-stopwatch-body {
+        padding: 32px 18px 24px;
+    }
+
+    .wp-stopwatch-ring {
+        width: 250px;
+        height: 250px;
+    }
+
+    .wp-stopwatch-extra {
+        gap: 20px;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .wp-stopwatch-extra-item {
+        width: 190px;
+    }
+
+    .wp-idle-modal-content {
+        padding: 28px 20px 22px;
+    }
+}

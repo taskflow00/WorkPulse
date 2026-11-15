@@ -1,9 +1,11 @@
 <?php
 $required_role = 'worker';
+$page_title = 'Time Tracker';
+$active_page = 'time-tracker';
+
 require_once '../../includes/auth.php';
 
 date_default_timezone_set('Asia/Manila');
-
 
 $worker_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];
@@ -47,9 +49,10 @@ if (!is_array($employments)) {
 }
 
 $employment = null;
+$active_employment_count = count($employments);
 
 // Only allow tracking when exactly one active employment exists.
-if (count($employments) === 1) {
+if ($active_employment_count === 1) {
     $employment = $employments[0];
 }
 
@@ -219,8 +222,9 @@ if (isset($_POST['timer_action'])) {
             exit;
         } else {
 
-            $error = $result['message']
-                ?? 'Please try again.';
+            $error = is_array($result)
+                ? ($result['message'] ?? 'Please try again.')
+                : 'Please try again.';
 
             if ($is_ajax) {
 
@@ -236,6 +240,19 @@ if (isset($_POST['timer_action'])) {
 
             $message = 'Timer action failed. ' . $error;
         }
+    }
+
+    // Return invalid action errors to JavaScript as JSON too.
+    if ($is_ajax) {
+
+        header('Content-Type: application/json');
+
+        echo json_encode([
+            'success' => false,
+            'message' => $message
+        ]);
+
+        exit;
     }
 }
 
@@ -258,6 +275,10 @@ if (isset($_GET['success'])) {
     } elseif ($success === 'rollover') {
         $message = 'Daily rollover completed!';
     }
+}
+
+if (isset($_GET['rolled_over'])) {
+    $message = 'Your previous working session was saved through daily rollover.';
 }
 
 // =====================================
@@ -302,166 +323,310 @@ $last_resumed_at = $current_session['last_resumed_at'] ?? '';
 $last_activity_at = $current_session['last_activity_at'] ?? '';
 $idle_started_at = $current_session['idle_started_at'] ?? '';
 
+// Prepare status label and color.
+$status_label = ucfirst($session_status);
+$status_color = 'secondary';
+$status_icon = 'bi-stop-circle';
+
+if ($session_status === 'running') {
+    $status_color = 'success';
+    $status_icon = 'bi-play-circle';
+} elseif ($session_status === 'paused') {
+    $status_color = 'warning';
+    $status_icon = 'bi-pause-circle';
+} elseif ($session_status === 'idle') {
+    $status_color = 'danger';
+    $status_icon = 'bi-hourglass-split';
+}
+
+require_once '../../includes/header.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
+<div class="wp-page wp-time-tracker">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Time Tracker - WorkPulse</title>
-</head>
-
-<body>
-
-    <h1>Time Tracker</h1>
-
-    <p>Track your working hours with WorkPulse.</p>
+    <div class="wp-page-header mb-4">
+        <div>
+            <h1 class="wp-page-title">Time Tracker</h1>
+            <p class="wp-page-description">
+                Stay focused and keep track of your working hours.
+            </p>
+        </div>
+    </div>
 
     <?php if ($message !== ''): ?>
-
-        <p>
-            <?php echo htmlspecialchars($message); ?>
-        </p>
-
+        <div class="wp-alert <?php echo (
+                                    isset($_GET['success']) || isset($_GET['rolled_over'])
+                                ) ? 'wp-alert-success' : 'wp-alert-danger'; ?>">
+            <i class="bi bi-info-circle"></i>
+            <?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?>
+        </div>
     <?php endif; ?>
 
-    <hr>
+    <div class="wp-stopwatch-card">
 
-    <h2>Work Session</h2>
+        <div class="wp-stopwatch-top">
+            <div class="wp-stopwatch-brand">
+                <div class="wp-stopwatch-icon">
+                    <i class="bi bi-stopwatch"></i>
+                </div>
 
-    <?php if ($current_session): ?>
+                <div>
+                    <h2>WorkPulse Stopwatch</h2>
+                    <p>Your personal work timer</p>
+                </div>
+            </div>
 
-        <p>
-            Status:
-            <?php echo htmlspecialchars(ucfirst($session_status)); ?>
-        </p>
+            <span class="wp-timer-status wp-status-<?php echo htmlspecialchars($session_status); ?>">
+                <span class="wp-status-dot"></span>
+                <?php echo htmlspecialchars($status_label); ?>
+            </span>
+        </div>
 
-    <?php else: ?>
+        <div class="wp-stopwatch-body">
 
-        <p>No active tracking session.</p>
+            <div class="wp-stopwatch-ring">
+                <div class="wp-stopwatch-inner">
 
-    <?php endif; ?>
+                    <span class="wp-stopwatch-label">
+                        TOTAL WORKING TIME
+                    </span>
 
-    <p>Working Time</p>
+                    <h1
+                        id="timer"
+                        data-total-seconds="<?php echo $total_seconds; ?>"
+                        data-status="<?php echo htmlspecialchars($session_status); ?>"
+                        data-resumed-at="<?php echo htmlspecialchars($last_resumed_at); ?>"
+                        data-last-activity-at="<?php echo htmlspecialchars($last_activity_at); ?>">
+                        00:00:00
+                    </h1>
 
-    <h1
-        id="timer"
-        data-total-seconds="<?php echo $total_seconds; ?>"
-        data-status="<?php echo htmlspecialchars($session_status); ?>"
-        data-resumed-at="<?php echo htmlspecialchars($last_resumed_at); ?>"
-        data-last-activity-at="<?php echo htmlspecialchars($last_activity_at); ?>">
-        00:00:00
-    </h1>
+                    <span class="wp-stopwatch-caption">
+                        Hours : Minutes : Seconds
+                    </span>
 
-    <p>Idle Time</p>
+                </div>
+            </div>
 
-    <h2
-        id="idle-timer"
-        data-idle-seconds="<?php echo $idle_seconds; ?>"
-        data-status="<?php echo htmlspecialchars($session_status); ?>"
-        data-idle-started-at="<?php echo htmlspecialchars($idle_started_at); ?>">
-        00:00:00
-    </h2>
+            <div class="wp-stopwatch-controls">
 
-    <?php if (!$current_session): ?>
+                <?php if (!$current_session): ?>
 
-        <?php if (!$employment): ?>
+                    <?php if (!$employment): ?>
+
+                        <div class="wp-alert wp-alert-danger">
+                            <i class="bi bi-exclamation-circle"></i>
+
+                            <?php if ($active_employment_count === 0): ?>
+                                You need an active employment before tracking time.
+                            <?php else: ?>
+                                You have multiple active employments. Resolve this before tracking.
+                            <?php endif; ?>
+                        </div>
+
+                    <?php else: ?>
+
+                        <form method="POST" action="time-tracker.php">
+                            <button
+                                type="submit"
+                                name="timer_action"
+                                value="start"
+                                class="wp-stopwatch-button wp-stopwatch-start">
+                                <i class="bi bi-play-fill"></i>
+                                Start Tracking
+                            </button>
+                        </form>
+
+                    <?php endif; ?>
+
+                <?php elseif ($session_status === 'running'): ?>
+
+                    <form method="POST" action="time-tracker.php">
+                        <button
+                            type="submit"
+                            name="timer_action"
+                            value="pause"
+                            class="wp-stopwatch-button wp-stopwatch-pause">
+                            <i class="bi bi-pause-fill"></i>
+                            Pause
+                        </button>
+                    </form>
+
+                    <form method="POST" action="time-tracker.php"
+                        onsubmit="return confirm('Stop your current work session?');">
+                        <button
+                            type="submit"
+                            name="timer_action"
+                            value="stop"
+                            class="wp-stopwatch-button wp-stopwatch-stop">
+                            <i class="bi bi-stop-fill"></i>
+                            Stop
+                        </button>
+                    </form>
+
+                <?php elseif ($session_status === 'paused'): ?>
+
+                    <form method="POST" action="time-tracker.php">
+                        <button
+                            type="submit"
+                            name="timer_action"
+                            value="resume"
+                            class="wp-stopwatch-button wp-stopwatch-start">
+                            <i class="bi bi-play-fill"></i>
+                            Resume
+                        </button>
+                    </form>
+
+                    <form method="POST" action="time-tracker.php"
+                        onsubmit="return confirm('Stop your current work session?');">
+                        <button
+                            type="submit"
+                            name="timer_action"
+                            value="stop"
+                            class="wp-stopwatch-button wp-stopwatch-stop">
+                            <i class="bi bi-stop-fill"></i>
+                            Stop
+                        </button>
+                    </form>
+
+                <?php elseif ($session_status === 'idle'): ?>
+
+                    <div class="wp-idle-page-notice">
+                        <i class="bi bi-moon-stars"></i>
+                        <span>Your session is idle. Interact with this page to continue.</span>
+                    </div>
+
+                <?php endif; ?>
+
+            </div>
+
+            <div class="wp-stopwatch-divider"></div>
+
+            <div class="wp-stopwatch-extra">
+
+                <div class="wp-stopwatch-extra-item">
+                    <div class="wp-extra-icon wp-extra-icon-idle">
+                        <i class="bi bi-cup-hot"></i>
+                    </div>
+
+                    <div>
+                        <span>Idle Time</span>
+                        <strong
+                            id="idle-timer"
+                            data-idle-seconds="<?php echo $idle_seconds; ?>"
+                            data-status="<?php echo htmlspecialchars($session_status); ?>"
+                            data-idle-started-at="<?php echo htmlspecialchars($idle_started_at); ?>">
+                            00:00:00
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="wp-stopwatch-extra-item">
+                    <div class="wp-extra-icon wp-extra-icon-date">
+                        <i class="bi bi-calendar3"></i>
+                    </div>
+
+                    <div>
+                        <span>Today's Date</span>
+                        <strong><?php echo date('F d, Y'); ?></strong>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <div class="wp-stopwatch-info">
+        <div class="wp-stopwatch-info-icon">
+            <i class="bi bi-info-circle"></i>
+        </div>
+
+        <div>
+            <strong>How it works</strong>
+            <p>
+                Your working time is recorded while tracking is running.
+                After five minutes without activity, WorkPulse marks your
+                session as idle. When you return, you can resume or stop.
+            </p>
+        </div>
+    </div>
+
+    <a href="dashboard.php" class="wp-btn wp-btn-outline mt-4">
+        <i class="bi bi-arrow-left"></i>
+        Back to Dashboard
+    </a>
+
+</div>
+
+<!-- Idle Detection Modal -->
+<?php if ($session_status === 'idle'): ?>
+
+    <div
+        id="idle-prompt"
+        class="wp-idle-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wp-idle-title"
+        hidden>
+
+        <div class="wp-idle-modal-backdrop"></div>
+
+        <div class="wp-idle-modal-content">
+
+            <div class="wp-idle-modal-icon">
+                <i class="bi bi-cup-hot"></i>
+            </div>
+
+            <span class="wp-idle-modal-label">SESSION PAUSED</span>
+
+            <h2 id="wp-idle-title">Welcome back!</h2>
 
             <p>
-                You need exactly one active employment
-                before you can track your working hours.
+                We noticed you were away for a while.
+                Your session has been marked as idle.
             </p>
 
-        <?php else: ?>
+            <p class="wp-idle-modal-question">
+                Would you like to continue working?
+            </p>
 
-            <form method="POST" action="time-tracker.php">
+            <div class="wp-idle-modal-actions">
 
-                <button
-                    type="submit"
-                    name="timer_action"
-                    value="start">
-                    Start Tracking
-                </button>
+                <form method="POST" action="time-tracker.php">
+                    <button
+                        type="submit"
+                        name="timer_action"
+                        value="resume"
+                        class="wp-stopwatch-button wp-stopwatch-start">
+                        <i class="bi bi-play-fill"></i>
+                        Resume Tracking
+                    </button>
+                </form>
 
-            </form>
+                <form method="POST" action="time-tracker.php"
+                    onsubmit="return confirm('Are you sure you want to stop this session?');">
+                    <button
+                        type="submit"
+                        name="timer_action"
+                        value="stop"
+                        class="wp-stopwatch-button wp-stopwatch-stop">
+                        <i class="bi bi-stop-fill"></i>
+                        Stop Session
+                    </button>
+                </form>
 
-        <?php endif; ?>
+            </div>
 
-    <?php elseif ($session_status === 'running'): ?>
-
-        <form method="POST" action="time-tracker.php">
-
-            <button type="submit" name="timer_action" value="pause">
-                Pause
-            </button>
-
-            <button
-                type="submit"
-                name="timer_action"
-                value="stop"
-                onclick="return confirm('Are you sure you want to stop tracking?');">
-                Stop
-            </button>
-
-        </form>
-
-    <?php elseif ($session_status === 'paused'): ?>
-
-        <form method="POST" action="time-tracker.php">
-
-            <button type="submit" name="timer_action" value="resume">
-                Resume
-            </button>
-
-            <button
-                type="submit"
-                name="timer_action"
-                value="stop"
-                onclick="return confirm('Are you sure you want to stop tracking?');">
-                Stop
-            </button>
-
-        </form>
-
-    <?php elseif ($session_status === 'idle'): ?>
-
-        <p>You have been marked as idle.</p>
-
-        <p>Interact with this page when you're ready to continue.</p>
-
-        <div id="idle-prompt" hidden>
-
-            <p>You're back! Would you like to resume tracking?</p>
-
-            <form method="POST" action="time-tracker.php">
-
-                <button type="submit" name="timer_action" value="resume">
-                    Resume Tracking
-                </button>
-
-                <button
-                    type="submit"
-                    name="timer_action"
-                    value="stop"
-                    onclick="return confirm('Are you sure you want to stop tracking?');">
-                    Stop Tracking
-                </button>
-
-            </form>
+            <span class="wp-idle-modal-footer">
+                Your recorded working time is safe.
+            </span>
 
         </div>
 
-    <?php endif; ?>
+    </div>
 
-    <br>
+<?php endif; ?>
 
-    <a href="dashboard.php">Back to Dashboard</a>
+<script src="../../assets/js/time-tracker.js" defer></script>
 
-    <script src="../../assets/js/time-tracker.js" defer></script>
-
-</body>
-
-</html>
+<?php require_once '../../includes/footer.php'; ?>

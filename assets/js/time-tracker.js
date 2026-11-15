@@ -21,13 +21,26 @@ document.addEventListener('DOMContentLoaded', function () {
     const resumedAt = Date.parse(timer.dataset.resumedAt);
     const idleStartedAt = Date.parse(idleTimer.dataset.idleStartedAt);
 
-    const IDLE_THRESHOLD = 5 * 60 * 1000;
+    // Mark the session as idle after 5 minutes.
+    // =====================================
+    // IDLE TIME CONFIGURATION
+    // =====================================
+
+    // Change this value when testing.
+    const IDLE_DURATION_SECONDS = 300;
+
+    // Convert seconds to milliseconds.
+    const IDLE_THRESHOLD = IDLE_DURATION_SECONDS * 1000;
+
+    // Synchronize activity with the database every 2 seconds.
     const ACTIVITY_SYNC_INTERVAL = 2000;
 
     let lastActivityAt =
         Date.parse(timer.dataset.lastActivityAt) || Date.now();
 
     let lastActivitySentAt = lastActivityAt;
+
+    let awayStartedAt = null;
 
     let activityRequestInProgress = false;
     let idleRequestInProgress = false;
@@ -62,17 +75,21 @@ document.addEventListener('DOMContentLoaded', function () {
         let idleTime = idleSeconds;
 
         if (status === 'running' && Number.isFinite(resumedAt)) {
+
             workingTime += Math.max(
                 0,
                 Math.floor((now - resumedAt) / 1000)
             );
+
         }
 
         if (status === 'idle' && Number.isFinite(idleStartedAt)) {
+
             idleTime += Math.max(
                 0,
                 Math.floor((now - idleStartedAt) / 1000)
             );
+
         }
 
         timer.textContent = formatTime(workingTime);
@@ -97,14 +114,50 @@ document.addEventListener('DOMContentLoaded', function () {
             body: formData
         });
 
-        const result = await response.json();
+        const responseText = await response.text();
+
+        let result;
+
+        try {
+
+            result = JSON.parse(responseText);
+
+        } catch (error) {
+
+            console.error(
+                'Invalid response from time-tracker.php:',
+                responseText
+            );
+
+            throw new Error(
+                'The server returned an invalid response. Your session may have expired.'
+            );
+
+        }
+
+        if (response.status === 401) {
+
+            window.location.reload();
+
+            return result;
+        }
+
+        if (!response.ok) {
+
+            throw new Error(
+                result.message || 'Unable to process timer action.'
+            );
+
+        }
 
         // Reload if the database completed a daily rollover.
         if (
             result.reload ||
             Number(result.rolled_over || 0) > 0
         ) {
+
             window.location.reload();
+
         }
 
         return result;
@@ -130,7 +183,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             console.error(
                 'Unable to check daily rollover:',
-                error
+                error.message
             );
 
         } finally {
@@ -164,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             console.error(
                 'Unable to record activity:',
-                error
+                error.message
             );
 
         } finally {
@@ -191,15 +244,22 @@ document.addEventListener('DOMContentLoaded', function () {
             const result = await sendTimerAction('mark_idle');
 
             if (result.success) {
+
                 window.location.reload();
                 return;
+
             }
+
+            console.error(
+                'Failed to mark session as idle:',
+                result.message || result
+            );
 
         } catch (error) {
 
             console.error(
                 'Unable to mark session as idle:',
-                error
+                error.message
             );
 
         } finally {
@@ -215,32 +275,102 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const now = Date.now();
-
         const allowedTime =
             IDLE_THRESHOLD + ACTIVITY_SYNC_INTERVAL + 1500;
 
-        if (now - lastActivityAt >= allowedTime) {
+        if (Date.now() - lastActivityAt >= allowedTime) {
+
             markIdle();
+
         }
     }
 
     // =====================================
-    // 8. HANDLE USER ACTIVITY
+    // 8. DETECT WINDOW / TAB CHANGES
+    // =====================================
+
+    function handleWindowAway() {
+
+        if (status !== 'running') {
+            return;
+        }
+
+        // Record only the first event when leaving the page.
+        // This prevents blur and visibilitychange from resetting
+        // the away timer separately.
+        if (awayStartedAt === null) {
+
+            awayStartedAt = Date.now();
+            lastActivityAt = awayStartedAt;
+
+        }
+    }
+
+    function handleWindowReturn() {
+
+        if (status !== 'running' || awayStartedAt === null) {
+            return;
+        }
+
+        const awayDuration = Date.now() - awayStartedAt;
+
+        awayStartedAt = null;
+
+        const allowedTime =
+            IDLE_THRESHOLD + ACTIVITY_SYNC_INTERVAL + 1500;
+
+        // If the worker was away long enough, mark the session idle.
+        if (awayDuration >= allowedTime) {
+
+            checkIdle();
+            return;
+
+        }
+
+        // The worker returned before reaching the idle threshold.
+        lastActivityAt = Date.now();
+    }
+
+    // =====================================
+    // 9. OPEN IDLE MODAL
+    // =====================================
+
+    function showIdleModal() {
+
+        if (!idlePrompt || !idlePrompt.hidden) {
+            return;
+        }
+
+        idlePrompt.hidden = false;
+        document.body.style.overflow = 'hidden';
+    }
+
+    // Show the modal immediately if the session is already idle.
+    if (status === 'idle') {
+
+        showIdleModal();
+
+    }
+
+    // =====================================
+    // 10. HANDLE USER ACTIVITY
     // =====================================
 
     function handleActivity() {
 
         if (status === 'idle') {
 
-            if (idlePrompt) {
-                idlePrompt.hidden = false;
-            }
-
+            showIdleModal();
             return;
+
         }
 
         if (status !== 'running') {
+            return;
+        }
+
+        // Ignore activity while the page is hidden or unfocused.
+        if (document.hidden || !document.hasFocus()) {
             return;
         }
 
@@ -250,12 +380,14 @@ document.addEventListener('DOMContentLoaded', function () {
             lastActivityAt - lastActivitySentAt >=
             ACTIVITY_SYNC_INTERVAL
         ) {
+
             recordActivity();
+
         }
     }
 
     // =====================================
-    // 9. LISTEN FOR USER ACTIVITY
+    // 11. LISTEN FOR USER ACTIVITY
     // =====================================
 
     const activityEvents = [
@@ -278,7 +410,44 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // =====================================
-    // 10. START TIMER UPDATES
+    // 12. LISTEN FOR WINDOW / TAB CHANGES
+    // =====================================
+
+    // Browser tab becomes hidden or visible.
+    document.addEventListener('visibilitychange', function () {
+
+        if (document.hidden) {
+
+            handleWindowAway();
+
+        } else {
+
+            handleWindowReturn();
+            checkDailyRollover();
+            checkIdle();
+
+        }
+
+    });
+
+    // Browser window loses focus, such as Alt + Tab.
+    window.addEventListener('blur', function () {
+
+        handleWindowAway();
+
+    });
+
+    // Browser window regains focus.
+    window.addEventListener('focus', function () {
+
+        handleWindowReturn();
+        checkDailyRollover();
+        checkIdle();
+
+    });
+
+    // =====================================
+    // 13. START TIMER UPDATES
     // =====================================
 
     updateTimers();
@@ -291,30 +460,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 1000);
 
     // =====================================
-    // 11. DAILY ROLLOVER CHECK
+    // 14. DAILY ROLLOVER CHECK
     // =====================================
 
-    // Check the database every 15 seconds.
     setInterval(checkDailyRollover, 15000);
 
-    // Check again when the worker returns to the page.
-    document.addEventListener('visibilitychange', function () {
-
-        if (!document.hidden) {
-            checkDailyRollover();
-            checkIdle();
-        }
-
-    });
-
-    window.addEventListener('focus', function () {
-
-        checkDailyRollover();
-        checkIdle();
-
-    });
-
-    // Check immediately after loading the page.
+    // Run initial rollover check.
     checkDailyRollover();
 
 });
