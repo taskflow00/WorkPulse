@@ -81,120 +81,228 @@ if (!empty($employments)) {
 }
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Employment - WorkPulse</title>
-</head>
+<?php
+$page_title = 'My Employment';
+$active_page = 'employment';
 
-<body>
+require_once '../../includes/header.php';
 
-    <h1>My Employment</h1>
+// Count employment records.
+$total_employments = count($employments);
+$active_employments = 0;
+$ended_employments = 0;
 
-    <p>View your current and previous employment records.</p>
+foreach ($employments as $employment) {
+    if ($employment['status'] === 'active') {
+        $active_employments++;
+    } elseif ($employment['status'] === 'ended') {
+        $ended_employments++;
+    }
+}
+?>
+
+<div class="wp-page wp-employment-page">
+
+    <div class="wp-page-header">
+        <div>
+            <h1 class="wp-page-title">My Employment</h1>
+            <p class="wp-page-description">
+                View your current and previous employment records.
+            </p>
+        </div>
+    </div>
 
     <?php if ($message !== ''): ?>
-        <p><?php echo htmlspecialchars($message); ?></p>
+        <div class="wp-employment-alert">
+            <i class="bi bi-exclamation-circle"></i>
+            <?php echo htmlspecialchars($message); ?>
+        </div>
     <?php endif; ?>
 
-    <?php if (empty($employments)): ?>
+    <!-- Employment Summary -->
+    <div class="wp-employment-stats">
 
-        <p>You don't have any employment records yet.</p>
+        <div class="wp-employment-stat">
+            <div class="wp-employment-stat-icon">
+                <i class="bi bi-briefcase"></i>
+            </div>
+            <div>
+                <span>Total Employment</span>
+                <h3><?php echo $total_employments; ?></h3>
+            </div>
+        </div>
 
-    <?php else: ?>
+        <div class="wp-employment-stat">
+            <div class="wp-employment-stat-icon active">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div>
+                <span>Active</span>
+                <h3><?php echo $active_employments; ?></h3>
+            </div>
+        </div>
 
-        <?php foreach ($employments as $employment): ?>
+        <div class="wp-employment-stat">
+            <div class="wp-employment-stat-icon ended">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div>
+                <span>Previous Employment</span>
+                <h3><?php echo $ended_employments; ?></h3>
+            </div>
+        </div>
 
-            <?php
-            $employer = $employers[$employment['employer_id']] ?? [];
-            $job = $jobs[$employment['job_id']] ?? [];
+    </div>
 
-            $company_name = $employer['company_name']
-                ?? $job['company_name']
-                ?? 'Not specified';
-            ?>
+    <!-- Employment Records -->
+    <div class="wp-employment-section">
 
-            <hr>
+        <div class="wp-employment-section-heading">
+            <div>
+                <h2>Employment History</h2>
+                <p>Your employment records and details.</p>
+            </div>
 
-            <h2>
-                <?php echo htmlspecialchars($job['title'] ?? 'Employment'); ?>
-            </h2>
+            <span class="wp-employment-count">
+                <?php echo $total_employments; ?> Records
+            </span>
+        </div>
 
-            <p>
-                Company:
-                <?php echo htmlspecialchars($company_name); ?>
-            </p>
+        <?php if (empty($employments)): ?>
 
-            <p>
-                Employer:
-                <?php echo htmlspecialchars(
-                    $employer['full_name'] ?? 'Not available'
-                ); ?>
-            </p>
+            <div class="wp-employment-empty">
+                <div class="wp-employment-empty-icon">
+                    <i class="bi bi-briefcase"></i>
+                </div>
 
-            <p>
-                Hourly Rate:
-                <strong>
-                    ₱<?php echo number_format(
-                            (float)$employment['hourly_rate'],
-                            2
-                        ); ?>
-                </strong>
-            </p>
+                <h3>No Employment Records Yet</h3>
 
-            <p>
-                Employment Type:
-                <?php echo htmlspecialchars(
-                    ucwords(str_replace(
+                <p>
+                    Your employment history will appear here once an employer
+                    officially hires you.
+                </p>
+
+                <a href="jobs.php" class="wp-btn wp-btn-primary">
+                    <i class="bi bi-search"></i>
+                    Browse Jobs
+                </a>
+            </div>
+
+        <?php else: ?>
+
+            <div class="wp-employment-list">
+
+                <?php foreach ($employments as $employment): ?>
+
+                    <?php
+                    $employer = $employers[$employment['employer_id']] ?? [];
+                    $job = $jobs[$employment['job_id']] ?? [];
+
+                    $company_name = $employer['company_name']
+                        ?? $job['company_name']
+                        ?? 'Not specified';
+
+                    $status = $employment['status'] ?? 'unknown';
+
+                    $status_class = $status === 'active'
+                        ? 'active'
+                        : ($status === 'ended' ? 'ended' : 'neutral');
+
+                    $employment_type = ucwords(str_replace(
                         '_',
                         ' ',
-                        $employment['employment_type']
-                    ))
-                ); ?>
-            </p>
+                        $employment['employment_type'] ?? 'Not specified'
+                    ));
 
-            <p>
-                Work Schedule:
-                <?php echo htmlspecialchars($employment['work_schedule']); ?>
-            </p>
+                    $start_date = !empty($employment['started_at'])
+                        ? date('F d, Y', strtotime($employment['started_at']))
+                        : 'Not available';
+                    ?>
 
-            <p>
-                Start Date:
-                <?php echo date(
-                    'F d, Y',
-                    strtotime($employment['started_at'])
-                ); ?>
-            </p>
+                    <div class="wp-employment-card">
 
-            <p>
-                Status:
-                <strong>
-                    <?php echo htmlspecialchars(
-                        ucfirst($employment['status'])
-                    ); ?>
-                </strong>
-            </p>
+                        <div class="wp-employment-card-top">
 
-            <?php if ($employment['status'] === 'ended' && !empty($employment['ended_at'])): ?>
-                <p>
-                    End Date:
-                    <?php echo date(
-                        'F d, Y',
-                        strtotime($employment['ended_at'])
-                    ); ?>
-                </p>
-            <?php endif; ?>
+                            <div class="wp-employment-company-icon">
+                                <i class="bi bi-building"></i>
+                            </div>
 
-        <?php endforeach; ?>
+                            <div class="wp-employment-main">
 
-    <?php endif; ?>
+                                <h3>
+                                    <?php echo htmlspecialchars($job['title'] ?? 'Employment'); ?>
+                                </h3>
 
-    <br>
-    <a href="dashboard.php">Back to Dashboard</a>
+                                <p>
+                                    <?php echo htmlspecialchars($company_name); ?>
+                                </p>
 
-</body>
+                            </div>
 
-</html>
+                            <span class="wp-employment-status <?php echo $status_class; ?>">
+                                <span></span>
+                                <?php echo htmlspecialchars(ucfirst($status)); ?>
+                            </span>
+
+                        </div>
+
+                        <div class="wp-employment-details">
+
+                            <div class="wp-employment-detail">
+                                <span>Employer</span>
+                                <strong>
+                                    <?php echo htmlspecialchars($employer['full_name'] ?? 'Not available'); ?>
+                                </strong>
+                            </div>
+
+                            <div class="wp-employment-detail">
+                                <span>Hourly Rate</span>
+                                <strong>
+                                    ₱<?php echo number_format((float)($employment['hourly_rate'] ?? 0), 2); ?>
+                                </strong>
+                            </div>
+
+                            <div class="wp-employment-detail">
+                                <span>Employment Type</span>
+                                <strong>
+                                    <?php echo htmlspecialchars($employment_type); ?>
+                                </strong>
+                            </div>
+
+                            <div class="wp-employment-detail">
+                                <span>Work Schedule</span>
+                                <strong>
+                                    <?php echo htmlspecialchars($employment['work_schedule'] ?? 'Not specified'); ?>
+                                </strong>
+                            </div>
+
+                            <div class="wp-employment-detail">
+                                <span>Start Date</span>
+                                <strong><?php echo $start_date; ?></strong>
+                            </div>
+
+                            <?php if ($status === 'ended' && !empty($employment['ended_at'])): ?>
+                                <div class="wp-employment-detail">
+                                    <span>End Date</span>
+                                    <strong>
+                                        <?php echo date('F d, Y', strtotime($employment['ended_at'])); ?>
+                                    </strong>
+                                </div>
+                            <?php endif; ?>
+
+                        </div>
+
+                    </div>
+
+                <?php endforeach; ?>
+
+            </div>
+
+        <?php endif; ?>
+
+    </div>
+
+</div>
+
+<?php require_once '../../includes/footer.php'; ?>

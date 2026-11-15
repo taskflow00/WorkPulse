@@ -16,6 +16,9 @@ require_once '../../includes/auth.php';
 $worker_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];
 
+// Use Philippine time when displaying dates
+date_default_timezone_set('Asia/Manila');
+
 
 // ==========================================
 // GET WORKER APPLICATIONS
@@ -42,8 +45,6 @@ $options = [
 // Send request to Supabase
 $context = stream_context_create($options);
 
-$http_response_header = [];
-
 $response = file_get_contents(
     $url,
     false,
@@ -54,7 +55,6 @@ $response = file_get_contents(
 $applications = [];
 $message = '';
 
-
 // Convert the response into a PHP array
 if ($response === false) {
 
@@ -63,11 +63,19 @@ if ($response === false) {
 
     $result = json_decode($response, true);
 
+    // Get the HTTP response headers
+    $response_headers = http_get_last_response_headers();
+
     // Check the HTTP response status
-    preg_match('/\s(\d{3})\s/', $http_response_header[0] ?? '', $matches);
+    preg_match(
+        '/\s(\d{3})\s/',
+        is_array($response_headers) ? ($response_headers[0] ?? '') : '',
+        $matches
+    );
 
     $status_code = (int)($matches[1] ?? 0);
 
+    // Check if the request was successful
     if (
         $status_code >= 200 &&
         $status_code < 300 &&
@@ -83,15 +91,47 @@ if ($response === false) {
 }
 
 
+// ==========================================
+// APPLICATION SUMMARY
+// ==========================================
+
 // Count applications
 $total_applications = count($applications);
 
+// Prepare status counters
+$pending_count = 0;
+$review_count = 0;
+$accepted_count = 0;
+$rejected_count = 0;
 
-// Include shared dashboard header
+// Count applications by status
+foreach ($applications as $application) {
+
+    $status = $application['status'] ?? 'pending';
+
+    if ($status === 'pending') {
+
+        $pending_count++;
+    } elseif ($status === 'shortlisted' || $status === 'interview') {
+
+        $review_count++;
+    } elseif ($status === 'accepted' || $status === 'hired') {
+
+        $accepted_count++;
+    } elseif ($status === 'rejected') {
+
+        $rejected_count++;
+    }
+}
+
+
+// ==========================================
+// INCLUDE SHARED HEADER
+// ==========================================
+
 require_once '../../includes/header.php';
 
 ?>
-
 
 <div class="wp-page">
 
@@ -149,7 +189,61 @@ require_once '../../includes/header.php';
 
             <h2><?= $total_applications ?></h2>
 
-            <small>Jobs you have applied for</small>
+            <small>All submitted applications</small>
+
+        </div>
+
+        <div class="wp-stat-card">
+
+            <div class="wp-stat-top">
+
+                <span>Pending</span>
+
+                <div class="wp-stat-icon">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+
+            </div>
+
+            <h2><?= $pending_count ?></h2>
+
+            <small>Waiting for employer review</small>
+
+        </div>
+
+        <div class="wp-stat-card">
+
+            <div class="wp-stat-top">
+
+                <span>Under Review</span>
+
+                <div class="wp-stat-icon">
+                    <i class="bi bi-eye"></i>
+                </div>
+
+            </div>
+
+            <h2><?= $review_count ?></h2>
+
+            <small>Shortlisted or interview stage</small>
+
+        </div>
+
+        <div class="wp-stat-card">
+
+            <div class="wp-stat-top">
+
+                <span>Accepted</span>
+
+                <div class="wp-stat-icon">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+
+            </div>
+
+            <h2><?= $accepted_count ?></h2>
+
+            <small>Applications accepted or hired</small>
 
         </div>
 
@@ -177,15 +271,17 @@ require_once '../../includes/header.php';
             </div>
 
             <span class="wp-badge wp-badge-neutral">
+
                 <?= $total_applications ?>
+
                 <?= $total_applications === 1 ? 'Application' : 'Applications' ?>
+
             </span>
 
         </div>
 
 
         <div class="wp-panel-body">
-
 
             <!-- ==================================
                  ERROR MESSAGE
@@ -283,6 +379,7 @@ require_once '../../includes/header.php';
                             $timestamp = strtotime($application['applied_at']);
 
                             if ($timestamp !== false) {
+
                                 $applied_date = date('M d, Y', $timestamp);
                             }
                         }
@@ -342,9 +439,9 @@ require_once '../../includes/header.php';
 
 
                                 <!-- Application Details -->
-                                <?php if ($job): ?>
+                                <div class="wp-application-details">
 
-                                    <div class="wp-application-details">
+                                    <?php if ($job): ?>
 
                                         <span>
 
@@ -370,39 +467,21 @@ require_once '../../includes/header.php';
 
                                         </span>
 
-                                        <span>
+                                    <?php endif; ?>
 
-                                            <i class="bi bi-calendar"></i>
+                                    <span>
 
-                                            Applied <?= htmlspecialchars(
-                                                        $applied_date,
-                                                        ENT_QUOTES,
-                                                        'UTF-8'
-                                                    ) ?>
+                                        <i class="bi bi-calendar"></i>
 
-                                        </span>
+                                        Applied <?= htmlspecialchars(
+                                                    $applied_date,
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
 
-                                    </div>
+                                    </span>
 
-                                <?php else: ?>
-
-                                    <div class="wp-application-details">
-
-                                        <span>
-
-                                            <i class="bi bi-calendar"></i>
-
-                                            Applied <?= htmlspecialchars(
-                                                        $applied_date,
-                                                        ENT_QUOTES,
-                                                        'UTF-8'
-                                                    ) ?>
-
-                                        </span>
-
-                                    </div>
-
-                                <?php endif; ?>
+                                </div>
 
 
                                 <!-- Application Statement -->

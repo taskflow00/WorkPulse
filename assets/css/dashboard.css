@@ -1963,3 +1963,1210 @@
     }
 
 }
+
+/* ========================================
+   WORKER EARNINGS PAGE
+======================================== */
+
+.wp-earnings-overview {
+    margin-bottom: 22px;
+}
+
+.wp-earnings-total-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 42px;
+    height: 42px;
+
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 11px;
+
+    font-size: 19px;
+}
+
+.wp-earnings-total {
+    margin: 0;
+
+    color: var(--wp-text);
+    font-size: 32px;
+    font-weight: 800;
+}
+
+.wp-earnings-total-description {
+    margin: 7px 0 0;
+
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.wp-earnings-history {
+    margin-bottom: 22px;
+}
+
+.wp-earnings-currency {
+    padding: 7px 11px;
+
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 20px;
+
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.wp-earnings-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.wp-earnings-table {
+    width: 100%;
+    border-collapse: collapse;
+    white-space: nowrap;
+}
+
+.wp-earnings-table th {
+    padding: 14px 16px;
+
+    color: var(--wp-muted);
+    background: var(--wp-background);
+
+    font-size: 11px;
+    font-weight: 700;
+    text-align: left;
+}
+
+.wp-earnings-table td {
+    padding: 17px 16px;
+
+    color: var(--wp-text);
+    border-bottom: 1px solid var(--wp-border);
+
+    font-size: 12px;
+}
+
+.wp-earnings-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.wp-earnings-table tbody tr:hover {
+    background: #FCFAFB;
+}
+
+.wp-earnings-amount {
+    color: var(--wp-success);
+}
+
+.wp-earnings-status {
+    display: inline-flex;
+    align-items: center;
+
+    padding: 6px 10px;
+
+    border-radius: 20px;
+
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.wp-earnings-status.success {
+    color: var(--wp-success);
+    background: var(--wp-success-light);
+}
+
+.wp-earnings-status.warning {
+    color: var(--wp-warning);
+    background: var(--wp-warning-light);
+}
+
+.wp-earnings-status.danger {
+    color: var(--wp-danger);
+    background: var(--wp-danger-light);
+}
+
+.wp-earnings-status.neutral {
+    color: var(--wp-muted);
+    background: #F0EEF1;
+}
+
+.wp-earnings-empty {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+
+    padding: 45px 20px;
+
+    text-align: center;
+}
+
+.wp-earnings-empty-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 60px;
+    height: 60px;
+    margin-bottom: 16px;
+
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 18px;
+
+    font-size: 25px;
+}
+
+.wp-earnings-empty h4 {
+    margin: 0 0 7px;
+
+    color: var(--wp-text);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.wp-earnings-empty p {
+    max-width: 360px;
+    margin: 0;
+
+    color: var(--wp-muted);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.wp-earnings-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+
+    padding: 18px;
+
+    background: var(--wp-primary-light);
+    border: 1px solid #EAD5DE;
+    border-radius: var(--wp-radius);
+}
+
+.wp-earnings-notice-icon {
+    flex-shrink: 0;
+
+    color: var(--wp-primary-hover);
+    font-size: 18px;
+}
+
+.wp-earnings-notice strong {
+    display: block;
+    margin-bottom: 7px;
+
+    color: var(--wp-text);
+    font-size: 12px;
+}
+
+.wp-earnings-notice p {
+    margin: 0 0 6px;
+
+    color: var(--wp-muted);
+    font-size: 11px;
+    line-height: 1.7;
+}
+
+.wp-earnings-notice p:last-child {
+    margin-bottom: 0;
+}
+
+
+/* Mobile */
+
+@media (max-width: 576px) {
+
+    .wp-earnings-total {
+        font-size: 27px;
+    }
+
+    .wp-earnings-table th,
+    .wp-earnings-table td {
+        padding: 13px 12px;
+    }
+
+    .wp-earnings-notice {
+        padding: 15px;
+    }
+
+}
+
+
+/* ========================================
+   WORKER DASHBOARD - EARNINGS AND TASKS
+======================================== */
+
+.wp-worker-earnings-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 22px;
+}
+
+.wp-worker-earnings-amount {
+    margin: 0 0 12px;
+
+    color: var(--wp-text);
+    font-size: 28px;
+    font-weight: 800;
+}
+
+.wp-worker-dashboard-tasks {
+    margin-bottom: 22px;
+}
+
+.wp-worker-task-badges {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    flex-shrink: 0;
+}
+
+.wp-worker-dashboard-bottom {
+    margin-bottom: 22px;
+}
+
+
+/* Mobile */
+
+@media (max-width: 576px) {
+
+    .wp-worker-earnings-overview {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .wp-worker-task-badges {
+        width: 100%;
+    }
+
+    .wp-worker-earnings-amount {
+        font-size: 25px;
+    }
+
+}
+
+
+/* ==========================================
+   WORKER INVITATIONS
+========================================== */
+
+.wp-invitations-page {
+    width: 100%;
+    min-width: 0;
+}
+
+.wp-invitation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.wp-invitation-card {
+    padding: 22px;
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    background: var(--wp-surface);
+    transition: var(--wp-transition);
+}
+
+.wp-invitation-card:hover {
+    border-color: #E4C6D2;
+    box-shadow: 0 4px 14px rgba(193, 139, 159, 0.08);
+}
+
+.wp-invitation-heading {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.wp-invitation-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 46px;
+    height: 46px;
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 12px;
+    font-size: 19px;
+}
+
+.wp-invitation-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.wp-invitation-title h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 750;
+    overflow-wrap: anywhere;
+}
+
+.wp-invitation-title p {
+    margin: 5px 0 0;
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.wp-invitation-title p i {
+    margin-right: 4px;
+}
+
+.wp-invitation-status {
+    padding: 6px 11px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.wp-invitation-status.warning {
+    color: #A66B12;
+    background: #FFF4DE;
+}
+
+.wp-invitation-status.success {
+    color: var(--wp-success);
+    background: #E8F5ED;
+}
+
+.wp-invitation-status.danger {
+    color: var(--wp-danger);
+    background: #FCEBEC;
+}
+
+.wp-invitation-status.neutral {
+    color: var(--wp-muted);
+    background: #F0EFF1;
+}
+
+.wp-invitation-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    margin-top: 19px;
+    padding: 14px 0;
+    border-top: 1px solid var(--wp-border);
+    border-bottom: 1px solid var(--wp-border);
+}
+
+.wp-invitation-details span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.wp-invitation-details i {
+    color: var(--wp-primary-hover);
+}
+
+.wp-invitation-section {
+    margin-top: 18px;
+}
+
+.wp-invitation-section h5 {
+    margin-bottom: 7px;
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.wp-invitation-section p {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 12px;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+}
+
+.wp-invitation-message {
+    margin-top: 18px;
+    padding: 15px;
+    background: var(--wp-background);
+    border-radius: var(--wp-radius-sm);
+}
+
+.wp-invitation-message-heading {
+    margin-bottom: 8px;
+    color: var(--wp-text);
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.wp-invitation-message-heading i {
+    margin-right: 6px;
+    color: var(--wp-primary-hover);
+}
+
+.wp-invitation-message p {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 12px;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+}
+
+.wp-invitation-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 18px;
+}
+
+.wp-invitation-actions form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.wp-invitation-feedback {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    margin-top: 18px;
+    padding: 14px;
+    border-radius: var(--wp-radius-sm);
+}
+
+.wp-invitation-feedback.success {
+    color: var(--wp-success);
+    background: #E8F5ED;
+}
+
+.wp-invitation-feedback.neutral {
+    color: var(--wp-muted);
+    background: #F0EFF1;
+}
+
+.wp-invitation-feedback > i {
+    margin-top: 2px;
+}
+
+.wp-invitation-feedback strong {
+    display: block;
+    font-size: 12px;
+}
+
+.wp-invitation-feedback p {
+    margin: 4px 0 0;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+@media (max-width: 576px) {
+
+    .wp-invitation-card {
+        padding: 16px;
+    }
+
+    .wp-invitation-heading {
+        flex-wrap: wrap;
+    }
+
+    .wp-invitation-status {
+        margin-left: 60px;
+    }
+
+    .wp-invitation-details {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .wp-invitation-actions,
+    .wp-invitation-actions form {
+        width: 100%;
+    }
+
+    .wp-invitation-actions form {
+        flex-direction: column-reverse;
+    }
+
+    .wp-invitation-actions .wp-btn {
+        width: 100%;
+    }
+
+}
+
+/* =========================================
+   WORKER EMPLOYMENT PAGE
+========================================= */
+
+.wp-employment-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.wp-employment-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+
+.wp-employment-stat {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 22px;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-employment-stat-icon,
+.wp-employment-company-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: var(--wp-primary-light);
+    color: var(--wp-primary-hover);
+    font-size: 20px;
+}
+
+.wp-employment-stat-icon.active {
+    background: rgba(25, 135, 84, .10);
+    color: var(--wp-success);
+}
+
+.wp-employment-stat-icon.ended {
+    background: rgba(217, 154, 53, .12);
+    color: var(--wp-warning);
+}
+
+.wp-employment-stat span {
+    display: block;
+    color: var(--wp-muted);
+    font-size: 13px;
+}
+
+.wp-employment-stat h3 {
+    margin: 3px 0 0;
+    font-size: 25px;
+    font-weight: 700;
+}
+
+.wp-employment-section {
+    padding: 24px;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-employment-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.wp-employment-section-heading h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.wp-employment-section-heading p {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 13px;
+}
+
+.wp-employment-count {
+    padding: 6px 12px;
+    background: var(--wp-background);
+    border-radius: 20px;
+    color: var(--wp-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.wp-employment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.wp-employment-card {
+    padding: 22px;
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    transition: var(--wp-transition);
+}
+
+.wp-employment-card:hover {
+    border-color: var(--wp-primary);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-employment-card-top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.wp-employment-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.wp-employment-main h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.wp-employment-main p {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 13px;
+}
+
+.wp-employment-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 11px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.wp-employment-status span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.wp-employment-status.active {
+    color: var(--wp-success);
+    background: rgba(25, 135, 84, .10);
+}
+
+.wp-employment-status.ended {
+    color: #A87520;
+    background: rgba(217, 154, 53, .12);
+}
+
+.wp-employment-status.neutral {
+    color: var(--wp-muted);
+    background: var(--wp-background);
+}
+
+.wp-employment-details {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--wp-border);
+}
+
+.wp-employment-detail span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.wp-employment-detail strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.wp-employment-empty {
+    padding: 55px 20px;
+    text-align: center;
+}
+
+.wp-employment-empty-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 18px;
+    border-radius: 18px;
+    background: var(--wp-primary-light);
+    color: var(--wp-primary-hover);
+    font-size: 27px;
+}
+
+.wp-employment-empty h3 {
+    margin-bottom: 8px;
+    font-size: 17px;
+}
+
+.wp-employment-empty p {
+    max-width: 420px;
+    margin: 0 auto 20px;
+    color: var(--wp-muted);
+    font-size: 13px;
+}
+
+.wp-employment-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border: 1px solid rgba(220, 85, 85, .2);
+    border-radius: var(--wp-radius-sm);
+    background: rgba(220, 85, 85, .07);
+    color: var(--wp-danger);
+}
+
+@media (max-width: 900px) {
+    .wp-employment-details {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .wp-employment-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .wp-employment-section {
+        padding: 18px;
+    }
+
+    .wp-employment-card {
+        padding: 16px;
+    }
+
+    .wp-employment-card-top {
+        flex-wrap: wrap;
+    }
+
+    .wp-employment-status {
+        margin-left: 60px;
+    }
+
+    .wp-employment-details {
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .wp-employment-section-heading {
+        align-items: flex-start;
+    }
+}
+
+
+/* =========================================
+   WORKER EMPLOYMENT OFFERS PAGE
+========================================= */
+
+.wp-offers-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.wp-offers-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.wp-offers-stat {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 20px;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-offers-stat-icon,
+.wp-offer-company-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--wp-primary-light);
+    color: var(--wp-primary-hover);
+    font-size: 19px;
+}
+
+.wp-offers-stat-icon.pending {
+    background: rgba(217, 154, 53, .12);
+    color: var(--wp-warning);
+}
+
+.wp-offers-stat-icon.accepted {
+    background: rgba(25, 135, 84, .10);
+    color: var(--wp-success);
+}
+
+.wp-offers-stat-icon.declined {
+    background: rgba(220, 85, 85, .10);
+    color: var(--wp-danger);
+}
+
+.wp-offers-stat span {
+    display: block;
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.wp-offers-stat h3 {
+    margin: 3px 0 0;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.wp-offers-section {
+    padding: 24px;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-offers-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.wp-offers-section-heading h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.wp-offers-section-heading p {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 13px;
+}
+
+.wp-offers-count {
+    padding: 6px 12px;
+    background: var(--wp-background);
+    border-radius: 20px;
+    color: var(--wp-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.wp-offers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.wp-offer-card {
+    padding: 22px;
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    transition: var(--wp-transition);
+}
+
+.wp-offer-card:hover {
+    border-color: var(--wp-primary);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-offer-card-top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.wp-offer-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.wp-offer-main h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.wp-offer-main p {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 13px;
+}
+
+.wp-offer-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 11px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.wp-offer-status span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.wp-offer-status.pending {
+    color: #A87520;
+    background: rgba(217, 154, 53, .12);
+}
+
+.wp-offer-status.accepted {
+    color: var(--wp-success);
+    background: rgba(25, 135, 84, .10);
+}
+
+.wp-offer-status.declined {
+    color: var(--wp-danger);
+    background: rgba(220, 85, 85, .10);
+}
+
+.wp-offer-status.expired,
+.wp-offer-status.neutral {
+    color: var(--wp-muted);
+    background: var(--wp-background);
+}
+
+.wp-offer-details {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding: 20px 0;
+    border-top: 1px solid var(--wp-border);
+}
+
+.wp-offer-detail span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.wp-offer-detail strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.wp-offer-message {
+    padding: 16px;
+    margin-top: 4px;
+    border-radius: var(--wp-radius-sm);
+    background: var(--wp-background);
+}
+
+.wp-offer-message span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.wp-offer-message p {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+.wp-offer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.wp-offer-response-form {
+    margin: 0;
+}
+
+.wp-offer-response-form button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.wp-offer-feedback {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-radius: var(--wp-radius-sm);
+    background: var(--wp-background);
+    color: var(--wp-muted);
+    font-size: 13px;
+}
+
+.wp-offer-feedback.accepted {
+    color: var(--wp-success);
+    background: rgba(25, 135, 84, .08);
+}
+
+.wp-offer-feedback.declined {
+    color: var(--wp-danger);
+    background: rgba(220, 85, 85, .08);
+}
+
+.wp-offers-warning,
+.wp-offers-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px 17px;
+    border-radius: var(--wp-radius-sm);
+    font-size: 13px;
+}
+
+.wp-offers-warning {
+    background: rgba(217, 154, 53, .10);
+    border: 1px solid rgba(217, 154, 53, .25);
+    color: #A87520;
+}
+
+.wp-offers-warning > i {
+    font-size: 18px;
+}
+
+.wp-offers-warning p {
+    margin: 5px 0;
+}
+
+.wp-offers-warning a {
+    display: inline-block;
+    margin-top: 5px;
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.wp-offers-warning a:hover {
+    text-decoration: underline;
+}
+
+.wp-offers-alert.success {
+    background: rgba(25, 135, 84, .08);
+    border: 1px solid rgba(25, 135, 84, .2);
+    color: var(--wp-success);
+}
+
+.wp-offers-alert.error {
+    background: rgba(220, 85, 85, .08);
+    border: 1px solid rgba(220, 85, 85, .2);
+    color: var(--wp-danger);
+}
+
+.wp-offers-empty {
+    padding: 55px 20px;
+    text-align: center;
+}
+
+.wp-offers-empty-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 18px;
+    border-radius: 18px;
+    background: var(--wp-primary-light);
+    color: var(--wp-primary-hover);
+    font-size: 27px;
+}
+
+.wp-offers-empty h3 {
+    margin-bottom: 8px;
+    font-size: 17px;
+}
+
+.wp-offers-empty p {
+    max-width: 420px;
+    margin: 0 auto 20px;
+    color: var(--wp-muted);
+    font-size: 13px;
+}
+
+@media (max-width: 1100px) {
+    .wp-offers-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .wp-offer-details {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .wp-offers-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .wp-offers-section {
+        padding: 18px;
+    }
+
+    .wp-offer-card {
+        padding: 16px;
+    }
+
+    .wp-offer-card-top {
+        flex-wrap: wrap;
+    }
+
+    .wp-offer-status {
+        margin-left: 58px;
+    }
+
+    .wp-offer-details {
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .wp-offers-section-heading {
+        align-items: flex-start;
+    }
+
+    .wp-offer-actions {
+        flex-direction: column;
+    }
+
+    .wp-offer-response-form,
+    .wp-offer-response-form button {
+        width: 100%;
+    }
+}

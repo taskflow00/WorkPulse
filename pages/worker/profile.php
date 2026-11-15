@@ -12,6 +12,87 @@ $token = $_SESSION['access_token'];
 $message = '';
 $message_type = 'success';
 
+
+// ==========================================
+// REMOVE PROFILE PICTURE
+// ==========================================
+
+if (isset($_POST['remove_avatar'])) {
+
+    // Only allow removal of this worker's own avatar
+    $avatar_path = $_POST['current_avatar_path'] ?? '';
+    $expected_path = $user_id . '/profile-avatar';
+
+    if ($avatar_path === $expected_path) {
+
+        // Delete the image from Supabase Storage
+        $storage_url = SUPABASE_URL .
+            '/storage/v1/object/avatars/' . $avatar_path;
+
+        $options = [
+            'http' => [
+                'method' => 'DELETE',
+                'header' =>
+                "apikey: " . SUPABASE_KEY . "\r\n" .
+                    "Authorization: Bearer " . $token . "\r\n",
+                'ignore_errors' => true
+            ]
+        ];
+
+        $context = stream_context_create($options);
+        $delete_response = file_get_contents($storage_url, false, $context);
+
+        $status_line = $http_response_header[0] ?? '';
+        preg_match('/\s(\d{3})\s/', $status_line, $matches);
+        $status_code = (int)($matches[1] ?? 0);
+
+        if (
+            $delete_response !== false &&
+            $status_code >= 200 &&
+            $status_code < 300
+        ) {
+
+            // Remove the avatar path from the worker profile
+            $url = SUPABASE_URL .
+                '/rest/v1/profiles?id=eq.' . urlencode($user_id);
+
+            $options = [
+                'http' => [
+                    'method' => 'PATCH',
+                    'header' =>
+                    "Content-Type: application/json\r\n" .
+                        "apikey: " . SUPABASE_KEY . "\r\n" .
+                        "Authorization: Bearer " . $token . "\r\n" .
+                        "Prefer: return=representation\r\n",
+                    'content' => json_encode([
+                        'avatar_url' => null
+                    ]),
+                    'ignore_errors' => true
+                ]
+            ];
+
+            $context = stream_context_create($options);
+            $response = file_get_contents($url, false, $context);
+            $result = json_decode($response ?: '', true);
+
+            if (isset($result[0]['id'])) {
+                $message = 'Profile picture removed successfully!';
+                $message_type = 'success';
+            } else {
+                $message = 'Image deleted, but the profile could not be updated.';
+                $message_type = 'danger';
+            }
+        } else {
+            $message = 'Unable to remove your profile picture. Please try again.';
+            $message_type = 'danger';
+        }
+    } else {
+        $message = 'Invalid profile picture path.';
+        $message_type = 'danger';
+    }
+}
+
+
 // ==========================================
 // UPDATE PROFILE
 // ==========================================
@@ -45,6 +126,93 @@ if (isset($_POST['update_profile'])) {
     ) {
         $message = 'Please enter a valid portfolio URL.';
     }
+
+
+    // ==========================================
+    // PROFILE PICTURE UPLOAD
+    // ==========================================
+
+    $avatar_path = null;
+
+    if (
+        $message === '' &&
+        isset($_FILES['avatar']) &&
+        $_FILES['avatar']['error'] !== UPLOAD_ERR_NO_FILE
+    ) {
+
+        $file = $_FILES['avatar'];
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $message = 'There was a problem uploading your profile picture.';
+        } elseif ($file['size'] > 2 * 1024 * 1024) {
+            $message = 'Profile picture must not exceed 2 MB.';
+        } else {
+
+            // Check the actual image file type
+            $mime_type = finfo_file(
+                finfo_open(FILEINFO_MIME_TYPE),
+                $file['tmp_name']
+            );
+
+            $allowed_types = [
+                'image/jpeg',
+                'image/png',
+                'image/webp'
+            ];
+
+            if (!in_array($mime_type, $allowed_types, true)) {
+                $message = 'Only JPG, PNG, and WebP images are allowed.';
+            } else {
+
+                // Each worker has their own avatar path
+                $avatar_path = $user_id . '/profile-avatar';
+
+                $storage_url = SUPABASE_URL .
+                    '/storage/v1/object/avatars/' . $avatar_path;
+
+                $file_content = file_get_contents($file['tmp_name']);
+
+                $options = [
+                    'http' => [
+                        'method' => 'POST',
+                        'header' =>
+                        "apikey: " . SUPABASE_KEY . "\r\n" .
+                            "Authorization: Bearer " . $token . "\r\n" .
+                            "Content-Type: " . $mime_type . "\r\n" .
+                            "x-upsert: true\r\n",
+                        'content' => $file_content,
+                        'ignore_errors' => true
+                    ]
+                ];
+
+                $context = stream_context_create($options);
+                $upload_response = file_get_contents(
+                    $storage_url,
+                    false,
+                    $context
+                );
+
+                $status_line = $http_response_header[0] ?? '';
+                preg_match('/\s(\d{3})\s/', $status_line, $matches);
+                $status_code = (int)($matches[1] ?? 0);
+
+                if (
+                    $upload_response === false ||
+                    $status_code < 200 ||
+                    $status_code >= 300
+                ) {
+
+                    $upload_result = json_decode($upload_response ?: '', true);
+
+                    $message = 'Profile picture upload failed. ' .
+                        ($upload_result['message'] ?? 'Please try again.');
+
+                    $avatar_path = null;
+                }
+            }
+        }
+    }
+
 
     // ==========================================
     // RESUME UPLOAD
@@ -132,8 +300,14 @@ if (isset($_POST['update_profile'])) {
             'education' => $education,
             'portfolio_url' => $portfolio_url,
             'preferred_hourly_rate' =>
-            $hourly_rate === '' ? null : $hourly_rate
+            $hourly_rate === '' ? null : $hourly_rate,
+
         ];
+
+        // Save the new avatar path only when a picture was uploaded
+        if ($avatar_path !== null) {
+            $data['avatar_url'] = $avatar_path;
+        }
 
         if ($resume_path !== null) {
             $data['resume_url'] = $resume_path;
@@ -261,6 +435,24 @@ $skills = $profile['skills'] ?? [];
 
 $hourly_rate = $profile['preferred_hourly_rate'] ?? null;
 
+// ==========================================
+// PROFILE PICTURE URL
+// ==========================================
+
+$avatar_url = '';
+
+if (
+    !empty($profile['avatar_url']) &&
+    strpos($profile['avatar_url'], $user_id . '/') === 0
+) {
+
+    $avatar_parts = explode('/', $profile['avatar_url']);
+
+    $avatar_url = SUPABASE_URL .
+        '/storage/v1/object/public/avatars/' .
+        implode('/', array_map('rawurlencode', $avatar_parts));
+}
+
 require_once '../../includes/header.php';
 
 ?>
@@ -310,7 +502,19 @@ require_once '../../includes/header.php';
         <section class="wp-profile-hero">
 
             <div class="wp-profile-avatar">
-                <?= htmlspecialchars($initial, ENT_QUOTES, 'UTF-8') ?>
+
+                <?php if ($avatar_url !== ''): ?>
+
+                    <img
+                        src="<?= htmlspecialchars($avatar_url, ENT_QUOTES, 'UTF-8') ?>"
+                        alt="Profile picture">
+
+                <?php else: ?>
+
+                    <?= htmlspecialchars($initial, ENT_QUOTES, 'UTF-8') ?>
+
+                <?php endif; ?>
+
             </div>
 
             <div class="wp-profile-hero-info">
@@ -624,6 +828,87 @@ require_once '../../includes/header.php';
 
         <form method="POST" enctype="multipart/form-data">
 
+
+            <!-- Profile picture -->
+            <section class="wp-profile-card">
+
+                <div class="wp-profile-card-heading">
+                    <div>
+                        <span class="wp-profile-section-label">PROFILE PHOTO</span>
+                        <h3>Profile Picture</h3>
+                    </div>
+                    <i class="bi bi-camera"></i>
+                </div>
+
+                <div class="wp-avatar-editor">
+
+                    <div class="wp-avatar-preview" id="avatar-preview">
+
+                        <?php if ($avatar_url !== ''): ?>
+
+                            <img
+                                src="<?= htmlspecialchars($avatar_url, ENT_QUOTES, 'UTF-8') ?>"
+                                alt="Current profile picture"
+                                id="avatar-preview-image">
+
+                        <?php else: ?>
+
+                            <span id="avatar-preview-initial">
+                                <?= htmlspecialchars($initial, ENT_QUOTES, 'UTF-8') ?>
+                            </span>
+
+                        <?php endif; ?>
+
+                    </div>
+
+                    <div class="wp-avatar-editor-details">
+
+                        <strong>Upload a professional photo</strong>
+
+                        <p>
+                            Choose a clear picture so employers can recognize you.
+                        </p>
+
+                        <input
+                            type="file"
+                            name="avatar"
+                            id="avatar-input"
+                            class="wp-input"
+                            accept="image/jpeg,image/png,image/webp">
+
+                        <small class="wp-form-hint">
+                            JPG, PNG, or WebP. Maximum file size: 2 MB.
+                        </small>
+
+                        <?php if ($avatar_url !== ''): ?>
+
+                            <input
+                                type="hidden"
+                                name="current_avatar_path"
+                                value="<?= htmlspecialchars($profile['avatar_url'], ENT_QUOTES, 'UTF-8') ?>">
+
+                            <button
+                                type="submit"
+                                name="remove_avatar"
+                                value="1"
+                                class="wp-btn wp-btn-outline wp-avatar-remove"
+                                formnovalidate
+                                onclick="return confirm('Are you sure you want to remove your profile picture?');">
+
+                                <i class="bi bi-trash"></i>
+                                Remove Picture
+
+                            </button>
+
+                        <?php endif; ?>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
             <!-- Personal information -->
             <section class="wp-profile-card">
 
@@ -831,7 +1116,7 @@ require_once '../../includes/header.php';
                 <button
                     type="submit"
                     name="update_profile"
-                    class="wp-btn wp-btn-primary">
+                    class="wp-btn wp-btn-success">
 
                     <i class="bi bi-check-lg"></i>
                     Save Changes
@@ -846,20 +1131,6 @@ require_once '../../includes/header.php';
 
 </div>
 
-<script>
-    // Switch between profile view and edit mode
-    function toggleProfileEdit(showEdit) {
-
-        document.getElementById('profile-view').style.display =
-            showEdit ? 'none' : 'block';
-
-        document.getElementById('profile-edit').style.display =
-            showEdit ? 'block' : 'none';
-
-        document.getElementById('edit-profile-button').style.display =
-            showEdit ? 'none' : 'inline-flex';
-
-    }
-</script>
+<script src="../../assets/js/profile.js"></script>
 
 <?php require_once '../../includes/footer.php'; ?>

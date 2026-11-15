@@ -19,7 +19,55 @@ date_default_timezone_set('Asia/Manila');
 $user_id = $_SESSION['user']['id'];
 $token = $_SESSION['access_token'];
 
-$user_name = $_SESSION['user']['user_metadata']['full_name'] ?? 'Worker';
+$user_name = $profile[0]['full_name']
+    ?? ($_SESSION['user']['user_metadata']['full_name'] ?? 'Worker');
+
+
+// ==========================================
+// PREPARE SUPABASE REQUESTS
+// ==========================================
+
+// Common headers for normal GET requests
+$headers =
+    "apikey: " . SUPABASE_KEY . "\r\n" .
+    "Authorization: Bearer " . $token . "\r\n" .
+    "Accept: application/json\r\n";
+
+$context = stream_context_create([
+    'http' => [
+        'method' => 'GET',
+        'header' => $headers,
+        'ignore_errors' => true
+    ]
+]);
+
+// Headers for requests that need exact record counts
+$stats_context = stream_context_create([
+    'http' => [
+        'method' => 'GET',
+        'header' =>
+        $headers .
+            "Prefer: count=exact\r\n" .
+            "Range: 0-0\r\n",
+        'ignore_errors' => true
+    ]
+]);
+
+
+// ==========================================
+// INITIALIZE DASHBOARD DATA
+// ==========================================
+
+$recent_applications = [];
+$recent_tasks = [];
+
+$active_employment = '—';
+$total_applications = '—';
+$pending_offers = '—';
+$tasks_in_progress = '—';
+
+$approved_earnings = 0;
+$pending_earnings = 0;
 
 
 // ==========================================
@@ -32,62 +80,28 @@ $applications_url = SUPABASE_URL .
     '&worker_id=eq.' . urlencode($user_id) .
     '&order=applied_at.desc&limit=5';
 
-// Prepare the GET request
-$applications_context = stream_context_create([
-    'http' => [
-        'method' => 'GET',
-        'header' =>
-        "apikey: " . SUPABASE_KEY . "\r\n" .
-            "Authorization: Bearer " . $token . "\r\n" .
-            "Accept: application/json\r\n",
-        'ignore_errors' => true
-    ]
-]);
-
-// Send request to Supabase
 $applications_response = file_get_contents(
     $applications_url,
     false,
-    $applications_context
+    $context
 );
-
-// Convert the response into a PHP array
-$recent_applications = [];
 
 if ($applications_response !== false) {
 
-    $recent_applications = json_decode($applications_response, true);
+    $applications_data = json_decode($applications_response, true);
 
-    if (!is_array($recent_applications) || isset($recent_applications['message'])) {
-        $recent_applications = [];
+    if (is_array($applications_data) && !isset($applications_data['code'])) {
+
+        $recent_applications = $applications_data;
     }
 }
-
-
-// ==========================================
-// GET DASHBOARD STATISTICS
-// ==========================================
-
-// Prepare the GET request settings for statistics
-$stats_context = stream_context_create([
-    'http' => [
-        'method' => 'GET',
-        'header' =>
-        "apikey: " . SUPABASE_KEY . "\r\n" .
-            "Authorization: Bearer " . $token . "\r\n" .
-            "Accept: application/json\r\n" .
-            "Prefer: count=exact\r\n" .
-            "Range: 0-0\r\n",
-        'ignore_errors' => true
-    ]
-]);
 
 
 // ==========================================
 // ACTIVE EMPLOYMENT
 // ==========================================
 
-// Get the worker's active employments
+// Count the worker's active employments
 $employment_url = SUPABASE_URL .
     '/rest/v1/employments?select=id' .
     '&worker_id=eq.' . urlencode($user_id) .
@@ -99,21 +113,19 @@ $employment_response = file_get_contents(
     $stats_context
 );
 
-$active_employment = '—';
-
 if ($employment_response !== false) {
 
-    // Initialize response headers
-    $http_response_header = [];
+    // Get the response headers from this request
+    $employment_headers = http_get_last_response_headers();
 
-    foreach ($http_response_header as $header) {
+    foreach ($employment_headers as $header) {
 
         if (stripos($header, 'Content-Range:') === 0) {
 
             preg_match('/\/(\d+)$/', $header, $matches);
 
             if (isset($matches[1])) {
-                $active_employment = (int)$matches[1];
+                $active_employment = (int) $matches[1];
             }
 
             break;
@@ -126,7 +138,7 @@ if ($employment_response !== false) {
 // TOTAL APPLICATIONS
 // ==========================================
 
-// Get the total number of submitted applications
+// Count all applications submitted by the worker
 $applications_count_url = SUPABASE_URL .
     '/rest/v1/applications?select=id' .
     '&worker_id=eq.' . urlencode($user_id);
@@ -137,21 +149,19 @@ $applications_count_response = file_get_contents(
     $stats_context
 );
 
-$total_applications = '—';
-
 if ($applications_count_response !== false) {
 
-    // Initialize response headers
-    $http_response_header = [];
+    // Get the response headers from this request
+    $applications_headers = http_get_last_response_headers();
 
-    foreach ($http_response_header as $header) {
+    foreach ($applications_headers as $header) {
 
         if (stripos($header, 'Content-Range:') === 0) {
 
             preg_match('/\/(\d+)$/', $header, $matches);
 
             if (isset($matches[1])) {
-                $total_applications = (int)$matches[1];
+                $total_applications = (int) $matches[1];
             }
 
             break;
@@ -164,7 +174,7 @@ if ($applications_count_response !== false) {
 // PENDING OFFERS
 // ==========================================
 
-// Get pending offers that have not expired
+// Count pending offers that have not expired
 $offers_url = SUPABASE_URL .
     '/rest/v1/employment_offers?select=id' .
     '&worker_id=eq.' . urlencode($user_id) .
@@ -177,21 +187,19 @@ $offers_response = file_get_contents(
     $stats_context
 );
 
-$pending_offers = '—';
-
 if ($offers_response !== false) {
 
-    // Initialize response headers
-    $http_response_header = [];
+    // Get the response headers from this request
+    $offers_headers = http_get_last_response_headers();
 
-    foreach ($http_response_header as $header) {
+    foreach ($offers_headers as $header) {
 
         if (stripos($header, 'Content-Range:') === 0) {
 
             preg_match('/\/(\d+)$/', $header, $matches);
 
             if (isset($matches[1])) {
-                $pending_offers = (int)$matches[1];
+                $pending_offers = (int) $matches[1];
             }
 
             break;
@@ -204,36 +212,104 @@ if ($offers_response !== false) {
 // TASKS IN PROGRESS
 // ==========================================
 
-// Get the worker's tasks that are currently in progress
-$tasks_url = SUPABASE_URL .
+// Count tasks currently being worked on
+$tasks_count_url = SUPABASE_URL .
     '/rest/v1/tasks?select=id' .
     '&worker_id=eq.' . urlencode($user_id) .
     '&status=eq.in_progress';
 
-$tasks_response = file_get_contents(
-    $tasks_url,
+$tasks_count_response = file_get_contents(
+    $tasks_count_url,
     false,
     $stats_context
 );
 
-$tasks_in_progress = '—';
+if ($tasks_count_response !== false) {
 
-if ($tasks_response !== false) {
-    // Initialize response headers
-    $http_response_header = [];
+    // Get the response headers from this request
+    $tasks_headers = http_get_last_response_headers();
 
-    foreach ($http_response_header as $header) {
-
+    foreach ($tasks_headers as $header) {
 
         if (stripos($header, 'Content-Range:') === 0) {
 
             preg_match('/\/(\d+)$/', $header, $matches);
 
             if (isset($matches[1])) {
-                $tasks_in_progress = (int)$matches[1];
+                $tasks_in_progress = (int) $matches[1];
             }
 
             break;
+        }
+    }
+}
+
+
+// ==========================================
+// GET RECENT TASKS
+// ==========================================
+
+// Get the worker's five most recent tasks
+$tasks_url = SUPABASE_URL .
+    '/rest/v1/tasks?select=id,title,description,priority,due_date,status,estimated_hours' .
+    '&worker_id=eq.' . urlencode($user_id) .
+    '&status=not.eq.cancelled' .
+    '&order=due_date.asc.nullslast&limit=5';
+
+$tasks_response = file_get_contents(
+    $tasks_url,
+    false,
+    $context
+);
+
+if ($tasks_response !== false) {
+
+    $tasks_data = json_decode($tasks_response, true);
+
+    if (is_array($tasks_data) && !isset($tasks_data['code'])) {
+
+        $recent_tasks = $tasks_data;
+    }
+}
+
+
+// ==========================================
+// GET EARNINGS SUMMARY
+// ==========================================
+
+// Retrieve approved and submitted earnings
+$earnings_url = SUPABASE_URL .
+    '/rest/v1/earnings_records?select=earnings_amount,timesheet_status' .
+    '&worker_id=eq.' . urlencode($user_id) .
+    '&timesheet_status=in.(approved,submitted)';
+
+$earnings_response = file_get_contents(
+    $earnings_url,
+    false,
+    $context
+);
+
+if ($earnings_response !== false) {
+
+    $earnings_data = json_decode($earnings_response, true);
+
+    if (is_array($earnings_data) && !isset($earnings_data['code'])) {
+
+        foreach ($earnings_data as $record) {
+
+            $amount = (float) ($record['earnings_amount'] ?? 0);
+
+            // Add approved earnings
+            if ($record['timesheet_status'] === 'approved') {
+
+                $approved_earnings += $amount;
+            }
+
+            // Add pending earnings
+            elseif ($record['timesheet_status'] === 'submitted') {
+
+                $pending_earnings += $amount;
+            }
         }
     }
 }
@@ -284,6 +360,8 @@ require_once '../../includes/header.php';
 
     <section class="wp-dashboard-stats">
 
+        <!-- Active Employment -->
+
         <div class="wp-stat-card">
 
             <div class="wp-stat-top">
@@ -302,6 +380,8 @@ require_once '../../includes/header.php';
 
         </div>
 
+
+        <!-- Applications -->
 
         <div class="wp-stat-card">
 
@@ -322,6 +402,8 @@ require_once '../../includes/header.php';
         </div>
 
 
+        <!-- Pending Offers -->
+
         <div class="wp-stat-card">
 
             <div class="wp-stat-top">
@@ -340,6 +422,8 @@ require_once '../../includes/header.php';
 
         </div>
 
+
+        <!-- Tasks In Progress -->
 
         <div class="wp-stat-card">
 
@@ -363,10 +447,273 @@ require_once '../../includes/header.php';
 
 
     <!-- ======================================
+         EARNINGS OVERVIEW
+    ======================================= -->
+
+    <section class="wp-dashboard-columns wp-worker-earnings-overview">
+
+        <div class="wp-panel">
+
+            <div class="wp-panel-header">
+
+                <div>
+
+                    <h3 class="wp-panel-title">
+                        Confirmed Earnings
+                    </h3>
+
+                    <p class="wp-panel-description">
+                        Earnings from approved timesheets.
+                    </p>
+
+                </div>
+
+                <div class="wp-stat-icon green">
+                    <i class="bi bi-wallet2"></i>
+                </div>
+
+            </div>
+
+            <div class="wp-panel-body">
+
+                <h2 class="wp-worker-earnings-amount">
+                    $<?= number_format($approved_earnings, 2) ?>
+                </h2>
+
+                <a href="/pages/worker/earnings.php" class="wp-dashboard-text-link">
+                    View Earnings
+                    <i class="bi bi-arrow-right"></i>
+                </a>
+
+            </div>
+
+        </div>
+
+
+        <div class="wp-panel">
+
+            <div class="wp-panel-header">
+
+                <div>
+
+                    <h3 class="wp-panel-title">
+                        Pending Earnings
+                    </h3>
+
+                    <p class="wp-panel-description">
+                        Earnings awaiting employer approval.
+                    </p>
+
+                </div>
+
+                <div class="wp-stat-icon yellow">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+
+            </div>
+
+            <div class="wp-panel-body">
+
+                <h2 class="wp-worker-earnings-amount">
+                    $<?= number_format($pending_earnings, 2) ?>
+                </h2>
+
+                <a href="/pages/worker/timesheets.php" class="wp-dashboard-text-link">
+                    View Timesheets
+                    <i class="bi bi-arrow-right"></i>
+                </a>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ======================================
+         RECENT TASKS
+    ======================================= -->
+
+    <section class="wp-panel wp-worker-dashboard-tasks">
+
+        <div class="wp-panel-header">
+
+            <div>
+
+                <h3 class="wp-panel-title">
+                    My Recent Tasks
+                </h3>
+
+                <p class="wp-panel-description">
+                    Keep track of your assigned work and upcoming deadlines.
+                </p>
+
+            </div>
+
+            <a href="/pages/worker/tasks.php" class="wp-dashboard-text-link">
+                View All
+                <i class="bi bi-arrow-right"></i>
+            </a>
+
+        </div>
+
+
+        <div class="wp-panel-body">
+
+            <?php if (!empty($recent_tasks)): ?>
+
+                <div class="wp-application-list">
+
+                    <?php foreach ($recent_tasks as $task): ?>
+
+                        <?php
+
+                        $task_title = $task['title'] ?? 'Untitled Task';
+
+                        $task_description = $task['description'] ?? '';
+
+                        $task_status = $task['status'] ?? 'pending';
+
+                        $task_priority = $task['priority'] ?? 'medium';
+
+                        // Determine task status color
+                        $task_status_class = 'neutral';
+
+                        if ($task_status === 'completed') {
+
+                            $task_status_class = 'success';
+                        } elseif ($task_status === 'in_progress') {
+
+                            $task_status_class = 'info';
+                        } elseif ($task_status === 'pending') {
+
+                            $task_status_class = 'warning';
+                        }
+
+                        // Determine task priority color
+                        $priority_class = 'neutral';
+
+                        if ($task_priority === 'high') {
+
+                            $priority_class = 'danger';
+                        } elseif ($task_priority === 'medium') {
+
+                            $priority_class = 'warning';
+                        } elseif ($task_priority === 'low') {
+
+                            $priority_class = 'info';
+                        }
+
+                        // Format due date
+                        $due_date_label = 'No deadline';
+
+                        if (!empty($task['due_date'])) {
+
+                            $due_timestamp = strtotime($task['due_date']);
+
+                            if ($due_timestamp !== false) {
+                                $due_date_label = date('M d, Y', $due_timestamp);
+                            }
+                        }
+
+                        ?>
+
+                        <div class="wp-application-row">
+
+                            <div class="wp-application-info">
+
+                                <h4>
+                                    <?= htmlspecialchars($task_title, ENT_QUOTES, 'UTF-8') ?>
+                                </h4>
+
+                                <?php if ($task_description !== ''): ?>
+
+                                    <p>
+                                        <?= htmlspecialchars($task_description, ENT_QUOTES, 'UTF-8') ?>
+                                    </p>
+
+                                <?php endif; ?>
+
+                                <div class="wp-application-meta">
+
+                                    <span>
+                                        <i class="bi bi-calendar-event"></i>
+                                        <?= htmlspecialchars($due_date_label, ENT_QUOTES, 'UTF-8') ?>
+                                    </span>
+
+                                    <span>
+                                        <i class="bi bi-flag"></i>
+                                        <?= htmlspecialchars(ucfirst($task_priority), ENT_QUOTES, 'UTF-8') ?> priority
+                                    </span>
+
+                                    <?php if (!empty($task['estimated_hours'])): ?>
+
+                                        <span>
+                                            <i class="bi bi-clock"></i>
+                                            <?= number_format((float)$task['estimated_hours'], 1) ?> estimated hours
+                                        </span>
+
+                                    <?php endif; ?>
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="wp-worker-task-badges">
+
+                                <span class="wp-application-status <?= $priority_class ?>">
+                                    <?= htmlspecialchars(ucfirst($task_priority), ENT_QUOTES, 'UTF-8') ?>
+                                </span>
+
+                                <span class="wp-application-status <?= $task_status_class ?>">
+                                    <?= htmlspecialchars(
+                                        ucwords(str_replace('_', ' ', $task_status)),
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    <?php endforeach; ?>
+
+                </div>
+
+            <?php else: ?>
+
+                <!-- Empty state -->
+
+                <div class="wp-dashboard-empty">
+
+                    <div class="wp-dashboard-empty-icon">
+                        <i class="bi bi-list-check"></i>
+                    </div>
+
+                    <h4>No assigned tasks yet</h4>
+
+                    <p>
+                        Tasks assigned by your employer will appear here.
+                        Once you have an active employment, you can start
+                        working on your assignments.
+                    </p>
+
+                </div>
+
+            <?php endif; ?>
+
+        </div>
+
+    </section>
+
+
+    <!-- ======================================
          MAIN DASHBOARD COLUMNS
     ======================================= -->
 
-    <section class="wp-dashboard-columns">
+    <section class="wp-dashboard-columns wp-worker-dashboard-bottom">
 
 
         <!-- ==================================
@@ -410,12 +757,15 @@ require_once '../../includes/header.php';
 
                             <?php
 
-                            // Get the related job information
+                            // Get related job information
                             $job = $application['jobs'] ?? [];
 
                             $job_title = $job['title'] ?? 'Untitled Job';
+
                             $company_name = $job['company_name'] ?? 'Unknown Company';
-                            $hourly_rate = $job['hourly_rate'] ?? 0;
+
+                            $hourly_rate = (float) ($job['hourly_rate'] ?? 0);
+
                             $employment_type = $job['employment_type'] ?? 'Not specified';
 
                             // Get application status
@@ -424,7 +774,7 @@ require_once '../../includes/header.php';
                             // Determine status badge color
                             $status_class = 'neutral';
 
-                            if ($status === 'accepted' || $status === 'hired') {
+                            if ($status === 'accepted') {
 
                                 $status_class = 'success';
                             } elseif ($status === 'pending') {
@@ -467,7 +817,7 @@ require_once '../../includes/header.php';
                                     <div class="wp-application-meta">
 
                                         <span>
-                                            ₱<?= number_format((float)$hourly_rate, 2) ?>/hr
+                                            $<?= number_format($hourly_rate, 2) ?>/hr
                                         </span>
 
                                         <span>
@@ -488,7 +838,11 @@ require_once '../../includes/header.php';
 
 
                                 <span class="wp-application-status <?= $status_class ?>">
-                                    <?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>
+                                    <?= htmlspecialchars(
+                                        ucfirst($status),
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
                                 </span>
 
                             </div>
@@ -497,10 +851,10 @@ require_once '../../includes/header.php';
 
                     </div>
 
-
                 <?php else: ?>
 
-                    <!-- Empty state when there are no applications -->
+                    <!-- Empty state -->
+
                     <div class="wp-dashboard-empty">
 
                         <div class="wp-dashboard-empty-icon">
@@ -595,7 +949,23 @@ require_once '../../includes/header.php';
 
                         <div>
                             <strong>View Offers</strong>
-                            <small>Review employer invitations</small>
+                            <small>Review employer offers</small>
+                        </div>
+
+                        <i class="bi bi-chevron-right"></i>
+
+                    </a>
+
+
+                    <a href="/pages/worker/time-tracker.php" class="wp-quick-action">
+
+                        <div class="wp-quick-action-icon green">
+                            <i class="bi bi-stopwatch"></i>
+                        </div>
+
+                        <div>
+                            <strong>Time Tracker</strong>
+                            <small>Track your working hours</small>
                         </div>
 
                         <i class="bi bi-chevron-right"></i>
@@ -605,7 +975,7 @@ require_once '../../includes/header.php';
 
                     <a href="/pages/worker/profile.php" class="wp-quick-action">
 
-                        <div class="wp-quick-action-icon green">
+                        <div class="wp-quick-action-icon rose">
                             <i class="bi bi-person"></i>
                         </div>
 

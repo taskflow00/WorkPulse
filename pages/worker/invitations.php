@@ -194,215 +194,397 @@ foreach ($invitations as $invitation) {
 }
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<?php
 
-    <title>My Invitations | WorkPulse</title>
-</head>
+require_once '../../includes/header.php';
 
-<body>
+?>
 
-    <h1>My Invitations</h1>
+<div class="wp-invitations-page">
 
-    <p>
-        Review job invitations sent directly to you by employers.
-    </p>
+    <!-- Page heading -->
+    <div class="wp-dashboard-welcome">
 
-    <a href="dashboard.php">Back to Dashboard</a>
+        <div>
+            <span class="wp-dashboard-eyebrow">RECRUITMENT</span>
 
-    <hr>
+            <h1 class="wp-page-title">My Invitations</h1>
 
-    <h2>
-        Pending Invitations: <?php echo $pending_count; ?>
-    </h2>
+            <p class="wp-page-description">
+                Review opportunities employers have sent directly to you.
+            </p>
+        </div>
 
+    </div>
+
+    <!-- Flash message -->
     <?php if (!empty($message)): ?>
 
-        <p>
-            <?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?>
-        </p>
+        <div class="wp-alert wp-alert-danger">
+            <i class="bi bi-exclamation-circle me-2"></i>
+            <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
+        </div>
 
     <?php endif; ?>
 
+    <!-- Invitation statistics -->
+    <div class="wp-dashboard-stats">
 
-    <?php if (empty($invitations)): ?>
+        <div class="wp-stat-card">
 
-        <p>You don't have any invitations yet.</p>
+            <div class="wp-stat-top">
+                Total Invitations
+                <span class="wp-stat-icon rose">
+                    <i class="bi bi-envelope"></i>
+                </span>
+            </div>
 
-    <?php else: ?>
+            <h2><?= count($invitations) ?></h2>
 
-        <?php foreach ($invitations as $invitation): ?>
+            <small>All invitations received</small>
 
-            <?php
-            // Get job and employer information.
-            $job = $invitation['jobs'] ?? null;
-            $employer = $invitation['profiles'] ?? null;
+        </div>
 
-            $status = $invitation['status'] ?? '';
+        <div class="wp-stat-card">
 
-            $employer_name = $employer['full_name'] ?? 'Unknown employer';
+            <div class="wp-stat-top">
+                Pending Invitations
+                <span class="wp-stat-icon yellow">
+                    <i class="bi bi-clock-history"></i>
+                </span>
+            </div>
 
-            $company_name = $job['company_name']
-                ?? $employer['company_name']
-                ?? 'Not specified';
+            <h2><?= $pending_count ?></h2>
 
-            // Format invitation date.
-            $created_at = 'Unknown date';
+            <small>Waiting for your response</small>
 
-            if (!empty($invitation['created_at'])) {
-                $created_at = date(
-                    'M d, Y h:i A',
-                    strtotime($invitation['created_at'])
-                );
-            }
-            ?>
+        </div>
 
-            <section>
+        <div class="wp-stat-card">
 
-                <hr>
+            <div class="wp-stat-top">
+                Accepted Invitations
+                <span class="wp-stat-icon green">
+                    <i class="bi bi-check-circle"></i>
+                </span>
+            </div>
 
-                <h2>
-                    <?php echo htmlspecialchars($job['title'] ?? 'Job no longer available', ENT_QUOTES, 'UTF-8'); ?>
-                </h2>
+            <h2>
+                <?php
+                $accepted_count = 0;
 
-                <p>
-                    <strong>Company:</strong>
-                    <?php echo htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8'); ?>
-                </p>
-
-                <p>
-                    <strong>Invited by:</strong>
-                    <?php echo htmlspecialchars($employer_name, ENT_QUOTES, 'UTF-8'); ?>
-                </p>
-
-                <p>
-                    <strong>Invitation date:</strong>
-                    <?php echo htmlspecialchars($created_at, ENT_QUOTES, 'UTF-8'); ?>
-                </p>
-
-
-                <?php if (!empty($job['description'])): ?>
-
-                    <h3>Job Description</h3>
-
-                    <p>
-                        <?php echo nl2br(htmlspecialchars($job['description'], ENT_QUOTES, 'UTF-8')); ?>
-                    </p>
-
-                <?php endif; ?>
-
-
-                <?php if (isset($job['hourly_rate'])): ?>
-
-                    <p>
-                        <strong>Hourly Rate:</strong>
-                        $<?php echo number_format((float) $job['hourly_rate'], 2); ?>/hour
-                    </p>
-
-                <?php endif; ?>
-
-
-                <?php if (!empty($job['employment_type'])): ?>
-
-                    <p>
-                        <strong>Employment Type:</strong>
-                        <?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $job['employment_type'])), ENT_QUOTES, 'UTF-8'); ?>
-                    </p>
-
-                <?php endif; ?>
-
-
-                <?php if (!empty($job['work_schedule'])): ?>
-
-                    <p>
-                        <strong>Work Schedule:</strong>
-                        <?php echo htmlspecialchars($job['work_schedule'], ENT_QUOTES, 'UTF-8'); ?>
-                    </p>
-
-                <?php endif; ?>
-
-
-                <h3>Employer's Message</h3>
-
-                <p>
-                    <?php
-                    if (!empty($invitation['message'])) {
-                        echo nl2br(htmlspecialchars($invitation['message'], ENT_QUOTES, 'UTF-8'));
-                    } else {
-                        echo 'No message provided.';
+                foreach ($invitations as $invitation) {
+                    if (($invitation['status'] ?? '') === 'accepted') {
+                        $accepted_count++;
                     }
-                    ?>
-                </p>
+                }
 
+                echo $accepted_count;
+                ?>
+            </h2>
+
+            <small>Invitations you've accepted</small>
+
+        </div>
+
+    </div>
+
+    <!-- Invitation list -->
+    <section class="wp-panel">
+
+        <div class="wp-panel-header">
+
+            <div>
+                <h3 class="wp-panel-title">Received Invitations</h3>
+
+                <p class="wp-panel-description">
+                    Opportunities from employers interested in working with you.
+                </p>
+            </div>
+
+        </div>
+
+        <?php if (empty($invitations)): ?>
+
+            <div class="wp-empty-state">
+
+                <i class="bi bi-envelope-open"></i>
+
+                <h3>No Invitations Yet</h3>
 
                 <p>
-                    <strong>Status:</strong>
-                    <?php echo htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8'); ?>
+                    When employers invite you to their job opportunities,
+                    they will appear here.
                 </p>
 
+                <a href="jobs.php" class="wp-btn wp-btn-primary">
+                    <i class="bi bi-search"></i>
+                    Browse Jobs
+                </a>
 
-                <?php if ($status === 'pending'): ?>
+            </div>
 
-                    <form method="POST" action="invitations.php">
+        <?php else: ?>
 
-                        <input
-                            type="hidden"
-                            name="csrf_token"
-                            value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+            <div class="wp-invitation-list">
 
-                        <input
-                            type="hidden"
-                            name="invitation_id"
-                            value="<?php echo htmlspecialchars($invitation['id'], ENT_QUOTES, 'UTF-8'); ?>">
+                <?php foreach ($invitations as $invitation): ?>
 
-                        <button
-                            type="submit"
-                            name="respond_invitation"
-                            value="accepted"
-                            onclick="return confirm('Are you sure you want to accept this invitation?');">
-                            Accept Invitation
-                        </button>
+                    <?php
 
-                        <button
-                            type="submit"
-                            name="respond_invitation"
-                            value="declined"
-                            onclick="return confirm('Are you sure you want to decline this invitation?');">
-                            Decline Invitation
-                        </button>
+                    $job = $invitation['jobs'] ?? null;
+                    $employer = $invitation['profiles'] ?? null;
 
-                    </form>
+                    $status = $invitation['status'] ?? '';
 
+                    $employer_name = $employer['full_name'] ?? 'Unknown employer';
 
-                <?php elseif ($status === 'accepted'): ?>
+                    $company_name = $job['company_name']
+                        ?? $employer['company_name']
+                        ?? 'Not specified';
 
-                    <p>
-                        You accepted this invitation. The employer can now
-                        proceed with the next recruitment step.
-                    </p>
+                    $job_title = $job['title'] ?? 'Job no longer available';
 
-                    <p>
-                        <strong>Note:</strong>
-                        You are not officially hired yet. Wait for a formal employment offer.
-                    </p>
+                    $created_at = 'Unknown date';
 
+                    if (!empty($invitation['created_at'])) {
+                        $created_at = date(
+                            'M d, Y h:i A',
+                            strtotime($invitation['created_at'])
+                        );
+                    }
 
-                <?php elseif ($status === 'declined'): ?>
+                    $status_class = 'neutral';
 
-                    <p>You declined this invitation.</p>
+                    if ($status === 'pending') {
+                        $status_class = 'warning';
+                    } elseif ($status === 'accepted') {
+                        $status_class = 'success';
+                    } elseif ($status === 'declined') {
+                        $status_class = 'danger';
+                    }
 
-                <?php endif; ?>
+                    ?>
 
-            </section>
+                    <article class="wp-invitation-card">
 
-        <?php endforeach; ?>
+                        <!-- Invitation heading -->
+                        <div class="wp-invitation-heading">
 
-    <?php endif; ?>
+                            <div class="wp-invitation-icon">
+                                <i class="bi bi-briefcase"></i>
+                            </div>
 
-</body>
+                            <div class="wp-invitation-title">
 
-</html>
+                                <h4>
+                                    <?= htmlspecialchars($job_title, ENT_QUOTES, 'UTF-8') ?>
+                                </h4>
+
+                                <p>
+                                    <i class="bi bi-building"></i>
+                                    <?= htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8') ?>
+                                </p>
+
+                            </div>
+
+                            <span class="wp-invitation-status <?= $status_class ?>">
+                                <?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>
+                            </span>
+
+                        </div>
+
+                        <!-- Invitation details -->
+                        <div class="wp-invitation-details">
+
+                            <span>
+                                <i class="bi bi-person"></i>
+                                <?= htmlspecialchars($employer_name, ENT_QUOTES, 'UTF-8') ?>
+                            </span>
+
+                            <span>
+                                <i class="bi bi-calendar3"></i>
+                                <?= htmlspecialchars($created_at, ENT_QUOTES, 'UTF-8') ?>
+                            </span>
+
+                            <?php if (isset($job['hourly_rate'])): ?>
+
+                                <span>
+                                    <i class="bi bi-cash"></i>
+                                    $<?= number_format((float) $job['hourly_rate'], 2) ?>/hr
+                                </span>
+
+                            <?php endif; ?>
+
+                            <?php if (!empty($job['employment_type'])): ?>
+
+                                <span>
+                                    <i class="bi bi-clock"></i>
+                                    <?= htmlspecialchars(
+                                        ucwords(str_replace('_', ' ', $job['employment_type'])),
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+                                </span>
+
+                            <?php endif; ?>
+
+                        </div>
+
+                        <!-- Job description -->
+                        <?php if (!empty($job['description'])): ?>
+
+                            <div class="wp-invitation-section">
+
+                                <h5>Job Description</h5>
+
+                                <p>
+                                    <?= nl2br(htmlspecialchars(
+                                        $job['description'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    )) ?>
+                                </p>
+
+                            </div>
+
+                        <?php endif; ?>
+
+                        <?php if (!empty($job['work_schedule'])): ?>
+
+                            <div class="wp-invitation-section">
+
+                                <h5>Work Schedule</h5>
+
+                                <p>
+                                    <?= htmlspecialchars(
+                                        $job['work_schedule'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+                                </p>
+
+                            </div>
+
+                        <?php endif; ?>
+
+                        <!-- Employer message -->
+                        <div class="wp-invitation-message">
+
+                            <div class="wp-invitation-message-heading">
+                                <i class="bi bi-chat-left-text"></i>
+                                Employer's Message
+                            </div>
+
+                            <p>
+                                <?= !empty($invitation['message'])
+                                    ? nl2br(htmlspecialchars(
+                                        $invitation['message'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ))
+                                    : 'No message provided.' ?>
+                            </p>
+
+                        </div>
+
+                        <!-- Invitation actions -->
+                        <?php if ($status === 'pending'): ?>
+
+                            <div class="wp-invitation-actions">
+
+                                <form method="POST" action="invitations.php">
+
+                                    <input
+                                        type="hidden"
+                                        name="csrf_token"
+                                        value="<?= htmlspecialchars(
+                                                    $_SESSION['csrf_token'],
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>">
+
+                                    <input
+                                        type="hidden"
+                                        name="invitation_id"
+                                        value="<?= htmlspecialchars(
+                                                    $invitation['id'],
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>">
+
+                                    <button
+                                        type="submit"
+                                        name="respond_invitation"
+                                        value="declined"
+                                        class="wp-btn wp-btn-outline"
+                                        onclick="return confirm('Are you sure you want to decline this invitation?');">
+
+                                        <i class="bi bi-x-lg"></i>
+                                        Decline
+
+                                    </button>
+
+                                    <button
+                                        type="submit"
+                                        name="respond_invitation"
+                                        value="accepted"
+                                        class="wp-btn wp-btn-success"
+                                        onclick="return confirm('Are you sure you want to accept this invitation?');">
+
+                                        <i class="bi bi-check-lg"></i>
+                                        Accept Invitation
+
+                                    </button>
+
+                                </form>
+
+                            </div>
+
+                        <?php elseif ($status === 'accepted'): ?>
+
+                            <div class="wp-invitation-feedback success">
+
+                                <i class="bi bi-check-circle-fill"></i>
+
+                                <div>
+                                    <strong>Invitation Accepted</strong>
+
+                                    <p>
+                                        The employer can now proceed with the next
+                                        recruitment step. You are not officially hired yet.
+                                    </p>
+                                </div>
+
+                            </div>
+
+                        <?php elseif ($status === 'declined'): ?>
+
+                            <div class="wp-invitation-feedback neutral">
+
+                                <i class="bi bi-info-circle-fill"></i>
+
+                                <div>
+                                    <strong>Invitation Declined</strong>
+
+                                    <p>You declined this invitation.</p>
+                                </div>
+
+                            </div>
+
+                        <?php endif; ?>
+
+                    </article>
+
+                <?php endforeach; ?>
+
+            </div>
+
+        <?php endif; ?>
+
+    </section>
+
+</div>
+
+<?php require_once '../../includes/footer.php'; ?>
