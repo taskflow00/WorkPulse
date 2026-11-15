@@ -1,17 +1,12 @@
 <?php
-// Get the current user's information.
-$user = $_SESSION['user'] ?? [];
-$role = $_SESSION['role'] ?? '';
-
-$user_name = $user['full_name'] ?? $user['name'] ?? 'User';
-
-// Set the page title if the page did not provide one.
+// Default values if the page does not provide them
 $page_title = $page_title ?? 'Dashboard';
 $active_page = $active_page ?? '';
 
-// Find the correct path depending on where the page is located.
-// Pages inside /pages/ need to go up two folders.
-$base_path = (strpos($_SERVER['SCRIPT_NAME'], '/pages/') !== false) ? '../../' : '';
+$user_name = $user_name ?? 'WorkPulse User';
+$user_role = $user_role ?? 'User';
+
+$sidebar_links = $sidebar_links ?? [];
 ?>
 
 <!DOCTYPE html>
@@ -21,94 +16,136 @@ $base_path = (strpos($_SERVER['SCRIPT_NAME'], '/pages/') !== false) ? '../../' :
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title><?= htmlspecialchars($page_title) ?> | WorkPulse</title>
+    <title>
+        <?= htmlspecialchars($page_title) ?> | WorkPulse
+    </title>
 
-    <link rel="stylesheet" href="<?= $base_path ?>assets/css/style.css">
-    <link rel="stylesheet" href="<?= $base_path ?>assets/css/layout.css">
+    <!-- Bootstrap CSS -->
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+        rel="stylesheet">
+
+    <!-- WorkPulse CSS -->
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="/assets/css/components.css">
+    <link rel="stylesheet" href="/assets/css/dashboard.css">
 </head>
 
 <body>
 
-    <div class="app-layout">
+    <div class="wp-dashboard">
+
+        <!-- Mobile sidebar background -->
+        <div
+            class="wp-sidebar-backdrop"
+            id="sidebarBackdrop"></div>
 
         <!-- Sidebar -->
-        <aside class="sidebar">
+        <aside class="wp-sidebar" id="sidebar">
 
-            <div class="sidebar-brand">
-                <h2>WorkPulse<span>.</span></h2>
-                <small>Manage Work. Track Time. Grow Together.</small>
+            <!-- Brand -->
+            <div class="wp-sidebar-brand">
+                <div class="wp-brand-mark">W</div>
+
+                <h1 class="wp-brand-name">
+                    WorkPulse
+                </h1>
             </div>
 
-            <div class="sidebar-section">
-                <p class="sidebar-label">WORKSPACE</p>
-
-                <?php if ($role === 'worker'): ?>
-
-                    <a href="<?= $base_path ?>pages/worker/dashboard.php"
-                        class="nav-link <?= $active_page === 'dashboard' ? 'active' : '' ?>">
-                        Dashboard
-                    </a>
-
-                    <a href="<?= $base_path ?>pages/worker/offers.php"
-                        class="nav-link <?= $active_page === 'offers' ? 'active' : '' ?>">
-                        Employment Offers
-                    </a>
-
-                    <a href="<?= $base_path ?>pages/worker/employment.php"
-                        class="nav-link <?= $active_page === 'employment' ? 'active' : '' ?>">
-                        My Employment
-                    </a>
-
-                    <a href="<?= $base_path ?>pages/worker/tasks.php"
-                        class="nav-link <?= $active_page === 'tasks' ? 'active' : '' ?>">
-                        My Tasks
-                    </a>
-
-                    <a href="<?= $base_path ?>pages/worker/time-tracker.php"
-                        class="nav-link <?= $active_page === 'tracker' ? 'active' : '' ?>">
-                        Time Tracker
-                    </a>
-
-                    <a href="<?= $base_path ?>pages/worker/timesheets.php"
-                        class="nav-link <?= $active_page === 'timesheets' ? 'active' : '' ?>">
-                        My Timesheets
-                    </a>
-
-                    <a href="<?= $base_path ?>pages/worker/earnings.php"
-                        class="nav-link <?= $active_page === 'timesheets' ? 'active' : '' ?>">
-                        My Earnings
-                    </a>
-
-
-
-                <?php endif; ?>
-
+            <!-- Navigation label -->
+            <div class="wp-sidebar-label">
+                Menu
             </div>
 
-            <div class="sidebar-bottom">
-                <a href="<?= $base_path ?>logout.php" class="logout-link">
-                    Log Out
-                </a>
+            <!-- Navigation links -->
+            <nav class="wp-sidebar-nav">
+
+                <?php foreach ($sidebar_links as $link): ?>
+
+                    <a
+                        href="<?= htmlspecialchars($link['href']) ?>"
+                        class="wp-sidebar-link <?= ($active_page == $link['key']) ? 'active' : '' ?>">
+
+                        <?php if (!empty($link['icon'])): ?>
+                            <i class="bi <?= htmlspecialchars($link['icon']) ?>"></i>
+                        <?php endif; ?>
+
+                        <span>
+                            <?= htmlspecialchars($link['label']) ?>
+                        </span>
+
+                    </a>
+
+                <?php endforeach; ?>
+
+            </nav>
+
+            <!-- User information -->
+            <div class="wp-sidebar-bottom">
+
+                <div class="wp-user-menu">
+
+                    <div class="wp-avatar">
+                        <?= strtoupper(substr($user_name, 0, 1)) ?>
+                    </div>
+
+                    <div>
+                        <div class="wp-user-name">
+                            <?= htmlspecialchars($user_name) ?>
+                        </div>
+
+                        <div class="wp-user-role">
+                            <?= htmlspecialchars(ucfirst($user_role)) ?>
+                        </div>
+                    </div>
+
+                </div>
+
             </div>
 
         </aside>
 
-        <!-- Main Area -->
-        <div class="app-main">
+        <!-- Main content -->
+        <main class="wp-main">
 
-            <!-- Topbar -->
-            <header class="topbar">
+            <!-- Top navigation -->
+            <header class="wp-topbar">
 
-                <div>
-                    <h3><?= htmlspecialchars($page_title) ?></h3>
-                    <p>Welcome back, <?= htmlspecialchars($user_name) ?>!</p>
+                <div class="wp-topbar-left">
+
+                    <!-- Mobile menu button -->
+                    <button
+                        type="button"
+                        class="wp-icon-button wp-menu-toggle"
+                        id="sidebarToggle"
+                        aria-label="Open navigation">
+                        <i class="bi bi-list fs-5"></i>
+                    </button>
+
+                    <h2 class="wp-topbar-title">
+                        <?= htmlspecialchars($page_title) ?>
+                    </h2>
+
                 </div>
 
-                <div class="topbar-user">
-                    <span><?= htmlspecialchars($user_name) ?></span>
+                <!-- Right side of topbar -->
+                <div class="wp-topbar-right">
+
+                    <button
+                        type="button"
+                        class="wp-icon-button"
+                        aria-label="Notifications">
+                        <i class="bi bi-bell"></i>
+                    </button>
+
                 </div>
 
             </header>
 
-            <!-- Page Content -->
-            <main class="page-content">
+            <!-- Individual page content starts here -->
+            <div class="wp-content">

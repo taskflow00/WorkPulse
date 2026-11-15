@@ -1,0 +1,262 @@
+
+/* ========================================
+   WORKPULSE - SHARED DASHBOARD LAYOUT
+   Stylesheet: dashboard.css
+======================================== */
+
+/* Main dashboard wrapper */
+.wp-dashboard {
+    min-height: 100vh;
+}
+
+/* Sidebar */
+.wp-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+
+    display: flex;
+    flex-direction: column;
+
+    width: var(--wp-sidebar-width);
+    height: 100vh;
+    padding: 24px 16px;
+
+    background: var(--wp-surface);
+    border-right: 1px solid var(--wp-border);
+
+    transition: transform 0.25s ease;
+}
+
+/* Brand */
+.wp-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 0 12px;
+    margin-bottom: 35px;
+}
+
+.wp-brand-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 38px;
+    height: 38px;
+
+    color: #FFFFFF;
+    background: var(--wp-primary);
+    border-radius: 11px;
+
+    font-size: 19px;
+    font-weight: 800;
+}
+
+.wp-brand-name {
+    margin: 0;
+    color: var(--wp-text);
+    font-size: 19px;
+    font-weight: 750;
+    letter-spacing: -0.5px;
+}
+
+/* Sidebar navigation */
+.wp-sidebar-label {
+    padding: 0 12px;
+    margin-bottom: 10px;
+
+    color: var(--wp-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.wp-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.wp-sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    padding: 11px 13px;
+
+    color: var(--wp-muted);
+    border-radius: var(--wp-radius-sm);
+
+    font-size: 13px;
+    font-weight: 550;
+
+    transition: var(--wp-transition);
+}
+
+.wp-sidebar-link:hover {
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+}
+
+.wp-sidebar-link.active {
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    font-weight: 700;
+}
+
+.wp-sidebar-link i {
+    width: 19px;
+    font-size: 17px;
+    text-align: center;
+}
+
+/* Sidebar bottom section */
+.wp-sidebar-bottom {
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px solid var(--wp-border);
+}
+
+/* Main area */
+.wp-main {
+    min-height: 100vh;
+    margin-left: var(--wp-sidebar-width);
+}
+
+/* Top navigation */
+.wp-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    height: var(--wp-navbar-height);
+    padding: 0 32px;
+
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid var(--wp-border);
+    backdrop-filter: blur(12px);
+}
+
+.wp-topbar-left,
+.wp-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.wp-topbar-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 650;
+}
+
+/* User menu */
+.wp-user-menu {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.wp-user-name {
+    color: var(--wp-text);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.wp-user-role {
+    color: var(--wp-muted);
+    font-size: 11px;
+}
+
+/* Notification button */
+.wp-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 38px;
+    height: 38px;
+
+    color: var(--wp-muted);
+    background: transparent;
+    border: 1px solid var(--wp-border);
+    border-radius: 50%;
+
+    cursor: pointer;
+    transition: var(--wp-transition);
+}
+
+.wp-icon-button:hover {
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+}
+
+/* Page content */
+.wp-content {
+    padding: 30px 32px;
+    max-width: 1600px;
+}
+
+/* Mobile menu button */
+.wp-menu-toggle {
+    display: none;
+}
+
+/* Sidebar backdrop for mobile */
+.wp-sidebar-backdrop {
+    display: none;
+}
+
+/* Responsive layout */
+@media (max-width: 992px) {
+    .wp-sidebar {
+        transform: translateX(-100%);
+    }
+
+    .wp-sidebar.show {
+        transform: translateX(0);
+    }
+
+    .wp-sidebar-backdrop.show {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 950;
+        background: rgba(20, 20, 25, 0.35);
+    }
+
+    .wp-main {
+        margin-left: 0;
+    }
+
+    .wp-menu-toggle {
+        display: inline-flex;
+    }
+
+    .wp-content {
+        padding: 24px;
+    }
+}
+
+@media (max-width: 576px) {
+    .wp-topbar {
+        padding: 0 16px;
+    }
+
+    .wp-content {
+        padding: 18px 14px;
+    }
+
+    .wp-user-name,
+    .wp-user-role {
+        display: none;
+    }
+}

@@ -1,16 +1,83 @@
 <?php
-$required_role = 'worker';
 
-require_once '../../includes/auth.php';
+// Page information
+$page_title = 'Dashboard';
+$active_page = 'dashboard';
 
-echo "Welcome, Worker!";
+// Temporary user information
+// Later, we will get these from the logged-in user's session.
+$user_name = 'Arnold Nava';
+$user_role = 'worker';
+
+// Worker navigation links
+$sidebar_links = [
+
+    [
+        'label' => 'Dashboard',
+        'href' => '/pages/worker/dashboard.php',
+        'icon' => 'bi-grid',
+        'key' => 'dashboard'
+    ],
+
+    [
+        'label' => 'Find Jobs',
+        'href' => '/pages/worker/marketplace.php',
+        'icon' => 'bi-search',
+        'key' => 'marketplace'
+    ],
+
+    [
+        'label' => 'My Applications',
+        'href' => '/pages/worker/applications.php',
+        'icon' => 'bi-file-earmark-text',
+        'key' => 'applications'
+    ],
+
+    [
+        'label' => 'My Employment',
+        'href' => '/pages/worker/employment.php',
+        'icon' => 'bi-briefcase',
+        'key' => 'employment'
+    ],
+
+    [
+        'label' => 'My Profile',
+        'href' => '/pages/worker/profile.php',
+        'icon' => 'bi-person',
+        'key' => 'profile'
+    ]
+
+];
+
+// Include shared header
+require_once '../../includes/header.php';
+
 ?>
 
-<a href="../../logout.php">Logout</a>
-<a href="offers.php">Employment Offers</a>
-<a href="invitations.php">My Invitations</a>
-<a href="employment.php">My Employment</a>
-<a href="tasks.php">My Tasks</a>
-<a href="time-tracker.php">Time Tracker</a>
-<a href="timesheets.php">Time Sheets</a>
-<a href="earnings.php">earnings</a>
+<!-- Dashboard content -->
+<div class="wp-page">
+
+    <h1 class="wp-page-title">
+        Welcome back, <?= htmlspecialchars($user_name) ?>!
+    </h1>
+
+    <p class="wp-page-description">
+        Here's what's happening with your work today.
+    </p>
+
+    <div class="wp-panel">
+
+        <div class="wp-panel-body">
+            Your dashboard content will go here.
+        </div>
+
+    </div>
+
+</div>
+
+<?php
+
+// Include shared footer
+require_once '../../includes/footer.php';
+
+?>

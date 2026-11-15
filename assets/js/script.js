@@ -243,3 +243,37 @@ document.addEventListener('DOMContentLoaded', function () {
     filterJobs();
 
 });
+
+// ==========================================
+// WORKPULSE - DASHBOARD SIDEBAR
+// Mobile navigation toggle
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+
+    // Stop if this page doesn't contain the dashboard sidebar
+    if (!sidebar || !sidebarToggle || !sidebarBackdrop) {
+        return;
+    }
+
+    // Open or close the sidebar
+    sidebarToggle.addEventListener('click', function () {
+
+        sidebar.classList.toggle('show');
+        sidebarBackdrop.classList.toggle('show');
+
+    });
+
+    // Close sidebar when clicking outside
+    sidebarBackdrop.addEventListener('click', function () {
+
+        sidebar.classList.remove('show');
+        sidebarBackdrop.classList.remove('show');
+
+    });
+
+});

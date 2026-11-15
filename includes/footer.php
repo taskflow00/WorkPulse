@@ -1,13 +1,17 @@
-<?php
-// Set the correct path for CSS and JavaScript files.
-$base_path = $base_path ?? '../../';
-?>
+</div>
+<!-- End wp-content -->
 
 </main>
-</div>
-</div>
+<!-- End wp-main -->
 
-<script src="<?= $base_path ?>assets/js/script.js"></script>
+</div>
+<!-- End wp-dashboard -->
+
+<!-- Bootstrap JavaScript -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- WorkPulse JavaScript -->
+<script src="/assets/js/script.js"></script>
 
 </body>
 
