@@ -4,6 +4,7 @@
    Stylesheet: dashboard.css
 ======================================== */
 
+
 /* ========================================
    1. MAIN DASHBOARD LAYOUT
 ======================================== */
@@ -27,12 +28,19 @@
     padding: 30px 32px;
 }
 
+/* Dashboard pages already receive spacing from .wp-content */
+.wp-content > .wp-page {
+    min-height: 0;
+    padding: 0;
+}
+
 /* Prevent grid and flex children from overflowing */
 .wp-content > *,
 .wp-dashboard-columns > *,
 .wp-dashboard-admin-grid > * {
     min-width: 0;
 }
+
 
 /* ========================================
    2. SIDEBAR
@@ -221,6 +229,7 @@
     text-align: center;
 }
 
+
 /* ========================================
    3. TOPBAR
 ======================================== */
@@ -381,6 +390,7 @@
     display: none;
 }
 
+
 /* ========================================
    4. WORKER DASHBOARD
 ======================================== */
@@ -411,8 +421,18 @@
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 18px;
+
     width: 100%;
+    min-width: 0;
     margin-bottom: 25px;
+}
+
+/* Center a single statistic card */
+
+.wp-dashboard-stats > .wp-stat-card:only-child {
+    grid-column: 1 / -1;
+    width: min(100%, 360px);
+    justify-self: center;
 }
 
 .wp-stat-card {
@@ -640,6 +660,7 @@
     margin-top: 22px;
 }
 
+
 /* ========================================
    5. ADMIN DASHBOARD
 ======================================== */
@@ -705,6 +726,7 @@
 .wp-admin-table tbody tr:hover {
     background: #FCFAFB;
 }
+
 
 /* ========================================
    6. APPLICATIONS
@@ -899,6 +921,7 @@
     color: var(--wp-muted);
     font-size: 12px;
 }
+
 
 /* ========================================
    7. WORKER PROFILE - ORIGINAL LAYOUT
@@ -1151,6 +1174,7 @@
 .wp-profile-save .wp-btn {
     width: 100%;
 }
+
 
 /* ========================================
    8. WORKER PORTFOLIO PROFILE
@@ -1475,6 +1499,7 @@
     opacity: 0.85;
 }
 
+
 /* ========================================
    9. PROFILE EDIT MODE
 ======================================== */
@@ -1623,6 +1648,7 @@
     cursor: pointer;
 }
 
+
 /* ========================================
    10. RESPONSIVE LAYOUT
 ======================================== */
@@ -1636,6 +1662,7 @@
     }
 
 }
+
 
 /* Tablet and mobile navigation */
 
@@ -1699,6 +1726,7 @@
 
 }
 
+
 /* Mobile */
 
 @media (max-width: 576px) {
@@ -1750,6 +1778,10 @@
     .wp-dashboard-stats {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
+    }
+
+    .wp-dashboard-stats > .wp-stat-card:only-child {
+        width: 100%;
     }
 
     .wp-stat-card {
@@ -1930,36 +1962,4 @@
         margin-right: auto;
     }
 
-}
-
-/* ==========================================
-   DASHBOARD STATS - SINGLE CARD FIX
-========================================== */
-
-.wp-dashboard-stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px;
-    width: 100%;
-    min-width: 0;
-}
-
-/* A single stat card fills the entire row */
-.wp-dashboard-stats > .wp-stat-card:only-child {
-    grid-column: 1 / -1;
-    width: 100%;
-    min-width: 0;
-}
-
-/* Mobile */
-@media (max-width: 768px) {
-    .wp-dashboard-stats {
-        grid-template-columns: minmax(0, 1fr);
-        width: 100%;
-    }
-
-    .wp-dashboard-stats > .wp-stat-card {
-        width: 100%;
-        min-width: 0;
-    }
 }
