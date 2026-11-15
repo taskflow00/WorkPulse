@@ -1,0 +1,188 @@
+
+.employer-profile-page {
+    max-width: 1050px;
+    margin: 0 auto;
+}
+
+.employer-profile-header {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 28px;
+    margin-bottom: 24px;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.employer-profile-avatar {
+    width: 88px;
+    height: 88px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 50%;
+    background: var(--wp-primary-light);
+    color: var(--wp-primary-hover);
+    font-size: 30px;
+    font-weight: 750;
+}
+
+.employer-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.employer-profile-header-info span {
+    color: var(--wp-primary-hover);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 1px;
+}
+
+.employer-profile-header-info h2 {
+    margin: 6px 0;
+    color: var(--wp-text);
+    font-size: 22px;
+    font-weight: 750;
+}
+
+.employer-profile-header-info p {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 13px;
+}
+
+.employer-profile-card {
+    padding: 28px;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.employer-profile-card-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--wp-border);
+}
+
+.employer-profile-card-heading h3 {
+    margin: 0 0 5px;
+    color: var(--wp-text);
+    font-size: 17px;
+    font-weight: 750;
+}
+
+.employer-profile-card-heading p {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.employer-profile-card-heading > i {
+    color: var(--wp-primary);
+    font-size: 24px;
+}
+
+.employer-profile-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+}
+
+.employer-profile-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.employer-profile-field.full-width {
+    grid-column: 1 / -1;
+}
+
+.employer-profile-field label {
+    color: var(--wp-text);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.employer-profile-field input,
+.employer-profile-field textarea {
+    width: 100%;
+    padding: 11px 13px;
+    color: var(--wp-text);
+    background: var(--wp-background);
+    border: 1px solid var(--wp-border);
+    border-radius: 9px;
+    outline: none;
+    font: inherit;
+    font-size: 13px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.employer-profile-field textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+.employer-profile-field input:focus,
+.employer-profile-field textarea:focus {
+    border-color: var(--wp-primary);
+    box-shadow: 0 0 0 3px rgba(193, 139, 159, 0.13);
+}
+
+.employer-profile-field input:disabled {
+    color: var(--wp-muted);
+    background: var(--wp-background);
+    cursor: not-allowed;
+}
+
+.employer-profile-field small {
+    color: var(--wp-muted);
+    font-size: 11px;
+}
+
+.employer-profile-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 24px;
+    margin-top: 24px;
+    border-top: 1px solid var(--wp-border);
+}
+
+@media (max-width: 650px) {
+    .employer-profile-header {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 22px;
+    }
+
+    .employer-profile-card {
+        padding: 20px;
+    }
+
+    .employer-profile-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .employer-profile-field.full-width {
+        grid-column: auto;
+    }
+
+    .employer-profile-actions {
+        justify-content: stretch;
+    }
+
+    .employer-profile-actions button {
+        width: 100%;
+    }
+}

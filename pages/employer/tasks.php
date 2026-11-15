@@ -1,11 +1,24 @@
 <?php
+
+// ==========================================
+// EMPLOYER TASK MANAGEMENT
+// ==========================================
+
 $required_role = 'employer';
+$page_title = 'Task Management';
+$active_page = 'tasks';
+$page_styles = ['/assets/css/employer-tasks.css'];
+
 require_once '../../includes/auth.php';
 
 $employer_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];
 
-// Common headers for authenticated requests.
+
+// ==========================================
+// COMMON AUTHENTICATED REQUEST HEADERS
+// ==========================================
+
 $headers =
     "apikey: " . SUPABASE_KEY . "\r\n" .
     "Authorization: Bearer " . $access_token . "\r\n";
@@ -18,9 +31,10 @@ $options = [
     ]
 ];
 
-// --------------------------------------------------
-// 1. Retrieve tasks assigned by this employer.
-// --------------------------------------------------
+
+// ==========================================
+// 1. GET EMPLOYER'S ASSIGNED TASKS
+// ==========================================
 
 $url = SUPABASE_URL .
     '/rest/v1/tasks?select=*&employer_id=eq.' .
@@ -42,9 +56,10 @@ foreach ($tasks as $task) {
     $task_lookup[$task['id']] = $task;
 }
 
-// --------------------------------------------------
-// 2. Retrieve pending task submissions.
-// --------------------------------------------------
+
+// ==========================================
+// 2. GET PENDING TASK SUBMISSIONS
+// ==========================================
 
 $pending_reviews = [];
 
@@ -83,20 +98,26 @@ if (!empty($task_lookup)) {
     }
 }
 
-// --------------------------------------------------
-// 3. Retrieve worker names.
-// --------------------------------------------------
+
+// ==========================================
+// 3. GET WORKER NAMES
+// ==========================================
 
 $workers = [];
-
 $worker_ids = [];
 
 foreach ($tasks as $task) {
-    $worker_ids[] = $task['worker_id'];
+
+    if (!empty($task['worker_id'])) {
+        $worker_ids[] = $task['worker_id'];
+    }
 }
 
 foreach ($pending_reviews as $submission) {
-    $worker_ids[] = $submission['worker_id'];
+
+    if (!empty($submission['worker_id'])) {
+        $worker_ids[] = $submission['worker_id'];
+    }
 }
 
 $worker_ids = array_unique($worker_ids);
@@ -119,16 +140,18 @@ if (!empty($worker_ids)) {
 
     $profiles = json_decode($profile_response ?: '', true);
 
-    if (is_array($profiles)) {
+    if (is_array($profiles) && array_is_list($profiles)) {
+
         foreach ($profiles as $profile) {
             $workers[$profile['id']] = $profile['full_name'];
         }
     }
 }
 
-// --------------------------------------------------
-// 4. Count task statuses.
-// --------------------------------------------------
+
+// ==========================================
+// 4. COUNT TASK STATUSES
+// ==========================================
 
 $total_tasks = count($tasks);
 $pending_tasks = 0;
@@ -137,233 +160,534 @@ $completed_tasks = 0;
 
 foreach ($tasks as $task) {
 
-    if ($task['status'] === 'pending') {
+    $status = $task['status'] ?? 'pending';
+
+    if ($status === 'pending') {
         $pending_tasks++;
-    } elseif ($task['status'] === 'in_progress') {
+    } elseif ($status === 'in_progress') {
         $in_progress_tasks++;
-    } elseif ($task['status'] === 'completed') {
+    } elseif ($status === 'completed') {
         $completed_tasks++;
     }
 }
 
 $pending_review_count = count($pending_reviews);
+
+
+// ==========================================
+// 5. LOAD SHARED DASHBOARD
+// ==========================================
+
+require_once '../../includes/header.php';
+
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
+<div class="wp-page employer-tasks-page">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Management - WorkPulse</title>
-</head>
+    <!-- ======================================
+         PAGE HEADING
+    ======================================= -->
 
-<body>
+    <section class="employer-tasks-heading">
 
-    <h1>Task Management</h1>
+        <div>
+            <h1 class="wp-page-title">Task Management</h1>
 
-    <p>Monitor the tasks assigned to your employees.</p>
-
-    <a href="assign-task.php">Assign New Task</a>
-
-    <hr>
-
-    <!-- Task Overview -->
-
-    <h2>Task Overview</h2>
-
-    <p>Total Tasks: <?php echo $total_tasks; ?></p>
-
-    <p>Pending: <?php echo $pending_tasks; ?></p>
-
-    <p>In Progress: <?php echo $in_progress_tasks; ?></p>
-
-    <p>Completed: <?php echo $completed_tasks; ?></p>
-
-    <hr>
-
-    <!-- Pending Reviews -->
-
-    <h2>Pending Reviews</h2>
-
-    <p>
-        Submissions waiting for your approval:
-        <strong><?php echo $pending_review_count; ?></strong>
-    </p>
-
-    <?php if (empty($pending_reviews)): ?>
-
-        <p>No submissions are waiting for review.</p>
-
-    <?php else: ?>
-
-        <?php foreach ($pending_reviews as $submission): ?>
-
-            <?php
-            $task = $task_lookup[$submission['task_id']] ?? null;
-
-            $worker_name = $workers[$submission['worker_id']]
-                ?? 'Unknown Worker';
-
-            $files = $submission['task_submission_files'] ?? [];
-            ?>
-
-            <hr>
-
-            <h3>
-                <?php echo htmlspecialchars(
-                    $task['title'] ?? 'Unknown Task',
-                    ENT_QUOTES,
-                    'UTF-8'
-                ); ?>
-            </h3>
-
-            <p>
-                <strong>Submitted By:</strong>
-
-                <?php echo htmlspecialchars(
-                    $worker_name,
-                    ENT_QUOTES,
-                    'UTF-8'
-                ); ?>
+            <p class="wp-page-description">
+                Manage assigned tasks, monitor employee progress, and review submitted work.
             </p>
+        </div>
 
-            <p>
-                <strong>Submitted At:</strong>
+        <a href="assign-task.php" class="wp-btn wp-btn-primary">
+            <i class="bi bi-plus-lg"></i>
+            Assign New Task
+        </a>
 
-                <?php echo htmlspecialchars(date(
-                    'F j, Y g:i A',
-                    strtotime($submission['submitted_at'])
-                )); ?>
-            </p>
+    </section>
 
-            <p>
-                <strong>Worker's Message:</strong>
-            </p>
 
-            <p>
-                <?php echo nl2br(htmlspecialchars(
-                    $submission['message'],
-                    ENT_QUOTES,
-                    'UTF-8'
-                )); ?>
-            </p>
+    <!-- ======================================
+         TASK OVERVIEW
+    ======================================= -->
 
-            <p>
-                <strong>Screenshots:</strong>
-                <?php echo count($files); ?> uploaded
-            </p>
+    <section class="employer-task-stats">
 
-            <a href="review-submission.php?id=<?php echo urlencode(
-                                                    $submission['id']
-                                                ); ?>">
-                Review Submission
-            </a>
+        <div class="employer-task-stat">
 
-        <?php endforeach; ?>
+            <div class="employer-task-stat-icon stat-rose">
+                <i class="bi bi-list-task"></i>
+            </div>
 
-    <?php endif; ?>
+            <div>
+                <span>Total Tasks</span>
+                <h2><?= $total_tasks ?></h2>
+                <small>All assigned tasks</small>
+            </div>
 
-    <hr>
+        </div>
 
-    <!-- Assigned Tasks -->
 
-    <h2>Assigned Tasks</h2>
+        <div class="employer-task-stat">
 
-    <?php if (empty($tasks)): ?>
+            <div class="employer-task-stat-icon stat-yellow">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
 
-        <p>You haven't assigned any tasks yet.</p>
+            <div>
+                <span>Pending</span>
+                <h2><?= $pending_tasks ?></h2>
+                <small>Waiting to be started</small>
+            </div>
 
-    <?php else: ?>
+        </div>
 
-        <?php foreach ($tasks as $task): ?>
 
-            <hr>
+        <div class="employer-task-stat">
 
-            <h3>
-                <?php echo htmlspecialchars(
-                    $task['title'],
-                    ENT_QUOTES,
-                    'UTF-8'
-                ); ?>
-            </h3>
+            <div class="employer-task-stat-icon stat-blue">
+                <i class="bi bi-arrow-repeat"></i>
+            </div>
 
-            <p>
-                <strong>Assigned To:</strong>
+            <div>
+                <span>In Progress</span>
+                <h2><?= $in_progress_tasks ?></h2>
+                <small>Currently being worked on</small>
+            </div>
 
-                <?php echo htmlspecialchars(
-                    $workers[$task['worker_id']] ?? 'Unknown Worker',
-                    ENT_QUOTES,
-                    'UTF-8'
-                ); ?>
-            </p>
+        </div>
 
-            <p>
-                <strong>Description:</strong>
 
-                <?php echo htmlspecialchars(
-                    $task['description'] ?? 'No description provided.',
-                    ENT_QUOTES,
-                    'UTF-8'
-                ); ?>
-            </p>
+        <div class="employer-task-stat">
 
-            <p>
-                <strong>Priority:</strong>
+            <div class="employer-task-stat-icon stat-green">
+                <i class="bi bi-check-circle"></i>
+            </div>
 
-                <?php echo htmlspecialchars(
-                    ucfirst($task['priority']),
-                    ENT_QUOTES,
-                    'UTF-8'
-                ); ?>
-            </p>
+            <div>
+                <span>Completed</span>
+                <h2><?= $completed_tasks ?></h2>
+                <small>Successfully completed</small>
+            </div>
 
-            <p>
-                <strong>Deadline:</strong>
+        </div>
 
-                <?php echo !empty($task['due_date'])
-                    ? htmlspecialchars(date(
-                        'F j, Y',
-                        strtotime($task['due_date'])
-                    ))
-                    : 'No deadline'; ?>
-            </p>
+    </section>
 
-            <p>
-                <strong>Estimated Hours:</strong>
 
-                <?php echo $task['estimated_hours'] !== null
-                    ? htmlspecialchars($task['estimated_hours']) . ' hours'
-                    : 'Not specified'; ?>
-            </p>
+    <!-- ======================================
+         PENDING SUBMISSION REVIEWS
+    ======================================= -->
 
-            <p>
-                <strong>Status:</strong>
+    <section class="wp-panel employer-task-section">
 
-                <?php echo htmlspecialchars(
-                    ucwords(str_replace('_', ' ', $task['status'])),
-                    ENT_QUOTES,
-                    'UTF-8'
-                ); ?>
-            </p>
+        <div class="employer-section-heading">
 
-            <p>
-                <strong>Assigned Date:</strong>
+            <div class="employer-section-title-group">
 
-                <?php echo htmlspecialchars(date(
-                    'F j, Y',
-                    strtotime($task['created_at'])
-                )); ?>
-            </p>
+                <div class="employer-section-icon">
+                    <i class="bi bi-clipboard-check"></i>
+                </div>
 
-        <?php endforeach; ?>
+                <div>
+                    <h2 class="wp-panel-title">Pending Reviews</h2>
+                    <p class="wp-panel-description">
+                        Review work submitted by your employees.
+                    </p>
+                </div>
 
-    <?php endif; ?>
+            </div>
 
-    <br>
+            <span class="employer-review-count">
+                <?= $pending_review_count ?> awaiting review
+            </span>
 
-    <a href="dashboard.php">Back to Dashboard</a>
+        </div>
 
-</body>
 
-</html>
+        <?php if (empty($pending_reviews)): ?>
+
+            <div class="employer-task-empty">
+
+                <div class="employer-empty-icon">
+                    <i class="bi bi-check2-circle"></i>
+                </div>
+
+                <h3>You're all caught up!</h3>
+
+                <p>
+                    There are no task submissions waiting for your review.
+                </p>
+
+            </div>
+
+        <?php else: ?>
+
+            <div class="employer-review-list">
+
+                <?php foreach ($pending_reviews as $submission): ?>
+
+                    <?php
+
+                    $task = $task_lookup[$submission['task_id']] ?? null;
+
+                    $worker_name = $workers[$submission['worker_id']]
+                        ?? 'Unknown Worker';
+
+                    $files = $submission['task_submission_files'] ?? [];
+
+                    ?>
+
+                    <article class="employer-review-card">
+
+                        <div class="employer-review-top">
+
+                            <div class="employer-review-task-icon">
+                                <i class="bi bi-file-earmark-check"></i>
+                            </div>
+
+                            <div class="employer-review-info">
+
+                                <h3>
+                                    <?= htmlspecialchars(
+                                        $task['title'] ?? 'Unknown Task',
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+                                </h3>
+
+                                <span>
+                                    <i class="bi bi-person"></i>
+
+                                    <?= htmlspecialchars(
+                                        $worker_name,
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+                                </span>
+
+                            </div>
+
+                            <span class="employer-status status-review">
+                                Pending Review
+                            </span>
+
+                        </div>
+
+
+                        <div class="employer-review-details">
+
+                            <div>
+                                <span class="employer-detail-label">
+                                    Submitted At
+                                </span>
+
+                                <strong>
+                                    <?= !empty($submission['submitted_at'])
+                                        ? htmlspecialchars(date(
+                                            'M d, Y · h:i A',
+                                            strtotime($submission['submitted_at'])
+                                        ), ENT_QUOTES, 'UTF-8')
+                                        : 'Not available' ?>
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span class="employer-detail-label">
+                                    Uploaded Files
+                                </span>
+
+                                <strong>
+                                    <i class="bi bi-paperclip"></i>
+                                    <?= count($files) ?> file(s)
+                                </strong>
+                            </div>
+
+                        </div>
+
+
+                        <div class="employer-review-message">
+
+                            <span class="employer-detail-label">
+                                Worker's Message
+                            </span>
+
+                            <p>
+                                <?= !empty($submission['message'])
+                                    ? nl2br(htmlspecialchars(
+                                        $submission['message'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ))
+                                    : 'No message provided.' ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="employer-review-actions">
+
+                            <a
+                                href="review-submission.php?id=<?= urlencode($submission['id']) ?>"
+                                class="wp-btn wp-btn-primary wp-btn-sm">
+
+                                <i class="bi bi-eye"></i>
+                                Review Submission
+
+                            </a>
+
+                        </div>
+
+                    </article>
+
+                <?php endforeach; ?>
+
+            </div>
+
+        <?php endif; ?>
+
+    </section>
+
+
+    <!-- ======================================
+         ASSIGNED TASKS
+    ======================================= -->
+
+    <section class="wp-panel employer-task-section">
+
+        <div class="employer-section-heading">
+
+            <div class="employer-section-title-group">
+
+                <div class="employer-section-icon">
+                    <i class="bi bi-kanban"></i>
+                </div>
+
+                <div>
+                    <h2 class="wp-panel-title">Assigned Tasks</h2>
+                    <p class="wp-panel-description">
+                        View and monitor the tasks you've assigned to your employees.
+                    </p>
+                </div>
+
+            </div>
+
+            <span class="employer-task-count">
+                <?= $total_tasks ?> task(s)
+            </span>
+
+        </div>
+
+
+        <?php if (empty($tasks)): ?>
+
+            <div class="employer-task-empty">
+
+                <div class="employer-empty-icon">
+                    <i class="bi bi-clipboard-plus"></i>
+                </div>
+
+                <h3>No tasks assigned yet</h3>
+
+                <p>
+                    Start by assigning a task to one of your employees.
+                </p>
+
+                <a href="assign-task.php" class="wp-btn wp-btn-primary">
+                    <i class="bi bi-plus-lg"></i>
+                    Assign Your First Task
+                </a>
+
+            </div>
+
+        <?php else: ?>
+
+            <div class="employer-assigned-grid">
+
+                <?php foreach ($tasks as $task): ?>
+
+                    <?php
+
+                    $status = $task['status'] ?? 'pending';
+
+                    $status_class = 'status-pending';
+
+                    if ($status === 'completed') {
+                        $status_class = 'status-completed';
+                    } elseif ($status === 'in_progress') {
+                        $status_class = 'status-progress';
+                    }
+
+                    $worker_name = $workers[$task['worker_id'] ?? '']
+                        ?? 'Unknown Worker';
+
+                    $priority = $task['priority'] ?? 'Normal';
+
+                    $priority_class = 'priority-normal';
+
+                    if (strtolower($priority) === 'high') {
+                        $priority_class = 'priority-high';
+                    } elseif (strtolower($priority) === 'medium') {
+                        $priority_class = 'priority-medium';
+                    } elseif (strtolower($priority) === 'low') {
+                        $priority_class = 'priority-low';
+                    }
+
+                    ?>
+
+                    <article class="employer-assigned-card">
+
+                        <!-- Card heading -->
+                        <div class="employer-assigned-top">
+
+                            <div class="employer-task-heading">
+
+                                <span class="employer-task-card-label">
+                                    ASSIGNED TASK
+                                </span>
+
+                                <h3>
+                                    <?= htmlspecialchars(
+                                        $task['title'] ?? 'Untitled Task',
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+                                </h3>
+
+                            </div>
+
+                            <span class="employer-status <?= $status_class ?>">
+                                <?= htmlspecialchars(
+                                    ucwords(str_replace('_', ' ', $status)),
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>
+                            </span>
+
+                        </div>
+
+
+                        <!-- Description -->
+                        <p class="employer-assigned-description">
+                            <?= htmlspecialchars(
+                                $task['description'] ?? 'No description provided.',
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>
+                        </p>
+
+
+                        <!-- Worker -->
+                        <div class="employer-assigned-worker">
+
+                            <div class="employer-worker-avatar">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+
+                            <div>
+                                <span>Assigned to</span>
+
+                                <strong>
+                                    <?= htmlspecialchars(
+                                        $worker_name,
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+                                </strong>
+                            </div>
+
+                        </div>
+
+
+                        <!-- Task metadata -->
+                        <div class="employer-assigned-meta">
+
+                            <div class="employer-meta-item">
+
+                                <span>
+                                    <i class="bi bi-flag"></i>
+                                    Priority
+                                </span>
+
+                                <strong class="<?= $priority_class ?>">
+                                    <?= htmlspecialchars(
+                                        ucfirst($priority),
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>
+                                </strong>
+
+                            </div>
+
+
+                            <div class="employer-meta-item">
+
+                                <span>
+                                    <i class="bi bi-calendar-event"></i>
+                                    Deadline
+                                </span>
+
+                                <strong>
+                                    <?= !empty($task['due_date'])
+                                        ? htmlspecialchars(date(
+                                            'M d, Y',
+                                            strtotime($task['due_date'])
+                                        ), ENT_QUOTES, 'UTF-8')
+                                        : 'No deadline' ?>
+                                </strong>
+
+                            </div>
+
+
+                            <div class="employer-meta-item">
+
+                                <span>
+                                    <i class="bi bi-clock"></i>
+                                    Estimated Hours
+                                </span>
+
+                                <strong>
+                                    <?= isset($task['estimated_hours'])
+                                        ? htmlspecialchars(
+                                            (string) $task['estimated_hours'],
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) . ' hours'
+                                        : 'Not specified' ?>
+                                </strong>
+
+                            </div>
+
+
+                            <div class="employer-meta-item">
+
+                                <span>
+                                    <i class="bi bi-calendar-plus"></i>
+                                    Assigned Date
+                                </span>
+
+                                <strong>
+                                    <?= !empty($task['created_at'])
+                                        ? htmlspecialchars(date(
+                                            'M d, Y',
+                                            strtotime($task['created_at'])
+                                        ), ENT_QUOTES, 'UTF-8')
+                                        : 'Not available' ?>
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+
+                <?php endforeach; ?>
+
+            </div>
+
+        <?php endif; ?>
+
+    </section>
+
+</div>
+
+<?php require_once '../../includes/footer.php'; ?>

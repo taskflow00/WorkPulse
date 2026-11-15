@@ -158,7 +158,6 @@ if (
             // CHECK IMAGE MIME TYPE.
             $file_info = finfo_open(FILEINFO_MIME_TYPE);
             $mime_type = finfo_file($file_info, $screenshot['tmp_name']);
-            finfo_close($file_info);
 
             $allowed_types = [
                 'image/jpeg' => 'jpg',

@@ -20,7 +20,7 @@ $url = SUPABASE_URL .
 $options = [
     'http' => [
         'method' => 'GET',
-        'header' =>
+        'header' => 
         "apikey: " . SUPABASE_KEY . "\r\n" .
             "Authorization: Bearer " . $_SESSION['access_token'] . "\r\n",
         'ignore_errors' => true

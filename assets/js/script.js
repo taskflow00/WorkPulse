@@ -10,12 +10,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const suggestions = document.getElementById('skill-suggestions');
     const selectedContainer = document.getElementById('selected-skills');
 
-    // Stop if this page doesn't contain the skill selector
+    // Stop if this page doesn't contain the skill selector.
     if (!searchInput || !suggestions || !selectedContainer) {
         return;
     }
 
-    // Available skills workers can choose from
+    // Available skills.
     const availableSkills = [
         'HTML', 'CSS', 'JavaScript', 'PHP', 'Python',
         'Java', 'C#', 'C++', 'Node.js', 'React',
@@ -29,12 +29,16 @@ document.addEventListener('DOMContentLoaded', function () {
         'Project Management', 'Bookkeeping', 'Email Management'
     ];
 
-    // Load previously selected skills
+    // Load previously selected skills.
     const selectedSkills = JSON.parse(
         selectedContainer.dataset.selectedSkills || '[]'
     );
 
-    // Display selected skill tags
+
+    // ==========================================
+    // DISPLAY SELECTED SKILLS
+    // ==========================================
+
     function renderSelectedSkills() {
 
         selectedContainer.innerHTML = '';
@@ -44,12 +48,15 @@ document.addEventListener('DOMContentLoaded', function () {
             const tag = document.createElement('span');
             tag.className = 'skill-tag';
 
+            // Skill name.
             const name = document.createElement('span');
             name.textContent = skill;
 
+            // Remove button.
             const removeButton = document.createElement('button');
             removeButton.type = 'button';
             removeButton.textContent = '×';
+            removeButton.setAttribute('aria-label', 'Remove ' + skill);
 
             removeButton.addEventListener('click', function () {
 
@@ -63,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 renderSuggestions();
             });
 
-            // Hidden input sends this skill to PHP
+            // Hidden input sends the skill to PHP.
             const hiddenInput = document.createElement('input');
             hiddenInput.type = 'hidden';
             hiddenInput.name = selectedContainer.dataset.inputName || 'skills[]';
@@ -77,13 +84,24 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Display skills matching the search
+
+    // ==========================================
+    // DISPLAY SEARCH SUGGESTIONS
+    // ==========================================
+
     function renderSuggestions() {
 
         const search = searchInput.value.toLowerCase().trim();
 
         suggestions.innerHTML = '';
 
+        // Hide suggestions if the search is empty.
+        if (search === '') {
+            suggestions.classList.remove('is-open');
+            return;
+        }
+
+        // Find matching skills.
         const matches = availableSkills.filter(function (skill) {
 
             return skill.toLowerCase().includes(search)
@@ -91,39 +109,72 @@ document.addEventListener('DOMContentLoaded', function () {
 
         }).slice(0, 8);
 
-        matches.forEach(function (skill) {
 
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.textContent = '+ ' + skill;
+        // Show a message if no skills match.
+        if (matches.length === 0) {
 
-            button.addEventListener('click', function () {
+            const emptyMessage = document.createElement('div');
+            emptyMessage.className = 'skill-no-results';
+            emptyMessage.textContent = 'No matching skills found.';
 
-                selectedSkills.push(skill);
+            suggestions.appendChild(emptyMessage);
 
-                searchInput.value = '';
+        } else {
 
-                renderSelectedSkills();
-                renderSuggestions();
+            // Create a button for every matching skill.
+            matches.forEach(function (skill) {
+
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = '+  ' + skill;
+
+                button.addEventListener('click', function () {
+
+                    selectedSkills.push(skill);
+
+                    // Clear the search after selection.
+                    searchInput.value = '';
+
+                    renderSelectedSkills();
+                    renderSuggestions();
+
+                    searchInput.focus();
+                });
+
+                suggestions.appendChild(button);
             });
+        }
 
-            suggestions.appendChild(button);
-        });
+        suggestions.classList.add('is-open');
     }
 
-    // Update suggestions whenever the user types
+
+    // ==========================================
+    // EVENT LISTENERS
+    // ==========================================
+
+    // Search while typing.
     searchInput.addEventListener('input', renderSuggestions);
 
-    // Initial display
+    // Close dropdown when clicking outside.
+    document.addEventListener('click', function (event) {
+
+        if (
+            !searchInput.contains(event.target) &&
+            !suggestions.contains(event.target)
+        ) {
+            suggestions.classList.remove('is-open');
+        }
+    });
+
+    // Initial display.
     renderSelectedSkills();
-    renderSuggestions();
 
 });
 
 
 // ==========================================
 // JOB LISTINGS - SEARCH AND FILTERS
-// Used by the Public Job Listings page
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -139,7 +190,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const jobCount = document.getElementById('job-count');
     const noMatchingJobs = document.getElementById('no-matching-jobs');
 
-    // Stop if this page doesn't contain the required filter elements
     if (
         !searchInput ||
         !employmentFilter ||
@@ -153,10 +203,8 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
     }
 
-    // Filter the available job listings
     function filterJobs() {
 
-        // Get current filter values
         const search = searchInput.value.toLowerCase().trim();
         const employmentType = employmentFilter.value;
 
@@ -172,7 +220,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         let visibleJobs = 0;
 
-        // Check each job listing
         jobCards.forEach(function (card) {
 
             const jobText = card.dataset.search || '';
@@ -194,7 +241,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const matchesSkill =
                 skill === '' || jobSkills.includes(skill);
 
-            // Display the job only when all filters match
             if (
                 matchesSearch &&
                 matchesType &&
@@ -212,22 +258,18 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // Update the job count
         jobCount.textContent = visibleJobs + ' job(s) available';
 
-        // Show a message when no jobs match
         noMatchingJobs.style.display =
             visibleJobs === 0 ? 'block' : 'none';
     }
 
-    // Run filtering whenever an input changes
     searchInput.addEventListener('input', filterJobs);
     employmentFilter.addEventListener('change', filterJobs);
     minimumRate.addEventListener('input', filterJobs);
     maximumRate.addEventListener('input', filterJobs);
     skillFilter.addEventListener('input', filterJobs);
 
-    // Reset all filters
     clearButton.addEventListener('click', function () {
 
         searchInput.value = '';
@@ -239,10 +281,10 @@ document.addEventListener('DOMContentLoaded', function () {
         filterJobs();
     });
 
-    // Apply filters when the page first loads
     filterJobs();
 
 });
+
 
 // ==========================================
 // WORKPULSE - DASHBOARD SIDEBAR
@@ -255,12 +297,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebarBackdrop = document.getElementById('sidebarBackdrop');
 
-    // Stop if this page doesn't contain the dashboard sidebar
     if (!sidebar || !sidebarToggle || !sidebarBackdrop) {
         return;
     }
 
-    // Open or close the sidebar
+    // Open or close the sidebar.
     sidebarToggle.addEventListener('click', function () {
 
         sidebar.classList.toggle('show');
@@ -268,7 +309,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     });
 
-    // Close sidebar when clicking outside
+    // Close sidebar when clicking outside.
     sidebarBackdrop.addEventListener('click', function () {
 
         sidebar.classList.remove('show');

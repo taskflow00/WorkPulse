@@ -1,5 +1,13 @@
 <?php
+// ==========================================
+// EMPLOYER JOB LISTINGS
+// ==========================================
+
 $required_role = 'employer';
+$page_title = 'My Job Listings';
+$active_page = 'jobs';
+$page_styles = ['/assets/css/employer-jobs.css'];
+
 require_once '../../includes/auth.php';
 
 date_default_timezone_set('Asia/Manila');
@@ -8,7 +16,10 @@ $token = $_SESSION['access_token'];
 $employer_id = $_SESSION['user']['id'];
 
 
-// Create a CSRF token for form submissions.
+// ==========================================
+// CSRF TOKEN
+// ==========================================
+
 if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -16,12 +27,18 @@ if (!isset($_SESSION['csrf_token'])) {
 $csrf_token = $_SESSION['csrf_token'];
 
 
-// Display messages after an action.
+// ==========================================
+// SESSION MESSAGE
+// ==========================================
+
 $message = $_SESSION['job_message'] ?? '';
 unset($_SESSION['job_message']);
 
 
-// Handle closing and reopening jobs.
+// ==========================================
+// HANDLE JOB STATUS UPDATE
+// ==========================================
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $job_id = $_POST['job_id'] ?? '';
@@ -33,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['job_message'] = 'Invalid request. Please try again.';
     } elseif (
         $job_id !== '' &&
-        in_array($new_status, ['open', 'closed'])
+        in_array($new_status, ['open', 'closed'], true)
     ) {
 
         // Update only the logged-in employer's job.
@@ -60,7 +77,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
 
         $context = stream_context_create($options);
-
         $response = file_get_contents($url, false, $context);
 
         if ($response === false) {
@@ -81,22 +97,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['job_message'] = 'Invalid job information.';
     }
 
-    // Redirect to prevent form resubmission.
+    // Prevent form resubmission.
     header('Location: jobs.php');
     exit;
 }
 
 
-// Get search and status filters.
+// ==========================================
+// SEARCH AND STATUS FILTERS
+// ==========================================
+
 $search = trim($_GET['search'] ?? '');
 $status = $_GET['status'] ?? 'all';
 
-if (!in_array($status, ['all', 'open', 'closed'])) {
+if (!in_array($status, ['all', 'open', 'closed'], true)) {
     $status = 'all';
 }
 
 
-// Retrieve only this employer's jobs.
+// ==========================================
+// GET EMPLOYER'S JOB LISTINGS
+// ==========================================
+
 $url = SUPABASE_URL .
     '/rest/v1/jobs?select=id,title,company_name,hourly_rate,employment_type,status,created_at' .
     '&employer_id=eq.' . urlencode($employer_id) .
@@ -113,10 +135,10 @@ $options = [
 ];
 
 $context = stream_context_create($options);
-
 $response = file_get_contents($url, false, $context);
 
 $jobs = [];
+$all_jobs = [];
 $error = '';
 
 if ($response === false) {
@@ -128,8 +150,10 @@ if ($response === false) {
 
     if (is_array($result) && !isset($result['code'])) {
 
-        // Apply filters to the retrieved jobs.
-        foreach ($result as $job) {
+        $all_jobs = $result;
+
+        // Apply search and status filters.
+        foreach ($all_jobs as $job) {
 
             $matches_search = true;
             $matches_status = true;
@@ -137,12 +161,12 @@ if ($response === false) {
             if ($search !== '') {
 
                 $matches_search =
-                    stripos($job['title'], $search) !== false ||
+                    stripos($job['title'] ?? '', $search) !== false ||
                     stripos($job['company_name'] ?? '', $search) !== false;
             }
 
             if ($status !== 'all') {
-                $matches_status = $job['status'] === $status;
+                $matches_status = ($job['status'] ?? '') === $status;
             }
 
             if ($matches_search && $matches_status) {
@@ -155,196 +179,446 @@ if ($response === false) {
     }
 }
 
+
+// ==========================================
+// SUMMARY COUNTS
+// ==========================================
+
+$total_jobs = count($all_jobs);
+$open_jobs = 0;
+$closed_jobs = 0;
+
+foreach ($all_jobs as $job) {
+
+    if (($job['status'] ?? '') === 'open') {
+        $open_jobs++;
+    } elseif (($job['status'] ?? '') === 'closed') {
+        $closed_jobs++;
+    }
+}
+
+
+// ==========================================
+// SHARED DASHBOARD HEADER
+// ==========================================
+
+require_once '../../includes/header.php';
+
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
+<div class="wp-page employer-jobs-page">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Page heading -->
+    <div class="jobs-page-heading">
 
-    <title>WorkPulse | My Job Listings</title>
-</head>
+        <div>
+            <div class="jobs-eyebrow">
+                <i class="bi bi-briefcase"></i>
+                JOB MANAGEMENT
+            </div>
 
-<body>
+            <h1 class="wp-page-title">My Job Listings</h1>
 
-    <h1>My Job Listings</h1>
+            <p class="wp-page-description">
+                Manage your published jobs and control which opportunities are available to workers.
+            </p>
+        </div>
 
-    <p>
-        <a href="dashboard.php">Back to Dashboard</a> |
-        <a href="create-job.php">Create New Job</a> |
-        <a href="../../logout.php">Logout</a>
-    </p>
+        <a href="create-job.php" class="wp-btn wp-btn-primary jobs-create-btn">
+            <i class="bi bi-plus-lg"></i>
+            Create New Job
+        </a>
 
-    <hr>
+    </div>
 
-    <h2>Manage Your Published Jobs</h2>
 
-    <p>
-        View, edit, close, and reopen the jobs you have published.
-    </p>
-
+    <!-- Session message -->
     <?php if ($message !== ''): ?>
 
-        <p>
-            <?php echo htmlspecialchars($message); ?>
-        </p>
+        <div class="jobs-alert" role="alert">
+            <i class="bi bi-info-circle-fill"></i>
+            <span><?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></span>
+        </div>
 
     <?php endif; ?>
 
 
-    <form method="GET" action="">
+    <!-- Summary cards -->
+    <div class="jobs-summary-grid">
 
-        <label>Search Job</label>
+        <div class="jobs-summary-card">
+            <div class="jobs-summary-icon jobs-icon-total">
+                <i class="bi bi-briefcase"></i>
+            </div>
 
-        <input
-            type="text"
-            name="search"
-            placeholder="Job title or company"
-            value="<?php echo htmlspecialchars($search, ENT_QUOTES, 'UTF-8'); ?>">
-
-        <label>Job Status</label>
-
-        <select name="status">
-
-            <option value="all" <?php echo $status === 'all' ? 'selected' : ''; ?>>
-                All Jobs
-            </option>
-
-            <option value="open" <?php echo $status === 'open' ? 'selected' : ''; ?>>
-                Open
-            </option>
-
-            <option value="closed" <?php echo $status === 'closed' ? 'selected' : ''; ?>>
-                Closed
-            </option>
-
-        </select>
-
-        <button type="submit">Apply Filters</button>
-
-        <a href="jobs.php">Clear Filters</a>
-
-    </form>
-
-    <hr>
-
-    <p>
-        Showing <?php echo count($jobs); ?> job listing(s).
-        Maximum of 100 listings per request.
-    </p>
+            <div>
+                <span class="jobs-summary-label">Total Listings</span>
+                <h3><?= $total_jobs ?></h3>
+                <span class="jobs-summary-note">Your published jobs</span>
+            </div>
+        </div>
 
 
-    <?php if ($error !== ''): ?>
+        <div class="jobs-summary-card">
+            <div class="jobs-summary-icon jobs-icon-open">
+                <i class="bi bi-check-circle"></i>
+            </div>
 
-        <p><?php echo htmlspecialchars($error); ?></p>
+            <div>
+                <span class="jobs-summary-label">Open Jobs</span>
+                <h3><?= $open_jobs ?></h3>
+                <span class="jobs-summary-note">Currently accepting applicants</span>
+            </div>
+        </div>
 
-    <?php elseif (count($jobs) > 0): ?>
 
-        <table border="1" cellpadding="8">
+        <div class="jobs-summary-card">
+            <div class="jobs-summary-icon jobs-icon-closed">
+                <i class="bi bi-lock"></i>
+            </div>
 
-            <tr>
-                <th>Job Title</th>
-                <th>Company</th>
-                <th>Hourly Rate</th>
-                <th>Employment Type</th>
-                <th>Status</th>
-                <th>Date Posted</th>
-                <th>Actions</th>
-            </tr>
+            <div>
+                <span class="jobs-summary-label">Closed Jobs</span>
+                <h3><?= $closed_jobs ?></h3>
+                <span class="jobs-summary-note">Not accepting applicants</span>
+            </div>
+        </div>
 
-            <?php foreach ($jobs as $job): ?>
+    </div>
 
-                <tr>
 
-                    <td>
-                        <?php echo htmlspecialchars($job['title']); ?>
-                    </td>
+    <!-- Job listings panel -->
+    <section class="jobs-listings-panel">
 
-                    <td>
-                        <?php echo htmlspecialchars($job['company_name'] ?? 'N/A'); ?>
-                    </td>
+        <div class="jobs-panel-heading">
 
-                    <td>
-                        $<?php echo number_format((float) $job['hourly_rate'], 2); ?>
-                    </td>
+            <div>
+                <h2>All Job Listings</h2>
+                <p>Search, filter, and manage your job opportunities.</p>
+            </div>
 
-                    <td>
-                        <?php
-                        echo htmlspecialchars(
-                            ucfirst(str_replace('_', ' ', $job['employment_type']))
-                        );
-                        ?>
-                    </td>
+            <span class="jobs-result-count">
+                <?= count($jobs) ?> result<?= count($jobs) === 1 ? '' : 's' ?>
+            </span>
 
-                    <td>
-                        <?php echo htmlspecialchars(ucfirst($job['status'])); ?>
-                    </td>
+        </div>
 
-                    <td>
-                        <?php
-                        echo date(
-                            'M d, Y h:i A',
-                            strtotime($job['created_at'])
-                        );
-                        ?>
-                    </td>
 
-                    <td>
+        <!-- Search and filters -->
+        <form method="GET" action="jobs.php" class="jobs-filter-form">
 
-                        <a href="edit-job.php?id=<?php echo urlencode($job['id']); ?>">
-                            Edit
-                        </a>
+            <div class="jobs-search-field">
 
-                        <form method="POST" action="">
+                <i class="bi bi-search"></i>
 
-                            <input
-                                type="hidden"
-                                name="csrf_token"
-                                value="<?php echo htmlspecialchars($csrf_token); ?>">
+                <input
+                    type="text"
+                    name="search"
+                    placeholder="Search by job title or company..."
+                    value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
 
-                            <input
-                                type="hidden"
-                                name="job_id"
-                                value="<?php echo htmlspecialchars($job['id']); ?>">
+            </div>
 
-                            <?php if ($job['status'] === 'open'): ?>
 
-                                <input
-                                    type="hidden"
-                                    name="new_status"
-                                    value="closed">
+            <div class="jobs-status-field">
 
-                                <button type="submit">Close Job</button>
+                <select name="status" aria-label="Filter by job status">
 
-                            <?php else: ?>
+                    <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>
+                        All statuses
+                    </option>
 
-                                <input
-                                    type="hidden"
-                                    name="new_status"
-                                    value="open">
+                    <option value="open" <?= $status === 'open' ? 'selected' : '' ?>>
+                        Open
+                    </option>
 
-                                <button type="submit">Reopen Job</button>
+                    <option value="closed" <?= $status === 'closed' ? 'selected' : '' ?>>
+                        Closed
+                    </option>
 
-                            <?php endif; ?>
+                </select>
 
-                        </form>
+            </div>
 
-                    </td>
 
-                </tr>
+            <button type="submit" class="wp-btn wp-btn-primary jobs-filter-btn">
+                <i class="bi bi-funnel"></i>
+                Apply Filters
+            </button>
 
-            <?php endforeach; ?>
 
-        </table>
+            <?php if ($search !== '' || $status !== 'all'): ?>
 
-    <?php else: ?>
+                <a href="jobs.php" class="jobs-clear-filter">
+                    Clear filters
+                </a>
 
-        <p>You haven't published any matching job listings yet.</p>
+            <?php endif; ?>
 
-    <?php endif; ?>
+        </form>
 
-</body>
 
-</html>
+        <!-- Results -->
+        <?php if ($error !== ''): ?>
+
+            <div class="jobs-empty-state">
+
+                <div class="jobs-empty-icon jobs-empty-error">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+
+                <h3>Unable to Load Jobs</h3>
+
+                <p>
+                    <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
+                </p>
+
+            </div>
+
+
+        <?php elseif (count($jobs) > 0): ?>
+
+            <div class="jobs-table-wrapper">
+
+                <table class="jobs-table">
+
+                    <thead>
+                        <tr>
+                            <th>JOB DETAILS</th>
+                            <th>HOURLY RATE</th>
+                            <th>EMPLOYMENT TYPE</th>
+                            <th>STATUS</th>
+                            <th>DATE POSTED</th>
+                            <th class="text-end">ACTIONS</th>
+                        </tr>
+                    </thead>
+
+
+                    <tbody>
+
+                        <?php foreach ($jobs as $job): ?>
+
+                            <?php
+                            $job_status = $job['status'] ?? 'closed';
+
+                            $status_class = $job_status === 'open'
+                                ? 'jobs-status-open'
+                                : 'jobs-status-closed';
+
+                            $status_label = ucfirst($job_status);
+                            ?>
+
+                            <tr>
+
+                                <!-- Job details -->
+                                <td class="jobs-details-cell">
+
+                                    <div class="jobs-title">
+                                        <?= htmlspecialchars(
+                                            $job['title'] ?? 'Untitled Job',
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
+                                    </div>
+
+                                    <div class="jobs-company">
+                                        <i class="bi bi-building"></i>
+
+                                        <?= htmlspecialchars(
+                                            $job['company_name'] ?? 'No company name',
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
+                                    </div>
+
+                                </td>
+
+
+                                <!-- Hourly rate -->
+                                <td>
+
+                                    <span class="jobs-rate">
+                                        $<?= number_format((float) ($job['hourly_rate'] ?? 0), 2) ?>
+                                    </span>
+
+                                    <span class="jobs-cell-subtext">per hour</span>
+
+                                </td>
+
+
+                                <!-- Employment type -->
+                                <td>
+
+                                    <span class="jobs-employment-type">
+                                        <?= htmlspecialchars(
+                                            ucfirst(str_replace(
+                                                '_',
+                                                ' ',
+                                                $job['employment_type'] ?? 'N/A'
+                                            )),
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
+                                    </span>
+
+                                </td>
+
+
+                                <!-- Status -->
+                                <td>
+
+                                    <span class="jobs-status <?= $status_class ?>">
+                                        <span class="jobs-status-dot"></span>
+                                        <?= htmlspecialchars($status_label, ENT_QUOTES, 'UTF-8') ?>
+                                    </span>
+
+                                </td>
+
+
+                                <!-- Date posted -->
+                                <td>
+
+                                    <span class="jobs-date">
+                                        <?= !empty($job['created_at'])
+                                            ? date('M d, Y', strtotime($job['created_at']))
+                                            : 'N/A' ?>
+                                    </span>
+
+                                </td>
+
+
+                                <!-- Actions -->
+                                <td>
+
+                                    <div class="jobs-actions">
+
+                                        <a
+                                            href="edit-job.php?id=<?= urlencode($job['id']) ?>"
+                                            class="jobs-action-btn jobs-edit-btn"
+                                            title="Edit job">
+
+                                            <i class="bi bi-pencil"></i>
+                                            <span>Edit</span>
+
+                                        </a>
+
+
+                                        <form method="POST" action="jobs.php" class="m-0">
+
+                                            <input
+                                                type="hidden"
+                                                name="csrf_token"
+                                                value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
+
+                                            <input
+                                                type="hidden"
+                                                name="job_id"
+                                                value="<?= htmlspecialchars($job['id'], ENT_QUOTES, 'UTF-8') ?>">
+
+
+                                            <?php if ($job_status === 'open'): ?>
+
+                                                <input
+                                                    type="hidden"
+                                                    name="new_status"
+                                                    value="closed">
+
+                                                <button
+                                                    type="submit"
+                                                    class="jobs-action-btn jobs-close-btn"
+                                                    title="Close job">
+
+                                                    <i class="bi bi-x-circle"></i>
+                                                    <span>Close</span>
+
+                                                </button>
+
+                                            <?php else: ?>
+
+                                                <input
+                                                    type="hidden"
+                                                    name="new_status"
+                                                    value="open">
+
+                                                <button
+                                                    type="submit"
+                                                    class="jobs-action-btn jobs-reopen-btn"
+                                                    title="Reopen job">
+
+                                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                                    <span>Reopen</span>
+
+                                                </button>
+
+                                            <?php endif; ?>
+
+                                        </form>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        <?php endforeach; ?>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+            <div class="jobs-table-footer">
+                <span>
+                    <i class="bi bi-info-circle"></i>
+                    Showing up to 100 of your most recently created job listings.
+                </span>
+            </div>
+
+
+        <?php else: ?>
+
+            <div class="jobs-empty-state">
+
+                <div class="jobs-empty-icon">
+                    <i class="bi bi-briefcase"></i>
+                </div>
+
+                <?php if ($search !== '' || $status !== 'all'): ?>
+
+                    <h3>No Matching Jobs</h3>
+
+                    <p>
+                        We couldn't find any job listings matching your search or selected filters.
+                    </p>
+
+                    <a href="jobs.php" class="wp-btn wp-btn-outline">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        Clear Filters
+                    </a>
+
+                <?php else: ?>
+
+                    <h3>No Job Listings Yet</h3>
+
+                    <p>
+                        You haven't published any jobs. Create your first listing to start finding workers.
+                    </p>
+
+                    <a href="create-job.php" class="wp-btn wp-btn-primary">
+                        <i class="bi bi-plus-lg"></i>
+                        Create Your First Job
+                    </a>
+
+                <?php endif; ?>
+
+            </div>
+
+        <?php endif; ?>
+
+    </section>
+
+</div>
+
+<?php require_once '../../includes/footer.php'; ?>

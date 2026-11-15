@@ -1,5 +1,14 @@
 <?php
+
+// ==========================================
+// EMPLOYER APPLICATIONS
+// ==========================================
+
 $required_role = 'employer';
+$page_title = 'Applications';
+$active_page = 'applications';
+$page_styles = ['/assets/css/employer-applications.css'];
+
 require_once '../../includes/auth.php';
 
 $employer_id = $_SESSION['user']['id'];
@@ -9,7 +18,10 @@ $message = '';
 $message_type = 'info';
 
 
+// ==========================================
 // SEND INTERVIEW INVITATION
+// ==========================================
+
 if (isset($_POST['send_interview_invitation'])) {
 
     $application_id = trim($_POST['application_id'] ?? '');
@@ -63,7 +75,10 @@ if (isset($_POST['send_interview_invitation'])) {
     } elseif ($message === '' && $interview_at === null) {
 
         $message = 'Please select an interview date and time.';
-    } elseif ($message === '' && !in_array($interview_type, $allowed_interview_types, true)) {
+    } elseif (
+        $message === '' &&
+        !in_array($interview_type, $allowed_interview_types, true)
+    ) {
 
         $message = 'Please select a valid interview type.';
     } elseif (
@@ -74,6 +89,7 @@ if (isset($_POST['send_interview_invitation'])) {
 
         $message = 'Please provide the meeting link or interview location.';
     }
+
 
     if ($message === '') {
 
@@ -123,10 +139,8 @@ if (isset($_POST['send_interview_invitation'])) {
             ) {
 
                 if (!empty($result['already_exists'])) {
-
                     $message = 'An active interview invitation already exists for this applicant.';
                 } else {
-
                     $message = 'Interview invitation sent successfully!';
                 }
 
@@ -145,7 +159,10 @@ if (isset($_POST['send_interview_invitation'])) {
 }
 
 
+// ==========================================
 // REJECT APPLICATION
+// ==========================================
+
 if (isset($_POST['reject_application'])) {
 
     $application_id = trim($_POST['application_id'] ?? '');
@@ -161,8 +178,6 @@ if (isset($_POST['reject_application'])) {
         $message_type = 'error';
     } else {
 
-        // Only applications that have not been rejected or hired can be rejected.
-        // RLS must also verify that the application belongs to this employer.
         $url = SUPABASE_URL .
             '/rest/v1/applications?id=eq.' . urlencode($application_id) .
             '&status=in.(pending,shortlisted,interview,accepted)';
@@ -221,7 +236,10 @@ if (isset($_POST['reject_application'])) {
 }
 
 
-// RETRIEVE APPLICATIONS BELONGING TO THIS EMPLOYER
+// ==========================================
+// RETRIEVE EMPLOYER APPLICATIONS
+// ==========================================
+
 $url = SUPABASE_URL .
     '/rest/v1/applications?select=id,worker_id,job_id,application_statement,status,applied_at,resume_path,jobs!inner(title,company_name,hourly_rate,employment_type,work_schedule)' .
     '&jobs.employer_id=eq.' . urlencode($employer_id) .
@@ -272,7 +290,6 @@ if ($response === false) {
 
         $applications = $result;
 
-        // GET UNIQUE WORKER IDS AND APPLICATION IDS
         $worker_ids = array_unique(
             array_column($applications, 'worker_id')
         );
@@ -306,7 +323,6 @@ if ($response === false) {
             );
 
             if ($profile_response !== false) {
-
                 $profiles = json_decode($profile_response, true) ?? [];
             }
         }
@@ -340,13 +356,11 @@ if ($response === false) {
             );
 
             if ($invitation_response !== false) {
-
                 $invitations = json_decode($invitation_response, true) ?? [];
             }
 
 
-            // RETRIEVE EMPLOYMENT OFFERS BELONGING TO THIS EMPLOYER
-            // We retrieve the employer's offers first, then match them below.
+            // RETRIEVE EMPLOYMENT OFFERS
             $details_url = SUPABASE_URL .
                 '/rest/v1/employment_offers?select=id,application_id,invitation_id,status,hourly_rate,start_date,expires_at,worker_response_message,created_at' .
                 '&employer_id=eq.' . urlencode($employer_id) .
@@ -371,7 +385,6 @@ if ($response === false) {
             );
 
             if ($details_response !== false) {
-
                 $employment_details = json_decode($details_response, true) ?? [];
             }
         }
@@ -383,616 +396,1045 @@ if ($response === false) {
 }
 
 
+// ==========================================
 // MATCH APPLICATIONS WITH PROFILES
+// ==========================================
+
 $profile_map = [];
 
 foreach ($profiles as $profile) {
-
     $profile_map[$profile['id']] = $profile;
 }
 
 
-// MATCH APPLICATIONS WITH INTERVIEW INVITATIONS
+// ==========================================
+// MATCH APPLICATIONS WITH INVITATIONS
+// ==========================================
+
 $invitation_map = [];
 
 foreach ($invitations as $invitation) {
 
     if (!empty($invitation['application_id'])) {
-
         $invitation_map[$invitation['application_id']][] = $invitation;
     }
 }
 
 
-// MATCH INVITATION IDS WITH APPLICATION IDS
+// ==========================================
+// MATCH INVITATION IDS WITH APPLICATIONS
+// ==========================================
+
 $invitation_application_map = [];
 
 foreach ($invitations as $invitation) {
 
     if (!empty($invitation['id']) && !empty($invitation['application_id'])) {
-
         $invitation_application_map[$invitation['id']] = $invitation['application_id'];
     }
 }
 
 
+// ==========================================
 // MATCH APPLICATIONS WITH EMPLOYMENT OFFERS
+// ==========================================
+
 $details_map = [];
 
 foreach ($employment_details as $details) {
 
     $matched_application_id = $details['application_id'] ?? null;
 
-    // Some offers may be linked through invitation_id instead.
     if (
         empty($matched_application_id) &&
         !empty($details['invitation_id'])
     ) {
-
         $matched_application_id =
             $invitation_application_map[$details['invitation_id']] ?? null;
     }
 
-    // Offers are ordered newest first, so keep the first one found.
     if (
         !empty($matched_application_id) &&
         !isset($details_map[$matched_application_id])
     ) {
-
         $details_map[$matched_application_id] = $details;
     }
 }
+
+
+// ==========================================
+// APPLICATION STATISTICS
+// ==========================================
+
+$total_applications = count($applications);
+$pending_count = 0;
+$shortlisted_count = 0;
+$interview_count = 0;
+$hired_count = 0;
+
+foreach ($applications as $application) {
+
+    $status = $application['status'] ?? '';
+
+    if ($status === 'pending') {
+        $pending_count++;
+    } elseif ($status === 'shortlisted') {
+        $shortlisted_count++;
+    } elseif ($status === 'interview') {
+        $interview_count++;
+    } elseif ($status === 'hired') {
+        $hired_count++;
+    }
+}
+
+
+// ==========================================
+// LOAD SHARED DASHBOARD
+// ==========================================
+
+require_once '../../includes/header.php';
+
 ?>
 
-<h1>Applications Received</h1>
+<div class="wp-page employer-applications-page">
 
-<p>Review applicants and manage your recruitment process.</p>
+    <!-- PAGE HEADING -->
 
+    <section class="employer-applications-heading">
 
-<?php if ($message !== ''): ?>
+        <div>
+            <h1 class="wp-page-title">Applications</h1>
 
-    <p class="<?php echo htmlspecialchars($message_type); ?>">
-        <?php echo htmlspecialchars($message); ?>
-    </p>
-
-<?php endif; ?>
-
-
-<?php if (empty($applications)): ?>
-
-    <p>You haven't received any applications yet.</p>
-
-<?php else: ?>
-
-    <?php foreach ($applications as $application): ?>
-
-        <?php
-
-        $job = $application['jobs'] ?? null;
-
-        $worker = $profile_map[$application['worker_id']] ?? null;
-
-        $application_invitations =
-            $invitation_map[$application['id']] ?? [];
-
-        // Invitations are ordered newest first.
-        $latest_invitation =
-            $application_invitations[0] ?? null;
-
-        $details =
-            $details_map[$application['id']] ?? null;
-
-        $application_status = $application['status'];
-
-        // The employer can schedule an interview when:
-        // 1. The application is pending or shortlisted.
-        // 2. The previous interview invitation was declined.
-        // 3. The application is still in the interview stage but has no invitation.
-        $can_invite = (
-            in_array(
-                $application_status,
-                ['pending', 'shortlisted'],
-                true
-            ) ||
-            (
-                in_array(
-                    $application_status,
-                    ['interview', 'accepted'],
-                    true
-                ) &&
-                (
-                    $latest_invitation === null ||
-                    $latest_invitation['status'] === 'declined'
-                )
-            )
-        );
-
-        $can_reject = in_array(
-            $application_status,
-            ['pending', 'shortlisted', 'interview', 'accepted'],
-            true
-        );
-
-        $can_prepare_offer = (
-            $latest_invitation !== null &&
-            $latest_invitation['status'] === 'accepted' &&
-            $details === null &&
-            !in_array(
-                $application_status,
-                ['rejected', 'hired'],
-                true
-            )
-        );
-
-        ?>
-
-        <div class="application-card">
-
-            <h2>
-                <?php echo htmlspecialchars(
-                    $worker['full_name'] ?? 'Unknown Applicant'
-                ); ?>
-            </h2>
-
-
-            <?php if ($job): ?>
-
-                <p>
-                    Applied for:
-                    <strong>
-                        <?php echo htmlspecialchars($job['title'] ?? 'Untitled Job'); ?>
-                    </strong>
-                </p>
-
-                <p>
-                    Company:
-                    <?php echo htmlspecialchars($job['company_name'] ?? 'Not specified'); ?>
-                </p>
-
-                <p>
-                    Advertised Rate:
-                    $<?php echo number_format((float)($job['hourly_rate'] ?? 0), 2); ?>/hour
-                </p>
-
-            <?php endif; ?>
-
-
-            <?php if ($worker): ?>
-
-                <p><strong>Skills:</strong></p>
-
-                <p>
-                    <?php
-                    if (is_array($worker['skills'] ?? null)) {
-
-                        echo htmlspecialchars(
-                            implode(', ', $worker['skills'])
-                        );
-                    } else {
-
-                        echo htmlspecialchars(
-                            $worker['skills'] ?? 'Not specified'
-                        );
-                    }
-                    ?>
-                </p>
-
-                <p><strong>Experience:</strong></p>
-
-                <p>
-                    <?php echo nl2br(htmlspecialchars(
-                        $worker['experience'] ?? 'Not provided'
-                    )); ?>
-                </p>
-
-                <p><strong>Education:</strong></p>
-
-                <p>
-                    <?php echo nl2br(htmlspecialchars(
-                        $worker['education'] ?? 'Not provided'
-                    )); ?>
-                </p>
-
-                <?php if (!empty($worker['preferred_hourly_rate'])): ?>
-
-                    <p>
-                        <strong>Preferred Hourly Rate:</strong>
-                        $<?php echo number_format(
-                                (float)$worker['preferred_hourly_rate'],
-                                2
-                            ); ?>/hour
-                    </p>
-
-                <?php endif; ?>
-
-                <?php if (!empty($worker['portfolio_url'])): ?>
-
-                    <p>
-                        <a
-                            href="<?php echo htmlspecialchars($worker['portfolio_url']); ?>"
-                            target="_blank"
-                            rel="noopener noreferrer">
-                            View Portfolio
-                        </a>
-                    </p>
-
-                <?php endif; ?>
-
-            <?php endif; ?>
-
-
-            <?php if (!empty($application['resume_path'])): ?>
-
-                <p>
-                    <a
-                        href="view-resume.php?id=<?php echo urlencode($application['id']); ?>"
-                        target="_blank"
-                        rel="noopener noreferrer">
-                        View Submitted Resume
-                    </a>
-                </p>
-
-            <?php else: ?>
-
-                <p>No resume submitted.</p>
-
-            <?php endif; ?>
-
-
-            <hr>
-
-            <h3>Application Statement</h3>
-
-            <p>
-                <?php echo nl2br(htmlspecialchars(
-                    $application['application_statement'] ?? 'No statement provided.'
-                )); ?>
+            <p class="wp-page-description">
+                Review applicants, manage interviews, and handle employment offers.
             </p>
+        </div>
 
-            <p>
-                <strong>Applied:</strong>
-                <?php echo htmlspecialchars(
-                    date('M d, Y', strtotime($application['applied_at']))
-                ); ?>
-            </p>
+    </section>
 
 
-            <!-- APPLICATION STATUS -->
-            <p>
-                <strong>Application Status:</strong>
+    <!-- APPLICATION STATISTICS -->
 
-                <?php
+    <section class="employer-application-stats">
 
-                $status_labels = [
-                    'pending' => 'Pending Review',
-                    'shortlisted' => 'Shortlisted',
-                    'interview' => 'Interview Process',
-                    'accepted' => 'Proceeding to Employment',
-                    'rejected' => 'Rejected',
-                    'hired' => 'Hired'
-                ];
+        <div class="employer-application-stat">
+            <div class="employer-application-stat-icon stat-rose">
+                <i class="bi bi-people"></i>
+            </div>
 
-                echo htmlspecialchars(
-                    $status_labels[$application_status] ?? ucfirst($application_status)
-                );
+            <div>
+                <span>Total Applications</span>
+                <h2><?= $total_applications ?></h2>
+                <small>All received applications</small>
+            </div>
+        </div>
 
-                ?>
-            </p>
 
+        <div class="employer-application-stat">
+            <div class="employer-application-stat-icon stat-yellow">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
 
-            <!-- EMPLOYER ACTIONS -->
-            <?php if ($can_reject): ?>
+            <div>
+                <span>Pending Review</span>
+                <h2><?= $pending_count ?></h2>
+                <small>Awaiting evaluation</small>
+            </div>
+        </div>
 
-                <form method="POST">
 
-                    <input
-                        type="hidden"
-                        name="application_id"
-                        value="<?php echo htmlspecialchars($application['id']); ?>">
+        <div class="employer-application-stat">
+            <div class="employer-application-stat-icon stat-blue">
+                <i class="bi bi-chat-square-text"></i>
+            </div>
 
-                    <button
-                        type="submit"
-                        name="reject_application"
-                        onclick="return confirm('Are you sure you want to reject this applicant?');">
-                        Reject Applicant
-                    </button>
+            <div>
+                <span>Shortlisted</span>
+                <h2><?= $shortlisted_count ?></h2>
+                <small>Potential candidates</small>
+            </div>
+        </div>
 
-                </form>
 
-            <?php endif; ?>
+        <div class="employer-application-stat">
+            <div class="employer-application-stat-icon stat-green">
+                <i class="bi bi-person-check"></i>
+            </div>
 
+            <div>
+                <span>Hired</span>
+                <h2><?= $hired_count ?></h2>
+                <small>Successfully hired</small>
+            </div>
+        </div>
 
-            <hr>
+    </section>
 
-            <!-- INTERVIEW HISTORY -->
-            <h3>Interview Invitations</h3>
 
-            <?php if (empty($application_invitations)): ?>
+    <!-- FEEDBACK MESSAGE -->
 
-                <p>No interview invitation sent yet.</p>
+    <?php if ($message !== ''): ?>
 
-            <?php else: ?>
+        <div class="employer-application-alert alert-<?= htmlspecialchars($message_type, ENT_QUOTES, 'UTF-8') ?>">
 
-                <?php foreach ($application_invitations as $invitation): ?>
+            <i class="bi <?= $message_type === 'success'
+                                ? 'bi-check-circle-fill'
+                                : ($message_type === 'error'
+                                    ? 'bi-exclamation-circle-fill'
+                                    : 'bi-info-circle-fill') ?>"></i>
 
-                    <div class="invitation-history">
-
-                        <p>
-                            <strong>
-                                <?php
-
-                                $invitation_labels = [
-                                    'pending' => 'Awaiting Worker Response',
-                                    'accepted' => 'Interview Invitation Accepted',
-                                    'declined' => 'Interview Invitation Declined'
-                                ];
-
-                                echo htmlspecialchars(
-                                    $invitation_labels[$invitation['status']] ??
-                                        ucfirst($invitation['status'])
-                                );
-
-                                ?>
-                            </strong>
-                        </p>
-
-
-                        <?php if (!empty($invitation['interview_at'])): ?>
-
-                            <p>
-                                <strong>Interview Schedule:</strong>
-
-                                <?php echo htmlspecialchars(
-                                    date(
-                                        'M d, Y - h:i A',
-                                        strtotime($invitation['interview_at'])
-                                    )
-                                ); ?>
-                            </p>
-
-                        <?php endif; ?>
-
-
-                        <?php if (!empty($invitation['interview_type'])): ?>
-
-                            <p>
-                                <strong>Interview Type:</strong>
-
-                                <?php
-
-                                $interview_labels = [
-                                    'online' => 'Online',
-                                    'phone' => 'Phone Call',
-                                    'in_person' => 'In Person',
-                                    'other' => 'Other'
-                                ];
-
-                                echo htmlspecialchars(
-                                    $interview_labels[$invitation['interview_type']] ??
-                                        $invitation['interview_type']
-                                );
-
-                                ?>
-                            </p>
-
-                        <?php endif; ?>
-
-
-                        <?php if (!empty($invitation['meeting_details'])): ?>
-
-                            <p>
-                                <strong>Meeting Details:</strong>
-
-                                <?php echo nl2br(htmlspecialchars(
-                                    $invitation['meeting_details']
-                                )); ?>
-                            </p>
-
-                        <?php endif; ?>
-
-
-                        <?php if (!empty($invitation['message'])): ?>
-
-                            <p>
-                                <strong>Invitation Message:</strong>
-
-                                <?php echo nl2br(htmlspecialchars(
-                                    $invitation['message']
-                                )); ?>
-                            </p>
-
-                        <?php endif; ?>
-
-
-                        <p>
-                            <small>
-                                Sent:
-                                <?php echo htmlspecialchars(
-                                    date(
-                                        'M d, Y',
-                                        strtotime($invitation['created_at'])
-                                    )
-                                ); ?>
-                            </small>
-                        </p>
-
-                    </div>
-
-                    <hr>
-
-                <?php endforeach; ?>
-
-            <?php endif; ?>
-
-
-            <!-- PREPARE EMPLOYMENT DETAILS -->
-            <?php if ($can_prepare_offer): ?>
-
-                <h3>Next Step</h3>
-
-                <p>
-                    The worker accepted your interview invitation.
-                    You can now prepare the final employment details.
-                </p>
-
-                <a href="send-offer.php?id=<?php echo urlencode($application['id']); ?>">
-                    Prepare Employment Details
-                </a>
-
-                <hr>
-
-            <?php endif; ?>
-
-
-            <!-- EXISTING EMPLOYMENT OFFER -->
-            <?php if ($details !== null): ?>
-
-                <h3>Employment Details Confirmation</h3>
-
-                <p>
-                    <strong>Agreed Hourly Rate:</strong>
-                    $<?php echo number_format(
-                            (float)$details['hourly_rate'],
-                            2
-                        ); ?>/hour
-                </p>
-
-                <p>
-                    <strong>Start Date:</strong>
-
-                    <?php echo !empty($details['start_date'])
-                        ? htmlspecialchars(date('M d, Y', strtotime($details['start_date'])))
-                        : 'Not specified'; ?>
-                </p>
-
-
-                <?php if ($details['status'] === 'pending'): ?>
-
-                    <p>
-                        Waiting for the worker to confirm the agreed employment details.
-                    </p>
-
-                <?php elseif ($details['status'] === 'revision_requested'): ?>
-
-                    <p><strong>Worker requested changes:</strong></p>
-
-                    <p>
-                        <?php echo nl2br(htmlspecialchars(
-                            $details['worker_response_message'] ?? 'No explanation provided.'
-                        )); ?>
-                    </p>
-
-                    <a href="send-offer.php?id=<?php echo urlencode($application['id']); ?>">
-                        Revise Employment Details
-                    </a>
-
-                <?php elseif ($details['status'] === 'accepted'): ?>
-
-                    <p>Worker confirmed the employment details.</p>
-
-                <?php elseif ($details['status'] === 'declined'): ?>
-
-                    <p>Worker declined the proposed employment details.</p>
-
-                <?php endif; ?>
-
-                <hr>
-
-            <?php endif; ?>
-
-
-            <!-- SCHEDULE INTERVIEW -->
-            <?php if ($can_invite): ?>
-
-                <h3>
-                    <?php
-                    if (
-                        $latest_invitation !== null &&
-                        $latest_invitation['status'] === 'declined'
-                    ) {
-                        echo 'Schedule Another Interview';
-                    } else {
-                        echo 'Schedule Interview';
-                    }
-                    ?>
-                </h3>
-
-                <p>
-                    Choose an interview schedule and provide the necessary details
-                    for the applicant.
-                </p>
-
-                <form method="POST">
-
-                    <input
-                        type="hidden"
-                        name="application_id"
-                        value="<?php echo htmlspecialchars($application['id']); ?>">
-
-                    <label>Interview Date and Time</label>
-
-                    <input
-                        type="datetime-local"
-                        name="interview_at"
-                        required>
-
-
-                    <label>Interview Type</label>
-
-                    <select name="interview_type" required>
-
-                        <option value="">Choose interview type</option>
-
-                        <option value="online">Online Meeting</option>
-
-                        <option value="phone">Phone Call</option>
-
-                        <option value="in_person">In Person</option>
-
-                        <option value="other">Other</option>
-
-                    </select>
-
-
-                    <label>Meeting Link or Location</label>
-
-                    <textarea
-                        name="meeting_details"
-                        rows="3"
-                        placeholder="Enter the meeting link, address, or call details."></textarea>
-
-
-                    <label>Personal Message</label>
-
-                    <textarea
-                        name="interview_message"
-                        rows="4"
-                        placeholder="Tell the applicant about the interview and what they should prepare."></textarea>
-
-
-                    <button type="submit" name="send_interview_invitation">
-                        Send Interview Invitation
-                    </button>
-
-                </form>
-
-            <?php elseif (
-                $latest_invitation !== null &&
-                $latest_invitation['status'] === 'pending'
-            ): ?>
-
-                <p>
-                    <strong>Waiting for the worker:</strong>
-                    Your interview invitation is waiting for the worker's response.
-                </p>
-
-            <?php endif; ?>
-
-
-            <hr>
+            <span>
+                <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
+            </span>
 
         </div>
 
-    <?php endforeach; ?>
+    <?php endif; ?>
 
-<?php endif; ?>
+
+    <!-- APPLICATION LIST -->
+
+    <section class="wp-panel employer-applications-section">
+
+        <div class="employer-applications-section-heading">
+
+            <div>
+                <h2 class="wp-panel-title">Received Applications</h2>
+                <p class="wp-panel-description">
+                    Review each candidate and manage their application progress.
+                </p>
+            </div>
+
+            <span class="employer-applications-total">
+                <?= $total_applications ?> applicant(s)
+            </span>
+
+        </div>
+
+
+        <?php if (empty($applications)): ?>
+
+            <div class="employer-applications-empty">
+
+                <div class="employer-applications-empty-icon">
+                    <i class="bi bi-person-lines-fill"></i>
+                </div>
+
+                <h3>No applications yet</h3>
+
+                <p>
+                    Applications from workers will appear here when they apply to your job postings.
+                </p>
+
+                <a href="jobs.php" class="wp-btn wp-btn-primary">
+                    <i class="bi bi-briefcase"></i>
+                    View My Job Posts
+                </a>
+
+            </div>
+
+        <?php else: ?>
+
+            <div class="employer-applications-list">
+
+                <?php foreach ($applications as $application): ?>
+
+                    <?php
+
+                    $job = $application['jobs'] ?? null;
+
+                    $worker = $profile_map[$application['worker_id']] ?? null;
+
+                    $application_invitations =
+                        $invitation_map[$application['id']] ?? [];
+
+                    $latest_invitation =
+                        $application_invitations[0] ?? null;
+
+                    $details =
+                        $details_map[$application['id']] ?? null;
+
+                    $application_status = $application['status'] ?? 'pending';
+
+                    $can_invite = (
+                        in_array(
+                            $application_status,
+                            ['pending', 'shortlisted'],
+                            true
+                        ) ||
+                        (
+                            in_array(
+                                $application_status,
+                                ['interview', 'accepted'],
+                                true
+                            ) &&
+                            (
+                                $latest_invitation === null ||
+                                ($latest_invitation['status'] ?? '') === 'declined'
+                            )
+                        )
+                    );
+
+                    $can_reject = in_array(
+                        $application_status,
+                        ['pending', 'shortlisted', 'interview', 'accepted'],
+                        true
+                    );
+
+                    $can_prepare_offer = (
+                        $latest_invitation !== null &&
+                        ($latest_invitation['status'] ?? '') === 'accepted' &&
+                        $details === null &&
+                        !in_array(
+                            $application_status,
+                            ['rejected', 'hired'],
+                            true
+                        )
+                    );
+
+
+                    // APPLICATION STATUS LABELS
+
+                    $status_labels = [
+                        'pending' => 'Pending Review',
+                        'shortlisted' => 'Shortlisted',
+                        'interview' => 'Interview',
+                        'accepted' => 'Proceeding to Employment',
+                        'rejected' => 'Rejected',
+                        'hired' => 'Hired'
+                    ];
+
+                    $status_class = 'application-status-pending';
+
+                    if ($application_status === 'shortlisted') {
+                        $status_class = 'application-status-shortlisted';
+                    } elseif ($application_status === 'interview') {
+                        $status_class = 'application-status-interview';
+                    } elseif ($application_status === 'accepted') {
+                        $status_class = 'application-status-accepted';
+                    } elseif ($application_status === 'rejected') {
+                        $status_class = 'application-status-rejected';
+                    } elseif ($application_status === 'hired') {
+                        $status_class = 'application-status-hired';
+                    }
+
+                    $worker_name = $worker['full_name'] ?? 'Unknown Applicant';
+                    $worker_initial = strtoupper(substr(trim($worker_name), 0, 1));
+
+                    ?>
+
+                    <article class="employer-application-card">
+
+                        <!-- APPLICANT HEADER -->
+
+                        <div class="employer-application-top">
+
+                            <div class="employer-applicant-identity">
+
+                                <div class="employer-applicant-avatar">
+                                    <?= htmlspecialchars($worker_initial, ENT_QUOTES, 'UTF-8') ?>
+                                </div>
+
+                                <div class="employer-applicant-name">
+
+                                    <h3>
+                                        <?= htmlspecialchars(
+                                            $worker_name,
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
+                                    </h3>
+
+                                    <span>
+                                        <i class="bi bi-calendar3"></i>
+
+                                        Applied
+                                        <?= !empty($application['applied_at'])
+                                            ? htmlspecialchars(date(
+                                                'M d, Y',
+                                                strtotime($application['applied_at'])
+                                            ), ENT_QUOTES, 'UTF-8')
+                                            : 'date unavailable' ?>
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+
+                            <span class="employer-application-status <?= $status_class ?>">
+                                <?= htmlspecialchars(
+                                    $status_labels[$application_status] ?? ucfirst($application_status),
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>
+                            </span>
+
+                        </div>
+
+
+                        <!-- JOB INFORMATION -->
+
+                        <?php if ($job): ?>
+
+                            <div class="employer-application-job">
+
+                                <div class="employer-application-job-icon">
+                                    <i class="bi bi-briefcase"></i>
+                                </div>
+
+                                <div class="employer-application-job-info">
+
+                                    <span>Applied Position</span>
+
+                                    <strong>
+                                        <?= htmlspecialchars(
+                                            $job['title'] ?? 'Untitled Job',
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
+                                    </strong>
+
+                                    <small>
+                                        <?= htmlspecialchars(
+                                            $job['company_name'] ?? 'Company not specified',
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
+                                    </small>
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="employer-application-job-meta">
+
+                                <div>
+                                    <span>Advertised Rate</span>
+                                    <strong>
+                                        $<?= number_format((float)($job['hourly_rate'] ?? 0), 2) ?>/hr
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>Employment Type</span>
+                                    <strong>
+                                        <?= htmlspecialchars(
+                                            ucwords(str_replace('_', ' ', $job['employment_type'] ?? 'Not specified')),
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>Work Schedule</span>
+                                    <strong>
+                                        <?= htmlspecialchars(
+                                            ucwords(str_replace('_', ' ', $job['work_schedule'] ?? 'Not specified')),
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
+                                    </strong>
+                                </div>
+
+                            </div>
+
+                        <?php endif; ?>
+
+
+                        <!-- APPLICANT DETAILS -->
+
+                        <div class="employer-application-details">
+
+                            <div class="employer-application-details-heading">
+                                <i class="bi bi-person-vcard"></i>
+                                Applicant Profile
+                            </div>
+
+
+                            <?php if ($worker): ?>
+
+                                <div class="employer-profile-field">
+
+                                    <span>Skills</span>
+
+                                    <div class="employer-skills-list">
+
+                                        <?php
+
+                                        $skills = $worker['skills'] ?? [];
+
+                                        if (is_string($skills)) {
+                                            $decoded_skills = json_decode($skills, true);
+
+                                            if (is_array($decoded_skills)) {
+                                                $skills = $decoded_skills;
+                                            }
+                                        }
+
+                                        if (is_array($skills) && !empty($skills)):
+
+                                            foreach ($skills as $skill):
+
+                                                if (is_array($skill)) {
+                                                    continue;
+                                                }
+
+                                        ?>
+
+                                                <span class="employer-skill-tag">
+                                                    <?= htmlspecialchars((string)$skill, ENT_QUOTES, 'UTF-8') ?>
+                                                </span>
+
+                                            <?php endforeach; ?>
+
+                                        <?php else: ?>
+
+                                            <span class="employer-profile-muted">
+                                                Not specified
+                                            </span>
+
+                                        <?php endif; ?>
+
+                                    </div>
+
+                                </div>
+
+
+                                <div class="employer-profile-field">
+
+                                    <span>Experience</span>
+
+                                    <p>
+                                        <?= !empty($worker['experience'])
+                                            ? nl2br(htmlspecialchars($worker['experience'], ENT_QUOTES, 'UTF-8'))
+                                            : 'No experience information provided.' ?>
+                                    </p>
+
+                                </div>
+
+
+                                <div class="employer-profile-field">
+
+                                    <span>Education</span>
+
+                                    <p>
+                                        <?= !empty($worker['education'])
+                                            ? nl2br(htmlspecialchars($worker['education'], ENT_QUOTES, 'UTF-8'))
+                                            : 'No education information provided.' ?>
+                                    </p>
+
+                                </div>
+
+
+                                <div class="employer-profile-field">
+
+                                    <span>Preferred Hourly Rate</span>
+
+                                    <p>
+                                        <?= !empty($worker['preferred_hourly_rate'])
+                                            ? '$' . number_format((float)$worker['preferred_hourly_rate'], 2) . '/hour'
+                                            : 'Not specified' ?>
+                                    </p>
+
+                                </div>
+
+
+                                <div class="employer-applicant-links">
+
+                                    <?php if (!empty($worker['portfolio_url'])): ?>
+
+                                        <a
+                                            href="<?= htmlspecialchars($worker['portfolio_url'], ENT_QUOTES, 'UTF-8') ?>"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="employer-applicant-link">
+
+                                            <i class="bi bi-box-arrow-up-right"></i>
+                                            View Portfolio
+
+                                        </a>
+
+                                    <?php endif; ?>
+
+
+                                    <?php if (!empty($application['resume_path'])): ?>
+
+                                        <a
+                                            href="view-resume.php?id=<?= urlencode($application['id']) ?>"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="employer-applicant-link">
+
+                                            <i class="bi bi-file-earmark-pdf"></i>
+                                            View Submitted Resume
+
+                                        </a>
+
+                                    <?php else: ?>
+
+                                        <span class="employer-profile-muted">
+                                            No resume submitted
+                                        </span>
+
+                                    <?php endif; ?>
+
+                                </div>
+
+                            <?php else: ?>
+
+                                <p class="employer-profile-muted">
+                                    Applicant profile information is unavailable.
+                                </p>
+
+                            <?php endif; ?>
+
+                        </div>
+
+
+                        <!-- APPLICATION STATEMENT -->
+
+                        <div class="employer-application-statement">
+
+                            <div class="employer-application-details-heading">
+                                <i class="bi bi-chat-left-text"></i>
+                                Application Statement
+                            </div>
+
+                            <p>
+                                <?= !empty($application['application_statement'])
+                                    ? nl2br(htmlspecialchars(
+                                        $application['application_statement'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ))
+                                    : 'No application statement provided.' ?>
+                            </p>
+
+                        </div>
+
+
+                        <!-- APPLICATION ACTIONS -->
+
+                        <div class="employer-application-actions">
+
+                            <?php if ($can_reject): ?>
+
+                                <form method="POST" class="employer-reject-form">
+
+                                    <input
+                                        type="hidden"
+                                        name="application_id"
+                                        value="<?= htmlspecialchars($application['id'], ENT_QUOTES, 'UTF-8') ?>">
+
+                                    <button
+                                        type="submit"
+                                        name="reject_application"
+                                        class="employer-action-button employer-action-reject"
+                                        onclick="return confirm('Are you sure you want to reject this applicant?');">
+
+                                        <i class="bi bi-x-circle"></i>
+                                        Reject Applicant
+
+                                    </button>
+
+                                </form>
+
+                            <?php endif; ?>
+
+
+                            <?php if ($can_prepare_offer): ?>
+
+                                <a
+                                    href="send-offer.php?id=<?= urlencode($application['id']) ?>"
+                                    class="wp-btn wp-btn-primary">
+
+                                    <i class="bi bi-file-earmark-check"></i>
+                                    Prepare Employment Details
+
+                                </a>
+
+                            <?php endif; ?>
+
+                        </div>
+
+
+                        <!-- INTERVIEW HISTORY -->
+
+                        <details class="employer-application-expand">
+
+                            <summary>
+                                <span>
+                                    <i class="bi bi-calendar2-week"></i>
+                                    Interview History
+                                    <small><?= count($application_invitations) ?></small>
+                                </span>
+
+                                <i class="bi bi-chevron-down"></i>
+                            </summary>
+
+
+                            <div class="employer-expand-content">
+
+                                <?php if (empty($application_invitations)): ?>
+
+                                    <p class="employer-profile-muted">
+                                        No interview invitations have been sent yet.
+                                    </p>
+
+                                <?php else: ?>
+
+                                    <?php foreach ($application_invitations as $invitation): ?>
+
+                                        <?php
+
+                                        $invitation_labels = [
+                                            'pending' => 'Awaiting Worker Response',
+                                            'accepted' => 'Invitation Accepted',
+                                            'declined' => 'Invitation Declined'
+                                        ];
+
+                                        $interview_labels = [
+                                            'online' => 'Online Meeting',
+                                            'phone' => 'Phone Call',
+                                            'in_person' => 'In Person',
+                                            'other' => 'Other'
+                                        ];
+
+                                        ?>
+
+                                        <div class="employer-history-item">
+
+                                            <div class="employer-history-item-top">
+
+                                                <strong>
+                                                    <?= htmlspecialchars(
+                                                        $invitation_labels[$invitation['status']] ?? ucfirst($invitation['status']),
+                                                        ENT_QUOTES,
+                                                        'UTF-8'
+                                                    ) ?>
+                                                </strong>
+
+                                                <span>
+                                                    <?= !empty($invitation['created_at'])
+                                                        ? htmlspecialchars(date(
+                                                            'M d, Y',
+                                                            strtotime($invitation['created_at'])
+                                                        ), ENT_QUOTES, 'UTF-8')
+                                                        : 'Date unavailable' ?>
+                                                </span>
+
+                                            </div>
+
+
+                                            <?php if (!empty($invitation['interview_at'])): ?>
+
+                                                <p>
+                                                    <i class="bi bi-calendar-event"></i>
+
+                                                    <strong>Schedule:</strong>
+
+                                                    <?= htmlspecialchars(date(
+                                                        'M d, Y - h:i A',
+                                                        strtotime($invitation['interview_at'])
+                                                    ), ENT_QUOTES, 'UTF-8') ?>
+                                                </p>
+
+                                            <?php endif; ?>
+
+
+                                            <?php if (!empty($invitation['interview_type'])): ?>
+
+                                                <p>
+                                                    <i class="bi bi-camera-video"></i>
+
+                                                    <strong>Type:</strong>
+
+                                                    <?= htmlspecialchars(
+                                                        $interview_labels[$invitation['interview_type']] ?? $invitation['interview_type'],
+                                                        ENT_QUOTES,
+                                                        'UTF-8'
+                                                    ) ?>
+                                                </p>
+
+                                            <?php endif; ?>
+
+
+                                            <?php if (!empty($invitation['meeting_details'])): ?>
+
+                                                <p>
+                                                    <i class="bi bi-geo-alt"></i>
+
+                                                    <strong>Meeting Details:</strong>
+
+                                                    <?= nl2br(htmlspecialchars(
+                                                        $invitation['meeting_details'],
+                                                        ENT_QUOTES,
+                                                        'UTF-8'
+                                                    )) ?>
+                                                </p>
+
+                                            <?php endif; ?>
+
+
+                                            <?php if (!empty($invitation['message'])): ?>
+
+                                                <div class="employer-history-message">
+                                                    <?= nl2br(htmlspecialchars(
+                                                        $invitation['message'],
+                                                        ENT_QUOTES,
+                                                        'UTF-8'
+                                                    )) ?>
+                                                </div>
+
+                                            <?php endif; ?>
+
+                                        </div>
+
+                                    <?php endforeach; ?>
+
+                                <?php endif; ?>
+
+                            </div>
+
+                        </details>
+
+
+                        <!-- EMPLOYMENT OFFER -->
+
+                        <?php if ($details !== null): ?>
+
+                            <details class="employer-application-expand" open>
+
+                                <summary>
+                                    <span>
+                                        <i class="bi bi-file-earmark-text"></i>
+                                        Employment Details
+                                    </span>
+
+                                    <i class="bi bi-chevron-down"></i>
+                                </summary>
+
+
+                                <div class="employer-expand-content">
+
+                                    <div class="employer-offer-summary">
+
+                                        <div>
+                                            <span>Agreed Hourly Rate</span>
+                                            <strong>
+                                                $<?= number_format((float)$details['hourly_rate'], 2) ?>/hour
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <span>Start Date</span>
+                                            <strong>
+                                                <?= !empty($details['start_date'])
+                                                    ? htmlspecialchars(date(
+                                                        'M d, Y',
+                                                        strtotime($details['start_date'])
+                                                    ), ENT_QUOTES, 'UTF-8')
+                                                    : 'Not specified' ?>
+                                            </strong>
+                                        </div>
+
+                                    </div>
+
+
+                                    <?php if ($details['status'] === 'pending'): ?>
+
+                                        <div class="employer-offer-notice notice-pending">
+                                            <i class="bi bi-hourglass-split"></i>
+                                            Waiting for the worker to confirm the employment details.
+                                        </div>
+
+                                    <?php elseif ($details['status'] === 'revision_requested'): ?>
+
+                                        <div class="employer-offer-notice notice-revision">
+                                            <i class="bi bi-pencil-square"></i>
+                                            <div>
+                                                <strong>Worker requested changes</strong>
+
+                                                <p>
+                                                    <?= nl2br(htmlspecialchars(
+                                                        $details['worker_response_message'] ?? 'No explanation provided.',
+                                                        ENT_QUOTES,
+                                                        'UTF-8'
+                                                    )) ?>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <a
+                                            href="send-offer.php?id=<?= urlencode($application['id']) ?>"
+                                            class="wp-btn wp-btn-primary wp-btn-sm">
+
+                                            <i class="bi bi-pencil"></i>
+                                            Revise Employment Details
+
+                                        </a>
+
+                                    <?php elseif ($details['status'] === 'accepted'): ?>
+
+                                        <div class="employer-offer-notice notice-accepted">
+                                            <i class="bi bi-check-circle"></i>
+                                            Worker confirmed the employment details.
+                                        </div>
+
+                                    <?php elseif ($details['status'] === 'declined'): ?>
+
+                                        <div class="employer-offer-notice notice-declined">
+                                            <i class="bi bi-x-circle"></i>
+                                            Worker declined the proposed employment details.
+                                        </div>
+
+                                    <?php endif; ?>
+
+                                </div>
+
+                            </details>
+
+                        <?php endif; ?>
+
+
+                        <!-- SCHEDULE INTERVIEW -->
+
+                        <?php if ($can_invite): ?>
+
+                            <details class="employer-application-expand employer-interview-expand">
+
+                                <summary>
+                                    <span>
+                                        <i class="bi bi-calendar-plus"></i>
+
+                                        <?= (
+                                            $latest_invitation !== null &&
+                                            ($latest_invitation['status'] ?? '') === 'declined'
+                                        )
+                                            ? 'Schedule Another Interview'
+                                            : 'Schedule Interview' ?>
+                                    </span>
+
+                                    <i class="bi bi-chevron-down"></i>
+                                </summary>
+
+
+                                <div class="employer-expand-content">
+
+                                    <p class="employer-interview-description">
+                                        Choose an interview schedule and provide the necessary details for the applicant.
+                                    </p>
+
+                                    <form method="POST" class="employer-interview-form">
+
+                                        <input
+                                            type="hidden"
+                                            name="application_id"
+                                            value="<?= htmlspecialchars($application['id'], ENT_QUOTES, 'UTF-8') ?>">
+
+
+                                        <div class="employer-form-field">
+
+                                            <label>Interview Date and Time</label>
+
+                                            <input
+                                                type="datetime-local"
+                                                name="interview_at"
+                                                required>
+
+                                        </div>
+
+
+                                        <div class="employer-form-field">
+
+                                            <label>Interview Type</label>
+
+                                            <select name="interview_type" required>
+
+                                                <option value="">Choose interview type</option>
+                                                <option value="online">Online Meeting</option>
+                                                <option value="phone">Phone Call</option>
+                                                <option value="in_person">In Person</option>
+                                                <option value="other">Other</option>
+
+                                            </select>
+
+                                        </div>
+
+
+                                        <div class="employer-form-field">
+
+                                            <label>Meeting Link or Location</label>
+
+                                            <textarea
+                                                name="meeting_details"
+                                                rows="3"
+                                                placeholder="Enter the meeting link, address, or call details."></textarea>
+
+                                            <small>
+                                                Required for online and in-person interviews.
+                                            </small>
+
+                                        </div>
+
+
+                                        <div class="employer-form-field">
+
+                                            <label>Personal Message</label>
+
+                                            <textarea
+                                                name="interview_message"
+                                                rows="4"
+                                                placeholder="Tell the applicant about the interview and what they should prepare."></textarea>
+
+                                        </div>
+
+
+                                        <div class="employer-interview-submit">
+
+                                            <button
+                                                type="submit"
+                                                name="send_interview_invitation"
+                                                class="wp-btn wp-btn-primary">
+
+                                                <i class="bi bi-send"></i>
+                                                Send Interview Invitation
+
+                                            </button>
+
+                                        </div>
+
+                                    </form>
+
+                                </div>
+
+                            </details>
+
+                        <?php elseif (
+                            $latest_invitation !== null &&
+                            ($latest_invitation['status'] ?? '') === 'pending'
+                        ): ?>
+
+                            <div class="employer-waiting-notice">
+                                <i class="bi bi-clock-history"></i>
+                                Waiting for the worker to respond to your interview invitation.
+                            </div>
+
+                        <?php endif; ?>
+
+                    </article>
+
+                <?php endforeach; ?>
+
+            </div>
+
+        <?php endif; ?>
+
+    </section>
+
+</div>
+
+<?php require_once '../../includes/footer.php'; ?>
