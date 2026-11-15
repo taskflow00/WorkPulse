@@ -1,15 +1,23 @@
 <?php
+
 $required_role = 'worker';
+$page_title = 'My Profile';
+$active_page = 'profile';
+
 require_once '../../includes/auth.php';
 
 $user_id = $_SESSION['user']['id'];
+$token = $_SESSION['access_token'];
+
 $message = '';
+$message_type = 'success';
 
+// ==========================================
+// UPDATE PROFILE
+// ==========================================
 
-// Handle profile update
 if (isset($_POST['update_profile'])) {
 
-    // Get submitted information
     $full_name = trim($_POST['full_name'] ?? '');
     $bio = trim($_POST['bio'] ?? '');
     $experience = trim($_POST['experience'] ?? '');
@@ -17,42 +25,58 @@ if (isset($_POST['update_profile'])) {
     $portfolio_url = trim($_POST['portfolio_url'] ?? '');
     $hourly_rate = trim($_POST['preferred_hourly_rate'] ?? '');
 
-    // Get selected skills
     $skills = array_unique(
         array_filter(
             array_map('trim', $_POST['skills'] ?? [])
         )
     );
 
-    // Basic validation
+    // Validate submitted information
     if ($full_name === '') {
         $message = 'Full name is required.';
-    } elseif ($hourly_rate !== '' && (!is_numeric($hourly_rate) || $hourly_rate < 0)) {
+    } elseif (
+        $hourly_rate !== '' &&
+        (!is_numeric($hourly_rate) || $hourly_rate < 0)
+    ) {
         $message = 'Please enter a valid hourly rate.';
-    } elseif ($portfolio_url !== '' && !filter_var($portfolio_url, FILTER_VALIDATE_URL)) {
+    } elseif (
+        $portfolio_url !== '' &&
+        !filter_var($portfolio_url, FILTER_VALIDATE_URL)
+    ) {
         $message = 'Please enter a valid portfolio URL.';
     }
 
-    // Handle resume upload if a new file was selected
+    // ==========================================
+    // RESUME UPLOAD
+    // ==========================================
+
     $resume_path = null;
 
-    if ($message === '' && isset($_FILES['resume']) && $_FILES['resume']['error'] !== UPLOAD_ERR_NO_FILE) {
+    if (
+        $message === '' &&
+        isset($_FILES['resume']) &&
+        $_FILES['resume']['error'] !== UPLOAD_ERR_NO_FILE
+    ) {
 
         $file = $_FILES['resume'];
         $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
-        // Validate the uploaded file
         if ($file['error'] !== UPLOAD_ERR_OK) {
             $message = 'There was a problem uploading your resume.';
         } elseif ($file['size'] > 5 * 1024 * 1024) {
             $message = 'Resume must not exceed 5 MB.';
         } elseif ($extension !== 'pdf') {
             $message = 'Only PDF resumes are allowed.';
-        } elseif (finfo_file(finfo_open(FILEINFO_MIME_TYPE), $file['tmp_name']) !== 'application/pdf') {
+        } elseif (
+            finfo_file(
+                finfo_open(FILEINFO_MIME_TYPE),
+                $file['tmp_name']
+            ) !== 'application/pdf'
+        ) {
             $message = 'The selected file is not a valid PDF.';
         } else {
 
-            // Create the worker's private Storage path
+            // Each worker has their own private resume path
             $resume_path = $user_id . '/resume.pdf';
 
             $storage_url = SUPABASE_URL .
@@ -60,13 +84,12 @@ if (isset($_POST['update_profile'])) {
 
             $file_content = file_get_contents($file['tmp_name']);
 
-            // Upload PDF to Supabase Storage
             $options = [
                 'http' => [
                     'method' => 'POST',
                     'header' =>
                     "apikey: " . SUPABASE_KEY . "\r\n" .
-                        "Authorization: Bearer " . $_SESSION['access_token'] . "\r\n" .
+                        "Authorization: Bearer " . $token . "\r\n" .
                         "Content-Type: application/pdf\r\n" .
                         "x-upsert: true\r\n",
                     'content' => $file_content,
@@ -81,17 +104,24 @@ if (isset($_POST['update_profile'])) {
             preg_match('/\s(\d{3})\s/', $status_line, $matches);
             $status_code = (int)($matches[1] ?? 0);
 
-            if ($upload_response === false || $status_code < 200 || $status_code >= 300) {
+            if (
+                $upload_response === false ||
+                $status_code < 200 ||
+                $status_code >= 300
+            ) {
 
                 $upload_result = json_decode($upload_response ?: '', true);
 
                 $message = 'Resume upload failed. ' .
-                    ($upload_result['message'] ?? $upload_result['error'] ?? 'Please try again.');
+                    ($upload_result['message'] ?? 'Please try again.');
             }
         }
     }
 
-    // Update profile if everything is valid
+    // ==========================================
+    // SAVE PROFILE TO SUPABASE
+    // ==========================================
+
     if ($message === '') {
 
         $data = [
@@ -101,10 +131,10 @@ if (isset($_POST['update_profile'])) {
             'experience' => $experience,
             'education' => $education,
             'portfolio_url' => $portfolio_url,
-            'preferred_hourly_rate' => $hourly_rate === '' ? null : $hourly_rate
+            'preferred_hourly_rate' =>
+            $hourly_rate === '' ? null : $hourly_rate
         ];
 
-        // Update resume path only when a new PDF was uploaded
         if ($resume_path !== null) {
             $data['resume_url'] = $resume_path;
         }
@@ -118,7 +148,7 @@ if (isset($_POST['update_profile'])) {
                 'header' =>
                 "Content-Type: application/json\r\n" .
                     "apikey: " . SUPABASE_KEY . "\r\n" .
-                    "Authorization: Bearer " . $_SESSION['access_token'] . "\r\n" .
+                    "Authorization: Bearer " . $token . "\r\n" .
                     "Prefer: return=representation\r\n",
                 'content' => json_encode($data),
                 'ignore_errors' => true
@@ -129,14 +159,20 @@ if (isset($_POST['update_profile'])) {
         $response = file_get_contents($url, false, $context);
         $result = json_decode($response ?: '', true);
 
-        $message = isset($result[0]['id'])
-            ? 'Profile updated successfully!'
-            : 'Profile update failed. ' . ($result['message'] ?? 'Please try again.');
+        if (isset($result[0]['id'])) {
+            $message = 'Your profile has been updated successfully!';
+            $message_type = 'success';
+        } else {
+            $message = 'Profile update failed. Please try again.';
+            $message_type = 'danger';
+        }
     }
 }
 
+// ==========================================
+// GET CURRENT WORKER PROFILE
+// ==========================================
 
-// Retrieve the current worker profile
 $url = SUPABASE_URL .
     '/rest/v1/profiles?id=eq.' . urlencode($user_id) .
     '&select=*';
@@ -146,7 +182,7 @@ $options = [
         'method' => 'GET',
         'header' =>
         "apikey: " . SUPABASE_KEY . "\r\n" .
-            "Authorization: Bearer " . $_SESSION['access_token'] . "\r\n",
+            "Authorization: Bearer " . $token . "\r\n",
         'ignore_errors' => true
     ]
 ];
@@ -160,109 +196,670 @@ if (!isset($profiles[0])) {
 }
 
 $profile = $profiles[0];
+
+// Make the updated name available to the shared header
+$user_name = $profile['full_name'] ?? 'Worker';
+
+// ==========================================
+// CREATE TEMPORARY RESUME PREVIEW URL
+// ==========================================
+
+$resume_preview_url = '';
+
+if (
+    !empty($profile['resume_url']) &&
+    $profile['resume_url'] === $user_id . '/resume.pdf'
+) {
+
+    $signed_url_endpoint = SUPABASE_URL .
+        '/storage/v1/object/sign/resumes/' .
+        $profile['resume_url'];
+
+    $options = [
+        'http' => [
+            'method' => 'POST',
+            'header' =>
+            "apikey: " . SUPABASE_KEY . "\r\n" .
+                "Authorization: Bearer " . $token . "\r\n" .
+                "Content-Type: application/json\r\n",
+            'content' => json_encode([
+                'expiresIn' => 300
+            ]),
+            'ignore_errors' => true
+        ]
+    ];
+
+    $context = stream_context_create($options);
+    $signed_response = file_get_contents(
+        $signed_url_endpoint,
+        false,
+        $context
+    );
+
+    $signed_result = json_decode($signed_response ?: '', true);
+
+    if (!empty($signed_result['signedURL'])) {
+
+        $signed_path = $signed_result['signedURL'];
+
+        if (strpos($signed_path, 'http') === 0) {
+            $resume_preview_url = $signed_path;
+        } else {
+            $resume_preview_url = SUPABASE_URL .
+                '/storage/v1' . $signed_path;
+        }
+    }
+}
+
+// ==========================================
+// PROFILE DISPLAY VALUES
+// ==========================================
+
+$initial = strtoupper(substr($user_name, 0, 1));
+
+$skills = $profile['skills'] ?? [];
+
+$hourly_rate = $profile['preferred_hourly_rate'] ?? null;
+
+require_once '../../includes/header.php';
+
 ?>
 
-<h1>My Worker Profile</h1>
+<!-- ==========================================
+     PROFILE PAGE
+========================================== -->
 
-<?php if ($message !== ''): ?>
-    <p><?php echo htmlspecialchars($message); ?></p>
-<?php endif; ?>
+<div class="wp-profile-page">
 
-<form method="POST" enctype="multipart/form-data">
+    <div class="wp-dashboard-welcome">
+        <div>
+            <span class="wp-dashboard-eyebrow">YOUR PROFESSIONAL IDENTITY</span>
+            <h1 class="wp-page-title">My Profile</h1>
+            <p class="wp-page-description">
+                Present your skills, experience, and professional background.
+            </p>
+        </div>
 
-    <label>Full Name</label>
-    <input
-        type="text"
-        name="full_name"
-        value="<?php echo htmlspecialchars($profile['full_name'] ?? ''); ?>"
-        required>
+        <button
+            type="button"
+            class="wp-btn wp-btn-primary"
+            id="edit-profile-button"
+            onclick="toggleProfileEdit(true)">
 
-    <br><br>
+            <i class="bi bi-pencil-square"></i>
+            Edit Profile
 
-    <label>About Me</label>
-    <textarea name="bio"><?php echo htmlspecialchars($profile['bio'] ?? ''); ?></textarea>
-
-    <br><br>
-
-    <label>Skills</label>
-
-    <div
-        class="skills-container"
-        data-selected-skills="<?php echo htmlspecialchars(
-                                    json_encode($profile['skills'] ?? []),
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                ); ?>">
-
-        <input
-            type="text"
-            id="skill-search"
-            placeholder="Search skills (e.g. PHP, Graphic Design)"
-            autocomplete="off">
-
-        <div id="skill-suggestions"></div>
-        <div id="selected-skills"></div>
-
+        </button>
     </div>
 
-    <br><br>
+    <?php if ($message !== ''): ?>
 
-    <label>Experience</label>
-    <textarea name="experience"><?php echo htmlspecialchars($profile['experience'] ?? ''); ?></textarea>
-
-    <br><br>
-
-    <label>Education</label>
-    <textarea name="education"><?php echo htmlspecialchars($profile['education'] ?? ''); ?></textarea>
-
-    <br><br>
-
-    <label>Upload Resume (PDF only, maximum 5 MB)</label>
-
-    <input
-        type="file"
-        name="resume"
-        accept=".pdf,application/pdf">
-
-    <?php if (!empty($profile['resume_url'])): ?>
-
-        <p>
-            <strong>Current Resume:</strong>
-            <?php echo htmlspecialchars(basename($profile['resume_url'])); ?>
-        </p>
-
-        <p>Your existing resume will remain saved unless you upload a replacement.</p>
-
-    <?php else: ?>
-
-        <p>You haven't uploaded a resume yet.</p>
+        <div class="wp-alert wp-alert-<?= $message_type ?>">
+            <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
+        </div>
 
     <?php endif; ?>
 
-    <br><br>
+    <!-- ==========================================
+         PROFILE VIEW MODE
+    ========================================== -->
 
-    <label>Portfolio URL</label>
-    <input
-        type="url"
-        name="portfolio_url"
-        value="<?php echo htmlspecialchars($profile['portfolio_url'] ?? ''); ?>">
+    <div id="profile-view">
 
-    <br><br>
+        <!-- Profile header -->
+        <section class="wp-profile-hero">
 
-    <label>Preferred Hourly Rate (PHP)</label>
-    <input
-        type="number"
-        name="preferred_hourly_rate"
-        min="0"
-        step="0.01"
-        value="<?php echo htmlspecialchars((string)($profile['preferred_hourly_rate'] ?? '')); ?>">
+            <div class="wp-profile-avatar">
+                <?= htmlspecialchars($initial, ENT_QUOTES, 'UTF-8') ?>
+            </div>
 
-    <br><br>
+            <div class="wp-profile-hero-info">
 
-    <button type="submit" name="update_profile">
-        Save Profile
-    </button>
+                <span class="wp-profile-eyebrow">
+                    WORKPULSE PROFESSIONAL PROFILE
+                </span>
 
-</form>
+                <h2>
+                    <?= htmlspecialchars($user_name, ENT_QUOTES, 'UTF-8') ?>
+                </h2>
 
-<script src="../../assets/js/script.js"></script>
+                <p>
+                    <?= !empty($profile['bio'])
+                        ? htmlspecialchars(substr($profile['bio'], 0, 110), ENT_QUOTES, 'UTF-8')
+                        : 'Add a professional introduction to tell employers about yourself.' ?>
+                </p>
+
+                <div class="wp-profile-hero-meta">
+
+                    <span>
+                        <i class="bi bi-person-check"></i>
+                        Worker
+                    </span>
+
+                    <?php if ($hourly_rate !== null && $hourly_rate !== ''): ?>
+                        <span>
+                            <i class="bi bi-cash"></i>
+                            $<?= number_format((float)$hourly_rate, 2) ?> / hr
+                        </span>
+                    <?php endif; ?>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <div class="wp-profile-content-grid">
+
+            <div class="wp-profile-main-column">
+
+                <!-- About -->
+                <section class="wp-profile-card">
+
+                    <div class="wp-profile-card-heading">
+                        <div>
+                            <span class="wp-profile-section-label">INTRODUCTION</span>
+                            <h3>About Me</h3>
+                        </div>
+                        <i class="bi bi-person-lines-fill"></i>
+                    </div>
+
+                    <?php if (!empty($profile['bio'])): ?>
+
+                        <p class="wp-profile-description">
+                            <?= nl2br(htmlspecialchars($profile['bio'], ENT_QUOTES, 'UTF-8')) ?>
+                        </p>
+
+                    <?php else: ?>
+
+                        <p class="wp-profile-empty">
+                            No introduction added yet.
+                        </p>
+
+                    <?php endif; ?>
+
+                </section>
+
+                <!-- Skills -->
+                <section class="wp-profile-card">
+
+                    <div class="wp-profile-card-heading">
+                        <div>
+                            <span class="wp-profile-section-label">WHAT I CAN DO</span>
+                            <h3>Skills & Expertise</h3>
+                        </div>
+                        <i class="bi bi-stars"></i>
+                    </div>
+
+                    <?php if (!empty($skills)): ?>
+
+                        <div class="wp-profile-skills">
+
+                            <?php foreach ($skills as $skill): ?>
+
+                                <span class="wp-profile-skill">
+                                    <?= htmlspecialchars($skill, ENT_QUOTES, 'UTF-8') ?>
+                                </span>
+
+                            <?php endforeach; ?>
+
+                        </div>
+
+                    <?php else: ?>
+
+                        <p class="wp-profile-empty">
+                            Add your skills to help employers understand your expertise.
+                        </p>
+
+                    <?php endif; ?>
+
+                </section>
+
+                <!-- Experience -->
+                <section class="wp-profile-card">
+
+                    <div class="wp-profile-card-heading">
+                        <div>
+                            <span class="wp-profile-section-label">BACKGROUND</span>
+                            <h3>Experience</h3>
+                        </div>
+                        <i class="bi bi-briefcase"></i>
+                    </div>
+
+                    <?php if (!empty($profile['experience'])): ?>
+
+                        <p class="wp-profile-description">
+                            <?= nl2br(htmlspecialchars($profile['experience'], ENT_QUOTES, 'UTF-8')) ?>
+                        </p>
+
+                    <?php else: ?>
+
+                        <p class="wp-profile-empty">
+                            No work experience added yet.
+                        </p>
+
+                    <?php endif; ?>
+
+                    <div class="wp-profile-divider"></div>
+
+                    <div class="wp-profile-card-heading">
+                        <div>
+                            <span class="wp-profile-section-label">LEARNING</span>
+                            <h3>Education</h3>
+                        </div>
+                        <i class="bi bi-mortarboard"></i>
+                    </div>
+
+                    <?php if (!empty($profile['education'])): ?>
+
+                        <p class="wp-profile-description">
+                            <?= nl2br(htmlspecialchars($profile['education'], ENT_QUOTES, 'UTF-8')) ?>
+                        </p>
+
+                    <?php else: ?>
+
+                        <p class="wp-profile-empty">
+                            No education details added yet.
+                        </p>
+
+                    <?php endif; ?>
+
+                </section>
+
+            </div>
+
+            <!-- Right column -->
+            <aside class="wp-profile-side-column">
+
+                <!-- Resume -->
+                <section class="wp-profile-card">
+
+                    <div class="wp-profile-card-heading">
+                        <div>
+                            <span class="wp-profile-section-label">DOCUMENTS</span>
+                            <h3>My Resume</h3>
+                        </div>
+                        <i class="bi bi-file-earmark-pdf"></i>
+                    </div>
+
+                    <?php if (!empty($profile['resume_url'])): ?>
+
+                        <div class="wp-resume-file">
+                            <div class="wp-resume-icon">
+                                <i class="bi bi-file-earmark-pdf"></i>
+                            </div>
+
+                            <div>
+                                <strong>Resume.pdf</strong>
+                                <small>PDF document</small>
+                            </div>
+                        </div>
+
+                        <?php if ($resume_preview_url !== ''): ?>
+
+                            <a
+                                href="<?= htmlspecialchars($resume_preview_url, ENT_QUOTES, 'UTF-8') ?>"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="wp-btn wp-btn-outline wp-profile-full-button">
+
+                                <i class="bi bi-eye"></i>
+                                Preview Resume
+
+                            </a>
+
+                            <p class="wp-profile-note">
+                                Your private resume preview link expires after 5 minutes.
+                            </p>
+
+                        <?php else: ?>
+
+                            <p class="wp-profile-empty">
+                                Unable to generate a resume preview. Please try again later.
+                            </p>
+
+                        <?php endif; ?>
+
+                    <?php else: ?>
+
+                        <div class="wp-profile-empty-document">
+                            <i class="bi bi-file-earmark-plus"></i>
+                            <p>No resume uploaded yet.</p>
+                        </div>
+
+                    <?php endif; ?>
+
+                </section>
+
+                <!-- Portfolio -->
+                <section class="wp-profile-card">
+
+                    <div class="wp-profile-card-heading">
+                        <div>
+                            <span class="wp-profile-section-label">MY WORK</span>
+                            <h3>Portfolio</h3>
+                        </div>
+                        <i class="bi bi-globe"></i>
+                    </div>
+
+                    <?php if (!empty($profile['portfolio_url'])): ?>
+
+                        <a
+                            href="<?= htmlspecialchars($profile['portfolio_url'], ENT_QUOTES, 'UTF-8') ?>"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="wp-profile-portfolio-link">
+
+                            <span>
+                                <i class="bi bi-box-arrow-up-right"></i>
+                                Visit My Portfolio
+                            </span>
+
+                            <i class="bi bi-arrow-up-right"></i>
+
+                        </a>
+
+                    <?php else: ?>
+
+                        <p class="wp-profile-empty">
+                            Add a portfolio link to showcase your work.
+                        </p>
+
+                    <?php endif; ?>
+
+                </section>
+
+                <!-- Rate -->
+                <section class="wp-profile-rate-card">
+
+                    <span>EXPECTED HOURLY RATE</span>
+
+                    <?php if ($hourly_rate !== null && $hourly_rate !== ''): ?>
+
+                        <h2>
+                            $<?= number_format((float)$hourly_rate, 2) ?>
+                            <small>/ hour</small>
+                        </h2>
+
+                    <?php else: ?>
+
+                        <h2>Not set</h2>
+
+                    <?php endif; ?>
+
+                    <p>Your preferred hourly compensation.</p>
+
+                </section>
+
+            </aside>
+
+        </div>
+
+    </div>
+
+    <!-- ==========================================
+         PROFILE EDIT MODE
+    ========================================== -->
+
+    <div id="profile-edit" style="display: none;">
+
+        <div class="wp-profile-edit-heading">
+
+            <div>
+                <h3>Edit Your Profile</h3>
+                <p>Update the information employers can use to learn about you.</p>
+            </div>
+
+            <button
+                type="button"
+                class="wp-btn wp-btn-outline"
+                onclick="toggleProfileEdit(false)">
+
+                <i class="bi bi-x-lg"></i>
+                Cancel
+
+            </button>
+
+        </div>
+
+        <form method="POST" enctype="multipart/form-data">
+
+            <!-- Personal information -->
+            <section class="wp-profile-card">
+
+                <div class="wp-profile-card-heading">
+                    <div>
+                        <span class="wp-profile-section-label">BASIC INFORMATION</span>
+                        <h3>Personal Information</h3>
+                    </div>
+                    <i class="bi bi-person"></i>
+                </div>
+
+                <div class="wp-form-group">
+                    <label class="wp-label">Full Name</label>
+                    <input
+                        type="text"
+                        name="full_name"
+                        class="wp-input"
+                        value="<?= htmlspecialchars($profile['full_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                        required>
+                </div>
+
+                <div class="wp-form-group">
+                    <label class="wp-label">About Me</label>
+                    <textarea
+                        name="bio"
+                        class="wp-textarea"
+                        placeholder="Introduce yourself, your strengths, and what you can offer..."><?= htmlspecialchars($profile['bio'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                </div>
+
+            </section>
+
+            <!-- Skills -->
+            <section class="wp-profile-card">
+
+                <div class="wp-profile-card-heading">
+                    <div>
+                        <span class="wp-profile-section-label">EXPERTISE</span>
+                        <h3>Skills & Expertise</h3>
+                    </div>
+                    <i class="bi bi-stars"></i>
+                </div>
+
+                <div class="wp-form-group">
+
+                    <label class="wp-label">Choose Your Skills</label>
+
+                    <div class="wp-skills-container">
+
+                        <input
+                            type="text"
+                            id="skill-search"
+                            class="wp-input"
+                            placeholder="Search skills..."
+                            autocomplete="off">
+
+                        <div id="skill-suggestions" class="wp-skill-suggestions"></div>
+
+                        <div
+                            id="selected-skills"
+                            class="wp-selected-skills"
+                            data-input-name="skills[]"
+                            data-selected-skills="<?= htmlspecialchars(json_encode($skills), ENT_QUOTES, 'UTF-8') ?>">
+                        </div>
+
+                    </div>
+
+                    <small class="wp-form-hint">
+                        Select the skills that best represent your abilities.
+                    </small>
+
+                </div>
+
+            </section>
+
+            <!-- Experience and education -->
+            <section class="wp-profile-card">
+
+                <div class="wp-profile-card-heading">
+                    <div>
+                        <span class="wp-profile-section-label">BACKGROUND</span>
+                        <h3>Experience & Education</h3>
+                    </div>
+                    <i class="bi bi-mortarboard"></i>
+                </div>
+
+                <div class="wp-form-group">
+                    <label class="wp-label">Work Experience</label>
+                    <textarea
+                        name="experience"
+                        class="wp-textarea"
+                        placeholder="Describe your previous work experience..."><?= htmlspecialchars($profile['experience'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                </div>
+
+                <div class="wp-form-group">
+                    <label class="wp-label">Education</label>
+                    <textarea
+                        name="education"
+                        class="wp-textarea"
+                        placeholder="Add your educational background..."><?= htmlspecialchars($profile['education'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                </div>
+
+            </section>
+
+            <!-- Resume -->
+            <section class="wp-profile-card">
+
+                <div class="wp-profile-card-heading">
+                    <div>
+                        <span class="wp-profile-section-label">DOCUMENTS</span>
+                        <h3>Resume</h3>
+                    </div>
+                    <i class="bi bi-file-earmark-pdf"></i>
+                </div>
+
+                <?php if (!empty($profile['resume_url'])): ?>
+
+                    <div class="wp-resume-file">
+                        <div class="wp-resume-icon">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </div>
+
+                        <div>
+                            <strong>Current Resume</strong>
+                            <small>Resume.pdf</small>
+                        </div>
+                    </div>
+
+                <?php endif; ?>
+
+                <div class="wp-form-group">
+
+                    <label class="wp-label">
+                        <?= !empty($profile['resume_url']) ? 'Replace Resume' : 'Upload Resume' ?>
+                    </label>
+
+                    <input
+                        type="file"
+                        name="resume"
+                        class="wp-input"
+                        accept=".pdf,application/pdf">
+
+                    <small class="wp-form-hint">
+                        PDF only. Maximum file size: 5 MB.
+                        Your existing resume stays saved unless you upload a replacement.
+                    </small>
+
+                </div>
+
+            </section>
+
+            <!-- Professional preferences -->
+            <section class="wp-profile-card">
+
+                <div class="wp-profile-card-heading">
+                    <div>
+                        <span class="wp-profile-section-label">PROFESSIONAL DETAILS</span>
+                        <h3>Portfolio & Rate</h3>
+                    </div>
+                    <i class="bi bi-briefcase"></i>
+                </div>
+
+                <div class="wp-form-group">
+                    <label class="wp-label">Portfolio URL</label>
+                    <input
+                        type="url"
+                        name="portfolio_url"
+                        class="wp-input"
+                        placeholder="https://yourportfolio.com"
+                        value="<?= htmlspecialchars($profile['portfolio_url'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+
+                <div class="wp-form-group">
+                    <label class="wp-label">Preferred Hourly Rate (USD)</label>
+
+                    <div class="wp-rate-input">
+                        <span>$</span>
+                        <input
+                            type="number"
+                            name="preferred_hourly_rate"
+                            class="wp-input"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value="<?= htmlspecialchars((string)($hourly_rate ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                    </div>
+
+                    <small class="wp-form-hint">
+                        Enter your preferred rate in US dollars per hour.
+                    </small>
+                </div>
+
+            </section>
+
+            <div class="wp-profile-save-area">
+
+                <button
+                    type="button"
+                    class="wp-btn wp-btn-outline"
+                    onclick="toggleProfileEdit(false)">
+
+                    Cancel
+
+                </button>
+
+                <button
+                    type="submit"
+                    name="update_profile"
+                    class="wp-btn wp-btn-primary">
+
+                    <i class="bi bi-check-lg"></i>
+                    Save Changes
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<script>
+    // Switch between profile view and edit mode
+    function toggleProfileEdit(showEdit) {
+
+        document.getElementById('profile-view').style.display =
+            showEdit ? 'none' : 'block';
+
+        document.getElementById('profile-edit').style.display =
+            showEdit ? 'block' : 'none';
+
+        document.getElementById('edit-profile-button').style.display =
+            showEdit ? 'none' : 'inline-flex';
+
+    }
+</script>
+
+<?php require_once '../../includes/footer.php'; ?>

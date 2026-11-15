@@ -1076,3 +1076,716 @@
         gap: 12px;
     }
 }
+
+
+/* ========================================
+   WORKPULSE - WORKER PROFILE
+======================================== */
+
+.wp-profile-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.wp-profile-main,
+.wp-profile-side {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
+.wp-profile-section {
+    min-width: 0;
+}
+
+.wp-profile-section-heading {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin-bottom: 23px;
+}
+
+.wp-profile-section-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 42px;
+    height: 42px;
+
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 12px;
+
+    font-size: 18px;
+}
+
+.wp-profile-section-heading .wp-panel-title {
+    font-size: 15px;
+}
+
+.wp-profile-section-heading .wp-panel-description {
+    line-height: 1.5;
+}
+
+/* Skill selector */
+
+.wp-skills-container {
+    position: relative;
+}
+
+.wp-skills-search {
+    position: relative;
+}
+
+.wp-skills-search > i {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    z-index: 1;
+    transform: translateY(-50%);
+    color: var(--wp-muted);
+}
+
+.wp-skills-search .wp-input {
+    padding-left: 38px;
+}
+
+.wp-skill-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 10px;
+}
+
+.wp-skill-suggestions button {
+    padding: 7px 11px;
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border: 1px solid transparent;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.wp-skill-suggestions button:hover {
+    background: #EEDDE5;
+    border-color: var(--wp-primary);
+}
+
+.wp-selected-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.wp-selected-skills:empty {
+    display: none;
+}
+
+.wp-selected-skills .skill-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border: 1px solid #EAD5DE;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 650;
+}
+
+.wp-selected-skills .skill-tag button {
+    padding: 0;
+    color: var(--wp-primary-hover);
+    background: transparent;
+    border: none;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* Resume */
+
+.wp-resume-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    margin-bottom: 22px;
+    background: var(--wp-background);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius-sm);
+}
+
+.wp-resume-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    color: var(--wp-danger);
+    background: var(--wp-danger-light);
+    border-radius: 10px;
+    font-size: 20px;
+}
+
+.wp-resume-info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    gap: 4px;
+}
+
+.wp-resume-info strong {
+    color: var(--wp-text);
+    font-size: 12px;
+}
+
+.wp-resume-info small {
+    color: var(--wp-muted);
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+/* Hourly rate */
+
+.wp-rate-input {
+    position: relative;
+}
+
+.wp-rate-input > span {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    transform: translateY(-50%);
+    color: var(--wp-muted);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.wp-rate-input .wp-input {
+    padding-left: 30px;
+}
+
+/* Save section */
+
+.wp-profile-save {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 19px;
+    background: var(--wp-primary-light);
+    border: 1px solid #EAD5DE;
+    border-radius: var(--wp-radius);
+}
+
+.wp-profile-save > div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.wp-profile-save strong {
+    color: var(--wp-text);
+    font-size: 13px;
+}
+
+.wp-profile-save small {
+    color: var(--wp-muted);
+    font-size: 11px;
+}
+
+.wp-profile-save .wp-btn {
+    width: 100%;
+}
+
+/* Responsive */
+
+@media (max-width: 992px) {
+    .wp-profile-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .wp-profile-side {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+    }
+
+    .wp-profile-save {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 576px) {
+    .wp-profile-side {
+        display: flex;
+    }
+
+    .wp-profile-section {
+        padding: 17px;
+    }
+
+    .wp-profile-section-heading {
+        gap: 10px;
+    }
+}
+
+
+/* ========================================
+   WORKPULSE - WORKER PORTFOLIO PROFILE
+======================================== */
+
+.wp-profile-page {
+    max-width: 1200px;
+}
+
+.wp-profile-hero {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 32px;
+    margin-bottom: 22px;
+    background: linear-gradient(120deg, #FFFFFF, #FBF4F7);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-profile-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 92px;
+    height: 92px;
+    color: #FFFFFF;
+    background: var(--wp-primary);
+    border-radius: 25px;
+    font-size: 36px;
+    font-weight: 800;
+}
+
+.wp-profile-hero-info {
+    min-width: 0;
+}
+
+.wp-profile-eyebrow,
+.wp-profile-section-label {
+    color: var(--wp-primary-hover);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+}
+
+.wp-profile-hero-info h2 {
+    margin: 7px 0;
+    color: var(--wp-text);
+    font-size: 27px;
+    font-weight: 800;
+}
+
+.wp-profile-hero-info p {
+    max-width: 650px;
+    margin: 0 0 14px;
+    color: var(--wp-muted);
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.wp-profile-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.wp-profile-hero-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.wp-profile-content-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.wp-profile-main-column,
+.wp-profile-side-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
+.wp-profile-card {
+    padding: 24px;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-profile-card-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.wp-profile-card-heading h3 {
+    margin: 5px 0 0;
+    color: var(--wp-text);
+    font-size: 17px;
+    font-weight: 750;
+}
+
+.wp-profile-card-heading > i {
+    color: var(--wp-primary);
+    font-size: 21px;
+}
+
+.wp-profile-description {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 13px;
+    line-height: 1.9;
+    overflow-wrap: anywhere;
+}
+
+.wp-profile-empty {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.wp-profile-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.wp-profile-skill {
+    padding: 8px 13px;
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border: 1px solid #EBD8E0;
+    border-radius: 30px;
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.wp-profile-divider {
+    height: 1px;
+    margin: 24px 0;
+    background: var(--wp-border);
+}
+
+.wp-resume-file {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin-bottom: 18px;
+    padding: 14px;
+    background: var(--wp-background);
+    border: 1px solid var(--wp-border);
+    border-radius: 11px;
+}
+
+.wp-resume-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 43px;
+    height: 43px;
+    color: #D64C5B;
+    background: #FFF0F1;
+    border-radius: 10px;
+    font-size: 20px;
+}
+
+.wp-resume-file strong,
+.wp-resume-file small {
+    display: block;
+}
+
+.wp-resume-file strong {
+    color: var(--wp-text);
+    font-size: 12px;
+}
+
+.wp-resume-file small {
+    margin-top: 4px;
+    color: var(--wp-muted);
+    font-size: 10px;
+}
+
+.wp-profile-full-button {
+    width: 100%;
+}
+
+.wp-profile-note {
+    margin: 10px 0 0;
+    color: var(--wp-muted);
+    font-size: 10px;
+    line-height: 1.6;
+}
+
+.wp-profile-empty-document {
+    padding: 20px 10px;
+    color: var(--wp-muted);
+    text-align: center;
+}
+
+.wp-profile-empty-document i {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--wp-primary);
+    font-size: 30px;
+}
+
+.wp-profile-empty-document p {
+    margin: 0;
+    font-size: 12px;
+}
+
+.wp-profile-portfolio-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 13px;
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.wp-profile-portfolio-link span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wp-profile-portfolio-link:hover {
+    color: var(--wp-primary-hover);
+    background: #F0E1E7;
+}
+
+.wp-profile-rate-card {
+    padding: 24px;
+    color: #FFFFFF;
+    background: linear-gradient(135deg, #B77F94, #96657A);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-profile-rate-card > span {
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 1px;
+    opacity: 0.85;
+}
+
+.wp-profile-rate-card h2 {
+    margin: 14px 0 7px;
+    font-size: 29px;
+    font-weight: 800;
+}
+
+.wp-profile-rate-card h2 small {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.wp-profile-rate-card p {
+    margin: 0;
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+/* Edit mode */
+
+.wp-profile-edit-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.wp-profile-edit-heading h3 {
+    margin: 0 0 5px;
+    font-size: 19px;
+    font-weight: 750;
+}
+
+.wp-profile-edit-heading p {
+    margin: 0;
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+#profile-edit form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.wp-profile-save-area {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 18px 0 5px;
+}
+
+.wp-rate-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.wp-rate-input > span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius-sm);
+    font-weight: 750;
+}
+
+.wp-skills-container {
+    position: relative;
+}
+
+.wp-skill-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 10px;
+}
+
+.wp-skill-suggestions button {
+    padding: 7px 11px;
+    color: var(--wp-muted);
+    background: var(--wp-background);
+    border: 1px solid var(--wp-border);
+    border-radius: 20px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.wp-skill-suggestions button:hover {
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-color: var(--wp-primary);
+}
+
+.wp-selected-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 13px;
+}
+
+.wp-selected-skills .skill-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 650;
+}
+
+.wp-selected-skills .skill-tag button {
+    padding: 0;
+    color: var(--wp-primary-hover);
+    background: transparent;
+    border: 0;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* Responsive */
+
+@media (max-width: 900px) {
+    .wp-profile-content-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .wp-profile-side-column {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .wp-profile-rate-card {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 576px) {
+    .wp-profile-hero {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 22px;
+    }
+
+    .wp-profile-avatar {
+        width: 72px;
+        height: 72px;
+        border-radius: 20px;
+        font-size: 28px;
+    }
+
+    .wp-profile-hero-info h2 {
+        font-size: 23px;
+    }
+
+    .wp-profile-side-column {
+        display: flex;
+    }
+
+    .wp-profile-card {
+        padding: 19px;
+    }
+
+    .wp-profile-edit-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .wp-profile-save-area {
+        flex-direction: column-reverse;
+    }
+
+    .wp-profile-save-area .wp-btn {
+        width: 100%;
+    }
+}
