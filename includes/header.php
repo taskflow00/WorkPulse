@@ -49,6 +49,12 @@ if ($user_role === 'worker') {
     <link rel="stylesheet" href="/assets/css/components.css">
     <link rel="stylesheet" href="/assets/css/dashboard.css">
 
+    <?php if (isset($page_styles)): ?>
+        <?php foreach ($page_styles as $style): ?>
+            <link rel="stylesheet" href="<?= htmlspecialchars($style) ?>">
+        <?php endforeach; ?>
+    <?php endif; ?> 
+
 </head>
 
 <body>
