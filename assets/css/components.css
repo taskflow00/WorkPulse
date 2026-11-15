@@ -1,0 +1,306 @@
+/* ========================================
+   WORKPULSE - REUSABLE COMPONENTS
+   Stylesheet: components.css
+======================================== */
+
+
+/* 1. BUTTONS */
+
+.wp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    min-height: 40px;
+    padding: 9px 17px;
+
+    border: 1px solid transparent;
+    border-radius: var(--wp-radius-sm);
+
+    font-size: 13px;
+    font-weight: 650;
+    text-decoration: none;
+
+    cursor: pointer;
+    transition: var(--wp-transition);
+}
+
+.wp-btn-primary {
+    color: #FFFFFF;
+    background: var(--wp-primary);
+}
+
+.wp-btn-primary:hover {
+    color: #FFFFFF;
+    background: var(--wp-primary-hover);
+}
+
+.wp-btn-outline {
+    color: var(--wp-text);
+    background: var(--wp-surface);
+    border-color: var(--wp-border);
+}
+
+.wp-btn-outline:hover {
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-color: var(--wp-primary);
+}
+
+.wp-btn-success {
+    color: #FFFFFF;
+    background: var(--wp-success);
+}
+
+.wp-btn-success:hover {
+    color: #FFFFFF;
+    background: #157347;
+}
+
+.wp-btn-danger {
+    color: #FFFFFF;
+    background: var(--wp-danger);
+}
+
+.wp-btn-danger:hover {
+    color: #FFFFFF;
+    background: #c74343;
+}
+
+.wp-btn-sm {
+    min-height: 32px;
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+
+/* 2. PANELS AND CARDS */
+
+.wp-panel {
+    padding: 22px;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.wp-panel-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.wp-panel-description {
+    margin: 5px 0 0;
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+
+/* 3. STATUS BADGES */
+
+.wp-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 5px 10px;
+    border-radius: 20px;
+
+    font-size: 11px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.wp-badge-success {
+    color: var(--wp-success);
+    background: var(--wp-success-light);
+}
+
+.wp-badge-warning {
+    color: #A66B12;
+    background: var(--wp-warning-light);
+}
+
+.wp-badge-danger {
+    color: var(--wp-danger);
+    background: var(--wp-danger-light);
+}
+
+.wp-badge-info {
+    color: var(--wp-info);
+    background: var(--wp-info-light);
+}
+
+.wp-badge-neutral {
+    color: var(--wp-muted);
+    background: #F0EFF1;
+}
+
+
+/* 4. FORM ELEMENTS */
+
+.wp-form-group {
+    margin-bottom: 18px;
+}
+
+.wp-label {
+    display: block;
+    margin-bottom: 7px;
+
+    color: var(--wp-text);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.wp-input,
+.wp-select,
+.wp-textarea {
+    display: block;
+    width: 100%;
+    padding: 10px 13px;
+
+    color: var(--wp-text);
+    background: var(--wp-surface);
+
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius-sm);
+
+    font-family: inherit;
+    font-size: 13px;
+
+    transition: var(--wp-transition);
+}
+
+.wp-input,
+.wp-select {
+    min-height: 42px;
+}
+
+.wp-textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+.wp-input:focus,
+.wp-select:focus,
+.wp-textarea:focus {
+    border-color: var(--wp-primary);
+    box-shadow: 0 0 0 3px rgba(193, 139, 159, 0.15);
+    outline: none;
+}
+
+.wp-input::placeholder,
+.wp-textarea::placeholder {
+    color: #AAA4AC;
+}
+
+.wp-form-hint {
+    display: block;
+    margin-top: 6px;
+    color: var(--wp-muted);
+    font-size: 11px;
+}
+
+
+/* 5. AVATARS */
+
+.wp-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 38px;
+    height: 38px;
+
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 50%;
+
+    font-size: 14px;
+    font-weight: 750;
+
+    flex-shrink: 0;
+}
+
+.wp-avatar-sm {
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
+}
+
+.wp-avatar-lg {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
+}
+
+
+/* 6. DIVIDERS */
+
+.wp-divider {
+    width: 100%;
+    height: 1px;
+    margin: 18px 0;
+    background: var(--wp-border);
+    border: 0;
+}
+
+
+/* 7. EMPTY STATES */
+
+.wp-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    padding: 45px 20px;
+    text-align: center;
+}
+
+.wp-empty-state i {
+    margin-bottom: 14px;
+    color: var(--wp-primary);
+    font-size: 36px;
+}
+
+.wp-empty-state h3 {
+    margin-bottom: 7px;
+    font-size: 16px;
+}
+
+.wp-empty-state p {
+    max-width: 360px;
+    margin-bottom: 18px;
+    font-size: 13px;
+}
+
+
+/* 8. RESPONSIVE COMPONENTS */
+
+@media (max-width: 576px) {
+
+    .wp-panel {
+        padding: 17px;
+    }
+
+    .wp-panel-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .wp-btn {
+        max-width: 100%;
+    }
+
+}

@@ -1,0 +1,190 @@
+/* ========================================
+   WORKPULSE - JOB MARKETPLACE
+   Stylesheet: marketplace.css
+======================================== */
+
+/* Marketplace layout */
+.wp-marketplace {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Search section */
+.wp-marketplace-search {
+    display: flex;
+    gap: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+}
+
+.wp-marketplace-search input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Filters */
+.wp-marketplace-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.wp-marketplace-filters select {
+    width: auto;
+    min-width: 150px;
+}
+
+/* Job listing grid */
+.wp-job-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+/* Job card */
+.wp-job-card {
+    display: flex;
+    flex-direction: column;
+    padding: 22px;
+
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+
+    transition: var(--wp-transition);
+}
+
+.wp-job-card:hover {
+    border-color: var(--wp-primary);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+
+.wp-job-card-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.wp-job-title {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.wp-job-company {
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.wp-job-description {
+    margin-bottom: 18px;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.wp-job-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 18px;
+
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.wp-job-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Job skills */
+.wp-job-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 20px;
+}
+
+.wp-job-skill {
+    padding: 5px 9px;
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 20px;
+    font-size: 11px;
+}
+
+/* Job card footer */
+.wp-job-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    padding-top: 15px;
+    margin-top: auto;
+    border-top: 1px solid var(--wp-border);
+}
+
+.wp-job-budget {
+    color: var(--wp-success);
+    font-size: 17px;
+    font-weight: 750;
+}
+
+/* Job details */
+.wp-job-details {
+    max-width: 950px;
+    margin: 0 auto;
+}
+
+.wp-job-details-section {
+    padding: 24px;
+    margin-bottom: 18px;
+
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .wp-job-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 576px) {
+    .wp-marketplace-search {
+        flex-direction: column;
+        padding: 15px;
+    }
+
+    .wp-marketplace-filters {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .wp-marketplace-filters select {
+        width: 100%;
+    }
+
+    .wp-job-card {
+        padding: 17px;
+    }
+
+    .wp-job-card-footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

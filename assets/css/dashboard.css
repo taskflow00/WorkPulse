@@ -260,3 +260,759 @@
         display: none;
     }
 }
+
+
+/* ========================================
+   WORKPULSE - SIDEBAR ENHANCEMENTS
+======================================== */
+
+/* Brand */
+.wp-sidebar-brand {
+    text-decoration: none;
+}
+
+.wp-sidebar-brand small {
+    display: block;
+    margin-top: 2px;
+    color: var(--wp-muted);
+    font-size: 10px;
+}
+
+/* Sidebar navigation scrolling */
+.wp-sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 15px;
+}
+
+/* Navigation sections */
+.wp-sidebar-section {
+    margin-bottom: 22px;
+}
+
+.wp-sidebar-section:last-child {
+    margin-bottom: 0;
+}
+
+/* ========================================
+   TOPBAR USER MENU
+======================================== */
+
+.wp-topbar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--wp-text);
+    text-align: left;
+}
+
+.wp-topbar-user:hover {
+    background: var(--wp-background);
+}
+
+.wp-topbar-user::after {
+    margin-left: 5px;
+}
+
+.wp-topbar-user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.wp-topbar-user-name {
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.wp-topbar-user-info small {
+    color: var(--wp-muted);
+    font-size: 11px;
+}
+
+.wp-user-dropdown {
+    min-width: 220px;
+    padding: 8px;
+    border: 1px solid var(--wp-border);
+    border-radius: 12px;
+    box-shadow: var(--wp-shadow);
+}
+
+/* ========================================
+   ROLE BADGE
+======================================== */
+
+.wp-sidebar-role {
+    margin: 0 12px 22px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: var(--wp-primary-light);
+    color: var(--wp-primary-hover);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ========================================
+   LOGOUT
+======================================== */
+
+.wp-sidebar-logout {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 13px;
+    border-radius: 9px;
+    color: var(--wp-danger);
+    text-decoration: none;
+}
+
+.wp-sidebar-logout:hover {
+    background: #FFF0F0;
+    color: var(--wp-danger);
+}
+
+/* ========================================
+   RESPONSIVE TOPBAR
+======================================== */
+
+@media (max-width: 576px) {
+    .wp-topbar-user-info {
+        display: none;
+    }
+
+    .wp-topbar-left,
+    .wp-topbar-right {
+        gap: 10px;
+    }
+
+    .wp-topbar-title {
+        font-size: 15px;
+    }
+}
+
+/* ========================================
+   WORKPULSE - DASHBOARD REFINEMENTS
+======================================== */
+
+/* Sidebar brand */
+.wp-sidebar-brand {
+    flex-shrink: 0;
+}
+
+.wp-sidebar-brand small {
+    display: block;
+    margin-top: 2px;
+    color: var(--wp-muted);
+    font-size: 10px;
+}
+
+/* Sidebar navigation scrolling */
+.wp-sidebar-nav {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.wp-sidebar-section {
+    margin-bottom: 24px;
+}
+
+.wp-sidebar-section:last-child {
+    margin-bottom: 0;
+}
+
+/* Logout link */
+.wp-sidebar-logout {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 13px;
+
+    color: var(--wp-danger);
+    border-radius: var(--wp-radius-sm);
+
+    font-size: 13px;
+    font-weight: 600;
+    transition: var(--wp-transition);
+}
+
+.wp-sidebar-logout:hover {
+    color: #B83232;
+    background: var(--wp-danger-light);
+}
+
+.wp-sidebar-logout i {
+    width: 19px;
+    font-size: 17px;
+    text-align: center;
+}
+
+/* Topbar user dropdown button */
+.wp-topbar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 5px 10px;
+    color: var(--wp-text);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--wp-radius-sm);
+
+    cursor: pointer;
+    transition: var(--wp-transition);
+}
+
+.wp-topbar-user:hover,
+.wp-topbar-user:focus {
+    background: var(--wp-surface);
+    border-color: var(--wp-border);
+}
+
+/* User information */
+.wp-topbar-user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+}
+
+.wp-topbar-user-name {
+    color: var(--wp-text);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.wp-topbar-user-info small {
+    color: var(--wp-muted);
+    font-size: 10px;
+}
+
+/* User dropdown */
+.wp-user-dropdown {
+    min-width: 220px;
+    padding: 8px;
+
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+.wp-user-dropdown .dropdown-item {
+    padding: 10px 12px;
+    border-radius: var(--wp-radius-sm);
+    font-size: 13px;
+}
+
+.wp-user-dropdown .dropdown-item:hover {
+    background: var(--wp-primary-light);
+}
+
+/* Mobile adjustments */
+@media (max-width: 576px) {
+    .wp-topbar-user-info {
+        display: none;
+    }
+
+    .wp-topbar-left,
+    .wp-topbar-right {
+        gap: 10px;
+    }
+}
+
+/* ========================================
+   WORKPULSE - WORKER DASHBOARD CONTENT
+======================================== */
+
+/* Welcome section */
+.wp-dashboard-welcome {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.wp-dashboard-eyebrow {
+    display: inline-block;
+    margin-bottom: 10px;
+    color: var(--wp-primary-hover);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.3px;
+}
+
+/* Statistics */
+.wp-dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 25px;
+}
+
+.wp-stat-card {
+    padding: 21px;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-stat-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--wp-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.wp-stat-card h2 {
+    margin: 17px 0 5px;
+    color: var(--wp-text);
+    font-size: 29px;
+    font-weight: 800;
+}
+
+.wp-stat-card small {
+    color: var(--wp-muted);
+    font-size: 11px;
+}
+
+.wp-stat-icon,
+.wp-quick-action-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.wp-stat-icon {
+    width: 39px;
+    height: 39px;
+    border-radius: 11px;
+    font-size: 17px;
+}
+
+.wp-stat-icon.rose,
+.wp-quick-action-icon.rose {
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+}
+
+.wp-stat-icon.blue,
+.wp-quick-action-icon.blue {
+    color: var(--wp-info);
+    background: var(--wp-info-light);
+}
+
+.wp-stat-icon.yellow,
+.wp-quick-action-icon.yellow {
+    color: var(--wp-warning);
+    background: var(--wp-warning-light);
+}
+
+.wp-stat-icon.green,
+.wp-quick-action-icon.green {
+    color: var(--wp-success);
+    background: var(--wp-success-light);
+}
+
+/* Dashboard columns */
+.wp-dashboard-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.wp-dashboard-main-panel,
+.wp-dashboard-side-panel {
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* Panel links */
+.wp-dashboard-text-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--wp-primary-hover);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.wp-dashboard-text-link:hover {
+    color: var(--wp-primary);
+}
+
+/* Empty state */
+.wp-dashboard-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 45px 20px;
+    text-align: center;
+}
+
+.wp-dashboard-empty-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    margin-bottom: 17px;
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 18px;
+    font-size: 25px;
+}
+
+.wp-dashboard-empty h4 {
+    margin-bottom: 8px;
+    font-size: 15px;
+    font-weight: 750;
+}
+
+.wp-dashboard-empty p {
+    max-width: 330px;
+    margin-bottom: 20px;
+    color: var(--wp-muted);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+/* Quick actions */
+.wp-quick-actions {
+    display: flex;
+    flex-direction: column;
+}
+
+.wp-quick-action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 0;
+    border-bottom: 1px solid var(--wp-border);
+}
+
+.wp-quick-action:first-child {
+    padding-top: 0;
+}
+
+.wp-quick-action:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.wp-quick-action-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    font-size: 17px;
+}
+
+.wp-quick-action > div:nth-child(2) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.wp-quick-action strong {
+    color: var(--wp-text);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.wp-quick-action small {
+    margin-top: 3px;
+    color: var(--wp-muted);
+    font-size: 10px;
+}
+
+.wp-quick-action > i {
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.wp-quick-action:hover strong,
+.wp-quick-action:hover > i {
+    color: var(--wp-primary-hover);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .wp-dashboard-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 992px) {
+    .wp-dashboard-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 576px) {
+    .wp-dashboard-welcome {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .wp-dashboard-welcome > a {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .wp-dashboard-stats {
+        gap: 12px;
+    }
+
+    .wp-stat-card {
+        padding: 15px;
+    }
+
+    .wp-stat-top {
+        align-items: flex-start;
+        font-size: 11px;
+    }
+
+    .wp-stat-card h2 {
+        font-size: 25px;
+    }
+}
+
+/* Employer dashboard spacing */
+.wp-dashboard-jobs-panel {
+    margin-top: 22px;
+}
+
+/* ========================================
+   WORKPULSE - ADMIN DASHBOARD
+======================================== */
+
+.wp-dashboard-admin-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.wp-admin-table-wrapper {
+    overflow-x: auto;
+}
+
+.wp-admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    white-space: nowrap;
+}
+
+.wp-admin-table th {
+    padding: 13px 15px;
+    color: var(--wp-muted);
+    background: var(--wp-background);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: left;
+}
+
+.wp-admin-table td {
+    padding: 16px 15px;
+    color: var(--wp-muted);
+    border-bottom: 1px solid var(--wp-border);
+    font-size: 12px;
+}
+
+.wp-admin-table td strong {
+    color: var(--wp-text);
+    font-weight: 650;
+}
+
+.wp-admin-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.wp-admin-table tbody tr:hover {
+    background: #FCFAFB;
+}
+
+/* Admin dashboard responsive layout */
+@media (max-width: 992px) {
+    .wp-dashboard-admin-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* ========================================
+   WORKPULSE - RECENT APPLICATIONS
+======================================== */
+
+.wp-application-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.wp-application-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px;
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    transition: 0.2s ease;
+}
+
+.wp-application-item:hover {
+    border-color: #E4C6D2;
+    box-shadow: 0 4px 14px rgba(193, 139, 159, 0.09);
+}
+
+/* Job icon */
+
+.wp-application-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 44px;
+    height: 44px;
+
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 12px;
+    font-size: 18px;
+}
+
+/* Job information */
+
+.wp-application-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.wp-application-item-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.wp-application-item-heading h4 {
+    margin: 0;
+    color: var(--wp-text);
+    font-size: 15px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.wp-application-company {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    margin: 7px 0 13px;
+
+    color: var(--wp-muted);
+    font-size: 13px;
+}
+
+/* Application details */
+
+.wp-application-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 15px;
+
+    color: var(--wp-muted);
+    font-size: 12px;
+}
+
+.wp-application-details span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.wp-application-details i {
+    font-size: 13px;
+}
+
+/* Status badges */
+
+.wp-application-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+
+    padding: 6px 10px;
+
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.wp-application-status i {
+    font-size: 10px;
+}
+
+.wp-application-status.success {
+    background: var(--wp-success-light);
+    color: var(--wp-success);
+}
+
+.wp-application-status.warning {
+    background: var(--wp-warning-light);
+    color: var(--wp-warning);
+}
+
+.wp-application-status.info {
+    background: var(--wp-info-light);
+    color: var(--wp-info);
+}
+
+.wp-application-status.danger {
+    background: var(--wp-danger-light);
+    color: var(--wp-danger);
+}
+
+.wp-application-status.neutral {
+    background: #F0EEF1;
+    color: var(--wp-muted);
+}
+
+/* Mobile */
+
+@media (max-width: 576px) {
+
+    .wp-application-item {
+        padding: 14px;
+        gap: 10px;
+    }
+
+    .wp-application-item-icon {
+        width: 38px;
+        height: 38px;
+        font-size: 16px;
+    }
+
+    .wp-application-item-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+}

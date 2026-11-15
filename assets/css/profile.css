@@ -1,0 +1,176 @@
+/* ========================================
+   WORKPULSE - PROFILE STYLES
+   Stylesheet: profile.css
+======================================== */
+
+/* Profile page */
+.wp-profile {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+/* Profile header */
+.wp-profile-header {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 26px;
+    margin-bottom: 24px;
+
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-profile-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 90px;
+    height: 90px;
+
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 50%;
+
+    font-size: 30px;
+    font-weight: 750;
+}
+
+.wp-profile-header h2 {
+    margin: 0 0 5px;
+    font-size: 21px;
+}
+
+.wp-profile-header p {
+    margin: 0;
+    font-size: 13px;
+}
+
+/* Profile sections */
+.wp-profile-section {
+    padding: 24px;
+    margin-bottom: 20px;
+
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius);
+    box-shadow: var(--wp-shadow);
+}
+
+.wp-profile-section-title {
+    margin-bottom: 20px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+/* Profile information */
+.wp-profile-info {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.wp-profile-info-item small {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--wp-muted);
+    font-size: 11px;
+}
+
+.wp-profile-info-item strong {
+    color: var(--wp-text);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+/* Skills */
+.wp-skill-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.wp-skill-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 12px;
+
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 20px;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Resume and portfolio */
+.wp-profile-resource {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+
+    padding: 15px;
+    margin-bottom: 12px;
+
+    border: 1px solid var(--wp-border);
+    border-radius: var(--wp-radius-sm);
+}
+
+.wp-profile-resource:last-child {
+    margin-bottom: 0;
+}
+
+.wp-profile-resource-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.wp-profile-resource-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 40px;
+    height: 40px;
+
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 10px;
+
+    font-size: 18px;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+    .wp-profile-header {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 20px;
+    }
+
+    .wp-profile-avatar {
+        width: 70px;
+        height: 70px;
+        font-size: 24px;
+    }
+
+    .wp-profile-section {
+        padding: 18px;
+    }
+
+    .wp-profile-info {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .wp-profile-resource {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

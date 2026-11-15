@@ -42,6 +42,7 @@
 /* 2. Basic reset */
 * {
     box-sizing: border-box;
+    scrollbar-width: none;
 }
 
 html {

@@ -44,7 +44,7 @@ if (
 $user_id = $_SESSION['user']['id'];
 
 $url = SUPABASE_URL .
-    '/rest/v1/profiles?select=role,account_status,restricted_until&id=eq.' .
+    '/rest/v1/profiles?select=full_name,role,account_status,restricted_until&id=eq.' .
     urlencode($user_id);
 
 
