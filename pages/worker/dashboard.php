@@ -58,8 +58,183 @@ if ($applications_response !== false) {
 
     $recent_applications = json_decode($applications_response, true);
 
-    if (!is_array($recent_applications)) {
+    if (!is_array($recent_applications) || isset($recent_applications['message'])) {
         $recent_applications = [];
+    }
+}
+
+
+// ==========================================
+// GET DASHBOARD STATISTICS
+// ==========================================
+
+// Prepare the GET request settings for statistics
+$stats_context = stream_context_create([
+    'http' => [
+        'method' => 'GET',
+        'header' =>
+        "apikey: " . SUPABASE_KEY . "\r\n" .
+            "Authorization: Bearer " . $token . "\r\n" .
+            "Accept: application/json\r\n" .
+            "Prefer: count=exact\r\n" .
+            "Range: 0-0\r\n",
+        'ignore_errors' => true
+    ]
+]);
+
+
+// ==========================================
+// ACTIVE EMPLOYMENT
+// ==========================================
+
+// Get the worker's active employments
+$employment_url = SUPABASE_URL .
+    '/rest/v1/employments?select=id' .
+    '&worker_id=eq.' . urlencode($user_id) .
+    '&status=eq.active';
+
+$employment_response = file_get_contents(
+    $employment_url,
+    false,
+    $stats_context
+);
+
+$active_employment = '—';
+
+if ($employment_response !== false) {
+
+    // Initialize response headers
+    $http_response_header = [];
+
+    foreach ($http_response_header as $header) {
+
+        if (stripos($header, 'Content-Range:') === 0) {
+
+            preg_match('/\/(\d+)$/', $header, $matches);
+
+            if (isset($matches[1])) {
+                $active_employment = (int)$matches[1];
+            }
+
+            break;
+        }
+    }
+}
+
+
+// ==========================================
+// TOTAL APPLICATIONS
+// ==========================================
+
+// Get the total number of submitted applications
+$applications_count_url = SUPABASE_URL .
+    '/rest/v1/applications?select=id' .
+    '&worker_id=eq.' . urlencode($user_id);
+
+$applications_count_response = file_get_contents(
+    $applications_count_url,
+    false,
+    $stats_context
+);
+
+$total_applications = '—';
+
+if ($applications_count_response !== false) {
+
+    // Initialize response headers
+    $http_response_header = [];
+
+    foreach ($http_response_header as $header) {
+
+        if (stripos($header, 'Content-Range:') === 0) {
+
+            preg_match('/\/(\d+)$/', $header, $matches);
+
+            if (isset($matches[1])) {
+                $total_applications = (int)$matches[1];
+            }
+
+            break;
+        }
+    }
+}
+
+
+// ==========================================
+// PENDING OFFERS
+// ==========================================
+
+// Get pending offers that have not expired
+$offers_url = SUPABASE_URL .
+    '/rest/v1/employment_offers?select=id' .
+    '&worker_id=eq.' . urlencode($user_id) .
+    '&status=eq.pending' .
+    '&expires_at=gt.' . urlencode(gmdate('Y-m-d\TH:i:s\Z'));
+
+$offers_response = file_get_contents(
+    $offers_url,
+    false,
+    $stats_context
+);
+
+$pending_offers = '—';
+
+if ($offers_response !== false) {
+
+    // Initialize response headers
+    $http_response_header = [];
+
+    foreach ($http_response_header as $header) {
+
+        if (stripos($header, 'Content-Range:') === 0) {
+
+            preg_match('/\/(\d+)$/', $header, $matches);
+
+            if (isset($matches[1])) {
+                $pending_offers = (int)$matches[1];
+            }
+
+            break;
+        }
+    }
+}
+
+
+// ==========================================
+// TASKS IN PROGRESS
+// ==========================================
+
+// Get the worker's tasks that are currently in progress
+$tasks_url = SUPABASE_URL .
+    '/rest/v1/tasks?select=id' .
+    '&worker_id=eq.' . urlencode($user_id) .
+    '&status=eq.in_progress';
+
+$tasks_response = file_get_contents(
+    $tasks_url,
+    false,
+    $stats_context
+);
+
+$tasks_in_progress = '—';
+
+if ($tasks_response !== false) {
+    // Initialize response headers
+    $http_response_header = [];
+
+    foreach ($http_response_header as $header) {
+
+
+        if (stripos($header, 'Content-Range:') === 0) {
+
+            preg_match('/\/(\d+)$/', $header, $matches);
+
+            if (isset($matches[1])) {
+                $tasks_in_progress = (int)$matches[1];
+            }
+
+            break;
+        }
     }
 }
 
@@ -121,9 +296,9 @@ require_once '../../includes/header.php';
 
             </div>
 
-            <h2>—</h2>
+            <h2><?= $active_employment ?></h2>
 
-            <small>Current employment status</small>
+            <small>Current active employments</small>
 
         </div>
 
@@ -140,7 +315,7 @@ require_once '../../includes/header.php';
 
             </div>
 
-            <h2>—</h2>
+            <h2><?= $total_applications ?></h2>
 
             <small>Total submitted applications</small>
 
@@ -159,7 +334,7 @@ require_once '../../includes/header.php';
 
             </div>
 
-            <h2>—</h2>
+            <h2><?= $pending_offers ?></h2>
 
             <small>Offers awaiting your response</small>
 
@@ -178,7 +353,7 @@ require_once '../../includes/header.php';
 
             </div>
 
-            <h2>—</h2>
+            <h2><?= $tasks_in_progress ?></h2>
 
             <small>Your ongoing assignments</small>
 

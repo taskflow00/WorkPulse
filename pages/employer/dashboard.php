@@ -23,7 +23,7 @@ require_once '../../includes/header.php';
             </span>
 
             <h1 class="wp-page-title">
-                Welcome back! 
+                Welcome back!
             </h1>
 
             <p class="wp-page-description">

@@ -304,3 +304,29 @@
     }
 
 }
+
+/* 6. ALERTS AND FORM PANELS */
+
+.wp-alert {
+    margin-bottom: 18px;
+    padding: 12px 16px;
+
+    border-radius: var(--wp-radius-sm);
+
+    font-size: 13px;
+    font-weight: 550;
+}
+
+.wp-alert-success {
+    color: var(--wp-success);
+    background: var(--wp-success-light);
+}
+
+.wp-alert-danger {
+    color: var(--wp-danger);
+    background: var(--wp-danger-light);
+}
+
+.wp-form-panel {
+    max-width: 720px;
+}

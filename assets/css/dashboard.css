@@ -1016,3 +1016,63 @@
     }
 
 }
+/* Recent Applications */
+.wp-application-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.wp-application-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--wp-border);
+}
+
+.wp-application-row:first-child {
+    padding-top: 8px;
+}
+
+.wp-application-row:last-child {
+    border-bottom: none;
+    padding-bottom: 8px;
+}
+
+.wp-application-info {
+    min-width: 0;
+}
+
+.wp-application-info h4 {
+    margin: 0 0 5px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--wp-text);
+}
+
+.wp-application-info p {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--wp-muted);
+}
+
+.wp-application-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    font-size: 12px;
+    color: var(--wp-muted);
+}
+
+.wp-application-status {
+    flex-shrink: 0;
+}
+
+@media (max-width: 576px) {
+    .wp-application-row {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+    }
+}

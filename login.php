@@ -8,6 +8,13 @@ date_default_timezone_set('Asia/Manila');
 
 $message = '';
 
+$status = $_GET['status'] ?? '';
+if ($status === 'banned') {
+    $message = 'Your account has been banned. Please contact support.';
+} elseif ($status === 'suspended') {
+    $message = 'Your account is temporarily suspended. Please try again later.';
+}
+
 
 // LOGIN
 if (isset($_POST['login'])) {
