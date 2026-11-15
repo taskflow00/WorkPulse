@@ -71,6 +71,7 @@ if ($response === false) {
 
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/components.css">
+    <link rel="stylesheet" href="../assets/css/landing.css">
     <link rel="stylesheet" href="../assets/css/marketplace.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
@@ -114,59 +115,132 @@ if ($response === false) {
 
 
         <!-- MARKETPLACE HERO -->
-        <section class="marketplace-hero">
+        <section class="wp-hero marketplace-page-hero">
 
-            <div class="marketplace-hero-content">
+            <div class="wp-hero-content">
 
                 <span class="wp-hero-label">
                     <i class="bi bi-briefcase"></i>
                     YOUR NEXT OPPORTUNITY
                 </span>
 
-                <h1>
+                <h1 class="wp-hero-title">
                     Find work that<br>
                     <span>moves you forward.</span>
                 </h1>
 
-                <p>
+                <p class="wp-hero-description">
                     Explore opportunities, discover roles that match your skills,
                     and take the next step in your professional journey.
                 </p>
 
-                <div class="marketplace-hero-stats">
-                    <div>
-                        <strong><?= count($jobs) ?></strong>
-                        <span>Open opportunities</span>
-                    </div>
+                <div class="wp-hero-actions">
 
-                    <div>
-                        <strong><i class="bi bi-search"></i></strong>
-                        <span>Find your next role</span>
-                    </div>
+                    <a href="#job-search" class="wp-btn wp-btn-primary">
+                        Explore Jobs
+                        <i class="bi bi-arrow-down"></i>
+                    </a>
+
+                    <?php if (!isset($_SESSION['user']['id'])): ?>
+
+                        <a href="../register.php" class="wp-btn wp-btn-outline">
+                            Get Started
+                        </a>
+
+                    <?php elseif (($_SESSION['role'] ?? '') === 'worker'): ?>
+
+                        <a href="worker/applications.php" class="wp-btn wp-btn-outline">
+                            My Applications
+                        </a>
+
+                    <?php endif; ?>
+
+                </div>
+
+                <div class="wp-hero-trust">
+                    <span>
+                        <i class="bi bi-check-circle-fill"></i>
+                        <?= count($jobs) ?> open opportunities
+                    </span>
+
+                    <span>
+                        <i class="bi bi-check-circle-fill"></i>
+                        Find your next role
+                    </span>
                 </div>
 
             </div>
 
-            <div class="marketplace-hero-visual">
-                <div class="marketplace-hero-circle"></div>
 
-                <div class="marketplace-hero-card">
-                    <div class="marketplace-hero-card-icon">
-                        <i class="bi bi-briefcase-fill"></i>
+            <!-- INTERACTIVE FLOATING CARD -->
+            <div class="wp-hero-image">
+
+                <div class="landing-visual">
+
+                    <div class="landing-visual-decoration"></div>
+
+                    <div class="landing-visual-card">
+
+                        <div class="landing-visual-top">
+                            <div class="landing-visual-logo">
+                                <i class="bi bi-activity"></i>
+                            </div>
+
+                            <span>WORKPULSE WORKSPACE</span>
+
+                            <i class="bi bi-three-dots"></i>
+                        </div>
+
+                        <div class="landing-visual-heading">
+                            <small>YOUR NEXT OPPORTUNITY</small>
+                            <h3>Find work.<br>Make progress.</h3>
+                        </div>
+
+                        <div class="landing-progress-card">
+
+                            <div class="landing-progress-heading">
+                                <span>Career progress</span>
+                                <strong>Keep moving</strong>
+                            </div>
+
+                            <div class="landing-progress-track">
+                                <span></span>
+                            </div>
+
+                            <small>
+                                Discover opportunities that match your goals.
+                            </small>
+
+                        </div>
+
+                        <div class="landing-visual-stats">
+
+                            <div>
+                                <i class="bi bi-briefcase"></i>
+                                <strong>Open jobs</strong>
+                                <small>Explore opportunities</small>
+                            </div>
+
+                            <div>
+                                <i class="bi bi-person-check"></i>
+                                <strong>Your next step</strong>
+                                <small>Start applying</small>
+                            </div>
+
+                        </div>
+
                     </div>
 
-                    <span>YOUR NEXT CHAPTER</span>
-                    <h3>New opportunities<br>are waiting.</h3>
-
-                    <div class="marketplace-hero-card-bottom">
-                        <i class="bi bi-check-circle-fill"></i>
-                        Start exploring today
+                    <div class="landing-floating-icon landing-floating-one">
+                        <i class="bi bi-check-lg"></i>
                     </div>
+
+                    <div class="landing-floating-icon landing-floating-two">
+                        <i class="bi bi-lightning-charge-fill"></i>
+                    </div>
+
                 </div>
 
-                <div class="marketplace-hero-floating">
-                    <i class="bi bi-stars"></i>
-                </div>
             </div>
 
         </section>

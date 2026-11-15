@@ -300,6 +300,7 @@ if (isset($_POST['apply'])) {
 
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/components.css">
+    <link rel="stylesheet" href="../assets/css/landing.css">
     <link rel="stylesheet" href="../assets/css/marketplace.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
@@ -365,329 +366,438 @@ if (isset($_POST['apply'])) {
 
             <?php elseif ($job !== null): ?>
 
-                <div class="job-details-layout">
+                <!-- JOB DETAILS HERO -->
+                <section class="wp-hero job-detail-hero">
 
-                    <!-- MAIN CONTENT -->
-                    <div class="job-details-main">
+                    <div class="wp-hero-content">
 
-                        <section class="job-details-header">
+                        <span class="wp-hero-label">
+                            <i class="bi bi-briefcase"></i>
+                            OPEN OPPORTUNITY
+                        </span>
 
-                            <div class="marketplace-company-icon job-details-company-icon">
-                                <i class="bi bi-building"></i>
-                            </div>
+                        <h1 class="wp-hero-title">
+                            <?= htmlspecialchars($job['title'], ENT_QUOTES, 'UTF-8') ?>
+                        </h1>
 
-                            <div class="job-details-heading">
+                        <p class="wp-hero-description job-detail-company">
+                            <i class="bi bi-building"></i>
+                            <?= htmlspecialchars($job['company_name'], ENT_QUOTES, 'UTF-8') ?>
+                        </p>
 
-                                <span class="wp-badge wp-badge-success">
-                                    <i class="bi bi-circle-fill"></i>
-                                    Open position
-                                </span>
+                        <div class="job-detail-hero-meta">
 
-                                <h1><?= htmlspecialchars($job['title'], ENT_QUOTES, 'UTF-8') ?></h1>
-
-                                <p>
-                                    <i class="bi bi-building"></i>
-                                    <?= htmlspecialchars($job['company_name'], ENT_QUOTES, 'UTF-8') ?>
-                                </p>
-
-                            </div>
-
-                        </section>
-
-
-                        <section class="wp-job-details-section">
-
-                            <h2><i class="bi bi-card-text"></i> About this job</h2>
-
-                            <div class="job-details-description">
-                                <?= nl2br(htmlspecialchars($job['description'], ENT_QUOTES, 'UTF-8')) ?>
-                            </div>
-
-                        </section>
-
-
-                        <section class="wp-job-details-section">
-
-                            <h2><i class="bi bi-list-check"></i> Requirements</h2>
-
-                            <div class="job-details-description">
-                                <?= nl2br(htmlspecialchars(
-                                    $job['requirements'] ?? 'No specific requirements.',
+                            <span>
+                                <i class="bi bi-clock"></i>
+                                <?= htmlspecialchars(
+                                    ucwords(str_replace('_', ' ', $job['employment_type'])),
                                     ENT_QUOTES,
                                     'UTF-8'
-                                )) ?>
-                            </div>
-
-                        </section>
-
-
-                        <section class="wp-job-details-section">
-
-                            <h2><i class="bi bi-tools"></i> Required skills</h2>
-
-                            <div class="wp-job-skills job-details-skills">
-
-                                <?php if (!empty($job['required_skills'])): ?>
-
-                                    <?php foreach ($job['required_skills'] as $skill): ?>
-                                        <span class="wp-job-skill">
-                                            <?= htmlspecialchars($skill, ENT_QUOTES, 'UTF-8') ?>
-                                        </span>
-                                    <?php endforeach; ?>
-
-                                <?php else: ?>
-
-                                    <p>No specific skills required.</p>
-
-                                <?php endif; ?>
-
-                            </div>
-
-                        </section>
-
-
-                        <section class="wp-job-details-section">
-
-                            <h2><i class="bi bi-camera-video"></i> Interview information</h2>
-
-                            <p>
-                                <?= !empty($job['interview_required'])
-                                    ? 'An interview is required for this position.'
-                                    : 'No interview is required for this position.' ?>
-                            </p>
-
-                        </section>
-
-
-                        <!-- APPLICATION FORM -->
-                        <section class="wp-job-details-section job-application-section" id="apply">
-
-                            <div class="job-application-heading">
-                                <div>
-                                    <span class="landing-section-label">TAKE THE NEXT STEP</span>
-                                    <h2>Apply for this position</h2>
-                                    <p>Submit your application to be considered for this opportunity.</p>
-                                </div>
-
-                                <div class="job-application-icon">
-                                    <i class="bi bi-send"></i>
-                                </div>
-                            </div>
-
-
-                            <?php if ($application_message !== ''): ?>
-
-                                <div class="wp-alert <?= strpos($application_message, 'successfully') !== false ? 'wp-alert-success' : 'wp-alert-danger' ?>">
-                                    <?= htmlspecialchars($application_message, ENT_QUOTES, 'UTF-8') ?>
-                                </div>
-
-                            <?php endif; ?>
-
-
-                            <?php if (
-                                isset($_SESSION['user']['id']) &&
-                                ($_SESSION['role'] ?? '') === 'worker'
-                            ): ?>
-
-                                <form method="POST" enctype="multipart/form-data" class="job-application-form">
-
-                                    <div class="wp-form-group">
-
-                                        <label for="application_statement" class="wp-label">
-                                            Application statement
-                                            <span class="job-optional">(Optional)</span>
-                                        </label>
-
-                                        <textarea
-                                            name="application_statement"
-                                            id="application_statement"
-                                            class="wp-textarea"
-                                            rows="6"
-                                            placeholder="Introduce yourself and explain why you're interested in this position..."></textarea>
-
-                                    </div>
-
-
-                                    <div class="wp-form-group">
-
-                                        <label for="resume" class="wp-label">
-                                            Resume / CV
-                                            <span class="job-required">(Required)</span>
-                                        </label>
-
-                                        <?php if (!empty($existing_resume)): ?>
-
-                                            <div class="existing-resume">
-                                                <i class="bi bi-file-earmark-check"></i>
-
-                                                <div>
-                                                    <strong>Existing resume</strong>
-                                                    <small><?= htmlspecialchars(basename($existing_resume), ENT_QUOTES, 'UTF-8') ?></small>
-                                                </div>
-                                            </div>
-
-                                            <p class="wp-form-hint">
-                                                You can keep your existing resume or upload a replacement.
-                                            </p>
-
-                                        <?php else: ?>
-
-                                            <p class="wp-form-hint">
-                                                Please upload your resume before applying.
-                                            </p>
-
-                                        <?php endif; ?>
-
-
-                                        <input
-                                            type="file"
-                                            name="resume"
-                                            id="resume"
-                                            class="wp-input job-resume-input"
-                                            accept=".pdf,.doc,.docx"
-                                            <?= empty($existing_resume) ? 'required' : '' ?>>
-
-                                        <small class="wp-form-hint">
-                                            Accepted formats: PDF, DOC, DOCX. Maximum size: 5 MB.
-                                        </small>
-
-                                    </div>
-
-
-                                    <button type="submit" name="apply" class="wp-btn wp-btn-primary job-apply-button">
-                                        Submit Application
-                                        <i class="bi bi-arrow-right"></i>
-                                    </button>
-
-                                </form>
-
-
-                            <?php elseif (!isset($_SESSION['user']['id'])): ?>
-
-                                <div class="job-login-prompt">
-                                    <i class="bi bi-person-lock"></i>
-
-                                    <div>
-                                        <strong>Sign in to apply</strong>
-                                        <p>You need a worker account to submit an application.</p>
-                                    </div>
-                                </div>
-
-                                <a href="../login.php?redirect=<?= urlencode('pages/job-details.php?id=' . $job['id']) ?>"
-                                    class="wp-btn wp-btn-primary job-apply-button">
-                                    Log In to Apply
-                                    <i class="bi bi-arrow-right"></i>
-                                </a>
-
-
-                            <?php else: ?>
-
-                                <div class="job-login-prompt">
-                                    <i class="bi bi-info-circle"></i>
-
-                                    <div>
-                                        <strong>Worker account required</strong>
-                                        <p>Only worker accounts can apply for job opportunities.</p>
-                                    </div>
-                                </div>
-
-                                <a href="../logout.php?redirect=<?= urlencode('pages/job-details.php?id=' . $job['id']) ?>"
-                                    class="wp-btn wp-btn-outline">
-                                    Switch Account
-                                </a>
-
-                            <?php endif; ?>
-
-                        </section>
-
-                    </div>
-
-
-                    <!-- JOB SUMMARY SIDEBAR -->
-                    <aside class="job-details-sidebar">
-
-                        <section class="job-summary-card">
-
-                            <span class="landing-section-label">JOB OVERVIEW</span>
-
-                            <h3>Position details</h3>
-
-                            <div class="job-summary-item">
-                                <span><i class="bi bi-cash-stack"></i> Hourly rate</span>
-                                <strong class="job-summary-rate">
-                                    ₱<?= number_format((float)$job['hourly_rate'], 2) ?>/hr
-                                </strong>
-                            </div>
-
-                            <div class="job-summary-item">
-                                <span><i class="bi bi-clock"></i> Employment type</span>
-                                <strong>
-                                    <?= htmlspecialchars(ucwords(str_replace('_', ' ', $job['employment_type'])), ENT_QUOTES, 'UTF-8') ?>
-                                </strong>
-                            </div>
-
-                            <div class="job-summary-item">
-                                <span><i class="bi bi-calendar-week"></i> Work schedule</span>
-                                <strong>
-                                    <?= htmlspecialchars($job['work_schedule'] ?? 'Not specified', ENT_QUOTES, 'UTF-8') ?>
-                                </strong>
-                            </div>
-
-                            <div class="job-summary-item">
-                                <span><i class="bi bi-camera-video"></i> Interview</span>
-                                <strong>
-                                    <?= !empty($job['interview_required']) ? 'Required' : 'Not required' ?>
-                                </strong>
-                            </div>
-
-                            <div class="job-summary-divider"></div>
-
-                            <a href="#apply" class="wp-btn wp-btn-primary job-summary-apply">
+                                ) ?>
+                            </span>
+
+                            <span>
+                                <i class="bi bi-calendar-week"></i>
+                                <?= htmlspecialchars(
+                                    $job['work_schedule'] ?? 'Not specified',
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>
+                            </span>
+
+                            <strong>
+                                ₱<?= number_format((float)$job['hourly_rate'], 2) ?>/hr
+                            </strong>
+
+                        </div>
+
+                        <div class="wp-hero-actions">
+
+                            <a href="#apply" class="wp-btn wp-btn-primary">
                                 Apply for this job
                                 <i class="bi bi-arrow-right"></i>
                             </a>
 
-                            <p class="job-summary-note">
-                                <i class="bi bi-shield-check"></i>
-                                Your application will be submitted securely.
-                            </p>
+                            <a href="jobs.php" class="wp-btn wp-btn-outline">
+                                Browse other jobs
+                            </a>
 
-                        </section>
+                        </div>
 
-                    </aside>
+                    </div>
+
+
+                    <!-- FLOATING VISUAL -->
+                    <div class="wp-hero-image">
+
+                        <div class="landing-visual">
+
+                            <div class="landing-visual-decoration"></div>
+
+                            <div class="landing-visual-card">
+
+                                <div class="landing-visual-top">
+                                    <div class="landing-visual-logo">
+                                        <i class="bi bi-activity"></i>
+                                    </div>
+
+                                    <span>WORKPULSE WORKSPACE</span>
+
+                                    <i class="bi bi-three-dots"></i>
+                                </div>
+
+                                <div class="landing-visual-heading">
+                                    <small>YOUR NEXT OPPORTUNITY</small>
+                                    <h3>Make your next<br>move count.</h3>
+                                </div>
+
+                                <div class="landing-progress-card">
+
+                                    <div class="landing-progress-heading">
+                                        <span>Opportunity status</span>
+                                        <strong>Now open</strong>
+                                    </div>
+
+                                    <div class="landing-progress-track">
+                                        <span></span>
+                                    </div>
+
+                                    <small>
+                                        Take the next step in your professional journey.
+                                    </small>
+
+                                </div>
+
+                                <div class="landing-visual-stats">
+
+                                    <div>
+                                        <i class="bi bi-building"></i>
+                                        <strong>Employer</strong>
+                                        <small>Connect with teams</small>
+                                    </div>
+
+                                    <div>
+                                        <i class="bi bi-send"></i>
+                                        <strong>Apply</strong>
+                                        <small>Share your experience</small>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <div class="landing-floating-icon landing-floating-one">
+                                <i class="bi bi-check-lg"></i>
+                            </div>
+
+                            <div class="landing-floating-icon landing-floating-two">
+                                <i class="bi bi-lightning-charge-fill"></i>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- JOB DETAILS CONTENT -->
+                <div class="job-details-layout job-details-refresh-layout">
+
+
+                    <section class="wp-job-details-section">
+
+                        <h2><i class="bi bi-card-text"></i> About this job</h2>
+
+                        <div class="job-details-description">
+                            <?= nl2br(htmlspecialchars($job['description'], ENT_QUOTES, 'UTF-8')) ?>
+                        </div>
+
+                    </section>
+
+
+                    <section class="wp-job-details-section">
+
+                        <h2><i class="bi bi-list-check"></i> Requirements</h2>
+
+                        <div class="job-details-description">
+                            <?= nl2br(htmlspecialchars(
+                                $job['requirements'] ?? 'No specific requirements.',
+                                ENT_QUOTES,
+                                'UTF-8'
+                            )) ?>
+                        </div>
+
+                    </section>
+
+
+                    <section class="wp-job-details-section">
+
+                        <h2><i class="bi bi-tools"></i> Required skills</h2>
+
+                        <div class="wp-job-skills job-details-skills">
+
+                            <?php if (!empty($job['required_skills'])): ?>
+
+                                <?php foreach ($job['required_skills'] as $skill): ?>
+                                    <span class="wp-job-skill">
+                                        <?= htmlspecialchars($skill, ENT_QUOTES, 'UTF-8') ?>
+                                    </span>
+                                <?php endforeach; ?>
+
+                            <?php else: ?>
+
+                                <p>No specific skills required.</p>
+
+                            <?php endif; ?>
+
+                        </div>
+
+                    </section>
+
+
+                    <section class="wp-job-details-section">
+
+                        <h2><i class="bi bi-camera-video"></i> Interview information</h2>
+
+                        <p>
+                            <?= !empty($job['interview_required'])
+                                ? 'An interview is required for this position.'
+                                : 'No interview is required for this position.' ?>
+                        </p>
+
+                    </section>
+
+
+                    <!-- APPLICATION FORM -->
+                    <section class="wp-job-details-section job-application-section" id="apply">
+
+                        <div class="job-application-heading">
+                            <div>
+                                <span class="landing-section-label">TAKE THE NEXT STEP</span>
+                                <h2>Apply for this position</h2>
+                                <p>Submit your application to be considered for this opportunity.</p>
+                            </div>
+
+                            <div class="job-application-icon">
+                                <i class="bi bi-send"></i>
+                            </div>
+                        </div>
+
+
+                        <?php if ($application_message !== ''): ?>
+
+                            <div class="wp-alert <?= strpos($application_message, 'successfully') !== false ? 'wp-alert-success' : 'wp-alert-danger' ?>">
+                                <?= htmlspecialchars($application_message, ENT_QUOTES, 'UTF-8') ?>
+                            </div>
+
+                        <?php endif; ?>
+
+
+                        <?php if (
+                            isset($_SESSION['user']['id']) &&
+                            ($_SESSION['role'] ?? '') === 'worker'
+                        ): ?>
+
+                            <form method="POST" enctype="multipart/form-data" class="job-application-form">
+
+                                <div class="wp-form-group">
+
+                                    <label for="application_statement" class="wp-label">
+                                        Application statement
+                                        <span class="job-optional">(Optional)</span>
+                                    </label>
+
+                                    <textarea
+                                        name="application_statement"
+                                        id="application_statement"
+                                        class="wp-textarea"
+                                        rows="6"
+                                        placeholder="Introduce yourself and explain why you're interested in this position..."></textarea>
+
+                                </div>
+
+
+                                <div class="wp-form-group">
+
+                                    <label for="resume" class="wp-label">
+                                        Resume / CV
+                                        <span class="job-required">(Required)</span>
+                                    </label>
+
+                                    <?php if (!empty($existing_resume)): ?>
+
+                                        <div class="existing-resume">
+                                            <i class="bi bi-file-earmark-check"></i>
+
+                                            <div>
+                                                <strong>Existing resume</strong>
+                                                <small><?= htmlspecialchars(basename($existing_resume), ENT_QUOTES, 'UTF-8') ?></small>
+                                            </div>
+                                        </div>
+
+                                        <p class="wp-form-hint">
+                                            You can keep your existing resume or upload a replacement.
+                                        </p>
+
+                                    <?php else: ?>
+
+                                        <p class="wp-form-hint">
+                                            Please upload your resume before applying.
+                                        </p>
+
+                                    <?php endif; ?>
+
+
+                                    <input
+                                        type="file"
+                                        name="resume"
+                                        id="resume"
+                                        class="wp-input job-resume-input"
+                                        accept=".pdf,.doc,.docx"
+                                        <?= empty($existing_resume) ? 'required' : '' ?>>
+
+                                    <small class="wp-form-hint">
+                                        Accepted formats: PDF, DOC, DOCX. Maximum size: 5 MB.
+                                    </small>
+
+                                </div>
+
+
+                                <button type="submit" name="apply" class="wp-btn wp-btn-primary job-apply-button">
+                                    Submit Application
+                                    <i class="bi bi-arrow-right"></i>
+                                </button>
+
+                            </form>
+
+
+                        <?php elseif (!isset($_SESSION['user']['id'])): ?>
+
+                            <div class="job-login-prompt">
+                                <i class="bi bi-person-lock"></i>
+
+                                <div>
+                                    <strong>Sign in to apply</strong>
+                                    <p>You need a worker account to submit an application.</p>
+                                </div>
+                            </div>
+
+                            <a href="../login.php?redirect=<?= urlencode('pages/job-details.php?id=' . $job['id']) ?>"
+                                class="wp-btn wp-btn-primary job-apply-button">
+                                Log In to Apply
+                                <i class="bi bi-arrow-right"></i>
+                            </a>
+
+
+                        <?php else: ?>
+
+                            <div class="job-login-prompt">
+                                <i class="bi bi-info-circle"></i>
+
+                                <div>
+                                    <strong>Worker account required</strong>
+                                    <p>Only worker accounts can apply for job opportunities.</p>
+                                </div>
+                            </div>
+
+                            <a href="../logout.php?redirect=<?= urlencode('pages/job-details.php?id=' . $job['id']) ?>"
+                                class="wp-btn wp-btn-outline">
+                                Switch Account
+                            </a>
+
+                        <?php endif; ?>
+
+                    </section>
 
                 </div>
 
-            <?php endif; ?>
 
-        </main>
+                <!-- JOB SUMMARY SIDEBAR -->
+                <aside class="job-details-sidebar">
 
+                    <section class="job-summary-card">
 
-        <!-- FOOTER -->
-        <footer class="wp-landing-footer">
+                        <span class="landing-section-label">JOB OVERVIEW</span>
 
-            <div class="landing-footer-top">
-                <a href="../index.php" class="wp-landing-brand">
-                    <span class="landing-brand-icon"><i class="bi bi-activity"></i></span>
-                    WorkPulse
-                </a>
+                        <h3>Position details</h3>
 
-                <div class="landing-footer-links">
-                    <a href="../index.php">Home</a>
-                    <a href="jobs.php">Find Jobs</a>
-                    <a href="../login.php">Sign In</a>
-                    <a href="../register.php">Create Account</a>
-                </div>
-            </div>
+                        <div class="job-summary-item">
+                            <span><i class="bi bi-cash-stack"></i> Hourly rate</span>
+                            <strong class="job-summary-rate">
+                                ₱<?= number_format((float)$job['hourly_rate'], 2) ?>/hr
+                            </strong>
+                        </div>
 
-            <div class="landing-footer-bottom">
-                <p>© <?= date('Y') ?> WorkPulse. All rights reserved.</p>
-                <p>Work smarter. Move forward.</p>
-            </div>
+                        <div class="job-summary-item">
+                            <span><i class="bi bi-clock"></i> Employment type</span>
+                            <strong>
+                                <?= htmlspecialchars(ucwords(str_replace('_', ' ', $job['employment_type'])), ENT_QUOTES, 'UTF-8') ?>
+                            </strong>
+                        </div>
 
-        </footer>
+                        <div class="job-summary-item">
+                            <span><i class="bi bi-calendar-week"></i> Work schedule</span>
+                            <strong>
+                                <?= htmlspecialchars($job['work_schedule'] ?? 'Not specified', ENT_QUOTES, 'UTF-8') ?>
+                            </strong>
+                        </div>
+
+                        <div class="job-summary-item">
+                            <span><i class="bi bi-camera-video"></i> Interview</span>
+                            <strong>
+                                <?= !empty($job['interview_required']) ? 'Required' : 'Not required' ?>
+                            </strong>
+                        </div>
+
+                        <div class="job-summary-divider"></div>
+
+                        <a href="#apply" class="wp-btn wp-btn-primary job-summary-apply">
+                            Apply for this job
+                            <i class="bi bi-arrow-right"></i>
+                        </a>
+
+                        <p class="job-summary-note">
+                            <i class="bi bi-shield-check"></i>
+                            Your application will be submitted securely.
+                        </p>
+
+                    </section>
+
+                </aside>
 
     </div>
+
+<?php endif; ?>
+
+</main>
+
+
+<!-- FOOTER -->
+<footer class="wp-landing-footer">
+
+    <div class="landing-footer-top">
+        <a href="../index.php" class="wp-landing-brand">
+            <span class="landing-brand-icon"><i class="bi bi-activity"></i></span>
+            WorkPulse
+        </a>
+
+        <div class="landing-footer-links">
+            <a href="../index.php">Home</a>
+            <a href="jobs.php">Find Jobs</a>
+            <a href="../login.php">Sign In</a>
+            <a href="../register.php">Create Account</a>
+        </div>
+    </div>
+
+    <div class="landing-footer-bottom">
+        <p>© <?= date('Y') ?> WorkPulse. All rights reserved.</p>
+        <p>Work smarter. Move forward.</p>
+    </div>
+
+</footer>
+
+</div>
 
 </body>
 
