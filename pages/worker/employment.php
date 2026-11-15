@@ -259,7 +259,7 @@ foreach ($employments as $employment) {
                             <div class="wp-employment-detail">
                                 <span>Hourly Rate</span>
                                 <strong>
-                                    ₱<?php echo number_format((float)($employment['hourly_rate'] ?? 0), 2); ?>
+                                    $<?php echo number_format((float)($employment['hourly_rate'] ?? 0), 2); ?>
                                 </strong>
                             </div>
 

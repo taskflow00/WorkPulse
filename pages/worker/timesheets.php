@@ -5,25 +5,20 @@ require_once '../../includes/auth.php';
 // Use Philippine time.
 date_default_timezone_set('Asia/Manila');
 
-
 $worker_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];
 
-// Common headers.
+// Common Supabase headers.
 $headers =
     "apikey: " . SUPABASE_KEY . "\r\n" .
     "Authorization: Bearer " . $access_token . "\r\n";
 
 // Prepare messages.
 $submission_message = $_GET['message'] ?? '';
-$proof_message = '';
+$proof_message = $_GET['proof_message'] ?? '';
 $error_message = '';
 
-// Retrieve the worker's employments.
-$url = SUPABASE_URL .
-    '/rest/v1/employments?select=id,worker_id' .
-    '&worker_id=eq.' . urlencode($worker_id);
-
+// Common GET request options.
 $options = [
     'http' => [
         'method' => 'GET',
@@ -33,8 +28,13 @@ $options = [
 ];
 
 $context = stream_context_create($options);
-$response = file_get_contents($url, false, $context);
 
+// Retrieve the worker's employments.
+$url = SUPABASE_URL .
+    '/rest/v1/employments?select=id,worker_id' .
+    '&worker_id=eq.' . urlencode($worker_id);
+
+$response = file_get_contents($url, false, $context);
 $employments = json_decode($response ?: '', true);
 
 if (!is_array($employments)) {
@@ -60,11 +60,16 @@ if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $selected_month)) {
 $current_month = date('Y-m');
 $is_completed_month = $selected_month < $current_month;
 
-// Prepare arrays for time records and daily totals.
+// Prepare arrays.
 $time_sessions = [];
 $daily_records = [];
+$history_months = [];
+$history_timesheets = [];
+$existing_timesheet = null;
+$daily_proofs = [];
+$proof_map = [];
 
-// Retrieve the worker's time records.
+// Retrieve the selected month's time records.
 if (!empty($employment_id)) {
 
     $timezone = new DateTimeZone('Asia/Manila');
@@ -86,7 +91,6 @@ if (!empty($employment_id)) {
         '&order=started_at.asc';
 
     $response = file_get_contents($url, false, $context);
-
     $time_sessions = json_decode($response ?: '', true);
 
     if (!is_array($time_sessions)) {
@@ -129,7 +133,6 @@ if (
     $work_date = $_POST['work_date'] ?? '';
     $worker_note = trim($_POST['worker_note'] ?? '');
 
-    // Make sure the selected month is valid.
     if (
         !preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $posted_month) ||
         $posted_month !== $selected_month
@@ -187,7 +190,6 @@ if (
 
                 // Generate a random filename.
                 $extension = $allowedTypes[$mimeType];
-
                 $filename = bin2hex(random_bytes(16)) . '.' . $extension;
 
                 // Organize files by worker, employment, and date.
@@ -239,7 +241,7 @@ if (
                         ?? 'Unable to upload screenshot.';
                 } else {
 
-                    // Save the screenshot information in the database.
+                    // Save screenshot information in the database.
                     $proofData = [
                         'employment_id' => $employment_id,
                         'worker_id' => $worker_id,
@@ -283,7 +285,7 @@ if (
                         isset($proofResult[0]['id'])
                     ) {
 
-                        // Redirect to prevent duplicate submission on refresh.
+                        // Redirect to prevent duplicate submission.
                         header(
                             'Location: timesheets.php?month=' .
                                 urlencode($selected_month) .
@@ -294,7 +296,7 @@ if (
                         exit;
                     } else {
 
-                        // Remove the uploaded screenshot if saving failed.
+                        // Remove uploaded screenshot if saving failed.
                         $deleteUrl = SUPABASE_URL .
                             '/storage/v1/object/daily-time-proofs';
 
@@ -329,7 +331,7 @@ if (
     }
 }
 
-// Handle monthly timesheet submission.
+// Handle monthly timesheet submission or resubmission.
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST' &&
     isset($_POST['submit_timesheet'])
@@ -346,6 +348,9 @@ if (
     } elseif (empty($employment_id)) {
 
         $error_message = 'No employment found.';
+    } elseif (!$is_completed_month) {
+
+        $error_message = 'You can only submit completed months.';
     } else {
 
         $url = SUPABASE_URL .
@@ -356,7 +361,7 @@ if (
             'p_month' => $selected_month . '-01'
         ];
 
-        $options = [
+        $submitOptions = [
             'http' => [
                 'method' => 'POST',
                 'header' => $headers .
@@ -366,8 +371,13 @@ if (
             ]
         ];
 
-        $context = stream_context_create($options);
-        $response = file_get_contents($url, false, $context);
+        $submitContext = stream_context_create($submitOptions);
+
+        $response = file_get_contents(
+            $url,
+            false,
+            $submitContext
+        );
 
         $result = json_decode($response ?: '', true);
 
@@ -392,14 +402,7 @@ if (
     }
 }
 
-// Display proof success message after redirect.
-if (isset($_GET['proof_message'])) {
-    $proof_message = $_GET['proof_message'];
-}
-
-// Retrieve the existing monthly timesheet.
-$existing_timesheet = null;
-
+// Retrieve the selected month's existing timesheet.
 if (!empty($employment_id)) {
 
     $url = SUPABASE_URL .
@@ -410,7 +413,6 @@ if (!empty($employment_id)) {
         '&limit=1';
 
     $response = file_get_contents($url, false, $context);
-
     $timesheets = json_decode($response ?: '', true);
 
     if (is_array($timesheets) && !empty($timesheets)) {
@@ -418,7 +420,85 @@ if (!empty($employment_id)) {
     }
 }
 
-// Prepare monthly totals.
+// Retrieve all recorded months for timesheet history.
+if (!empty($employment_id)) {
+
+    $historyUrl = SUPABASE_URL .
+        '/rest/v1/time_tracking_sessions?select=started_at,total_seconds' .
+        '&worker_id=eq.' . urlencode($worker_id) .
+        '&employment_id=eq.' . urlencode($employment_id) .
+        '&total_seconds=gt.0' .
+        '&order=started_at.desc';
+
+    $historyResponse = file_get_contents(
+        $historyUrl,
+        false,
+        $context
+    );
+
+    $historySessions = json_decode(
+        $historyResponse ?: '',
+        true
+    );
+
+    if (is_array($historySessions)) {
+
+        $timezone = new DateTimeZone('Asia/Manila');
+
+        foreach ($historySessions as $session) {
+
+            $date = new DateTime($session['started_at']);
+            $date->setTimezone($timezone);
+
+            $month = $date->format('Y-m');
+
+            if (!isset($history_months[$month])) {
+                $history_months[$month] = [
+                    'working_seconds' => 0
+                ];
+            }
+
+            $history_months[$month]['working_seconds'] +=
+                (int) $session['total_seconds'];
+        }
+    }
+
+    // Retrieve existing timesheets for this employment.
+    $historyTimesheetUrl = SUPABASE_URL .
+        '/rest/v1/timesheets?select=month,status,employer_comment' .
+        '&worker_id=eq.' . urlencode($worker_id) .
+        '&employment_id=eq.' . urlencode($employment_id) .
+        '&order=month.desc';
+
+    $historyTimesheetResponse = file_get_contents(
+        $historyTimesheetUrl,
+        false,
+        $context
+    );
+
+    $historyTimesheets = json_decode(
+        $historyTimesheetResponse ?: '',
+        true
+    );
+
+    if (is_array($historyTimesheets)) {
+
+        foreach ($historyTimesheets as $timesheet) {
+
+            $month = date(
+                'Y-m',
+                strtotime($timesheet['month'])
+            );
+
+            $history_timesheets[$month] = $timesheet;
+        }
+    }
+}
+
+// Show newest months first.
+krsort($history_months);
+
+// Calculate selected month's totals.
 $monthly_working_seconds = 0;
 $monthly_idle_seconds = 0;
 
@@ -429,9 +509,6 @@ foreach ($daily_records as $record) {
 }
 
 // Retrieve submitted daily time proofs.
-$daily_proofs = [];
-$proof_map = [];
-
 if (!empty($employment_id)) {
 
     $month_start = new DateTime(
@@ -504,8 +581,10 @@ if (!empty($employment_id)) {
         if ($signedPath !== '') {
 
             if (strpos($signedPath, 'http') === 0) {
+
                 $daily_proofs[$index]['screenshot_url'] = $signedPath;
             } else {
+
                 $daily_proofs[$index]['screenshot_url'] =
                     SUPABASE_URL . '/storage/v1' . $signedPath;
             }
@@ -515,396 +594,986 @@ if (!empty($employment_id)) {
         $proof_map[$proof['work_date']][] = $daily_proofs[$index];
     }
 }
+
+// Format time values.
+function formatTimesheetDuration($seconds)
+{
+    $seconds = (int) $seconds;
+
+    return sprintf(
+        '%02d:%02d:%02d',
+        intdiv($seconds, 3600),
+        intdiv($seconds % 3600, 60),
+        $seconds % 60
+    );
+}
+
+// Set shared WorkPulse layout settings.
+$page_title = 'My Timesheets';
+$active_page = 'timesheets';
+$page_styles = [
+    '/assets/css/timesheets.css'
+];
+
+// Load the shared dashboard layout.
+require_once '../../includes/header.php';
+
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
+<div class="wp-timesheets-page">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- PAGE HEADING -->
+    <div class="wp-timesheets-heading">
 
-    <title>My Timesheets - WorkPulse</title>
+        <div>
+            <span class="wp-timesheets-eyebrow">MY WORKSPACE</span>
 
-    <link rel="stylesheet" href="../../assets/css/style.css">
-</head>
-
-<body>
-
-    <main class="container">
-
-        <a href="dashboard.php">← Back to Dashboard</a>
-
-        <h1>My Timesheets</h1>
-
-        <p>View your daily working hours and submit time proof.</p>
-
-        <?php if ($submission_message !== ''): ?>
+            <h1>My Timesheets</h1>
 
             <p>
-                <?= htmlspecialchars($submission_message) ?>
+                Track your working hours, submit time proof,
+                and manage your monthly timesheets.
             </p>
+        </div>
 
-        <?php endif; ?>
+        <div class="wp-timesheets-heading-icon">
+            <i class="bi bi-calendar2-check"></i>
+        </div>
 
-        <?php if ($proof_message !== ''): ?>
+    </div>
 
-            <p>
-                <?= htmlspecialchars($proof_message) ?>
-            </p>
+    <!-- NOTIFICATION MESSAGES -->
+    <?php if ($submission_message !== ''): ?>
 
-        <?php endif; ?>
+        <div class="wp-timesheets-alert success">
+            <i class="bi bi-check-circle-fill"></i>
+            <p><?= htmlspecialchars($submission_message) ?></p>
+        </div>
 
-        <?php if ($error_message !== ''): ?>
+    <?php endif; ?>
 
-            <p>
-                <?= htmlspecialchars($error_message) ?>
-            </p>
+    <?php if ($proof_message !== ''): ?>
 
-        <?php endif; ?>
+        <div class="wp-timesheets-alert success">
+            <i class="bi bi-check-circle-fill"></i>
+            <p><?= htmlspecialchars($proof_message) ?></p>
+        </div>
 
-        <?php if (empty($employments)): ?>
+    <?php endif; ?>
 
-            <p>You don't have any employments yet.</p>
+    <?php if ($error_message !== ''): ?>
 
-        <?php else: ?>
+        <div class="wp-timesheets-alert error">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <p><?= htmlspecialchars($error_message) ?></p>
+        </div>
 
-            <!-- MONTH SELECTOR -->
-            <form method="GET">
+    <?php endif; ?>
 
-                <label for="month">Select Month:</label>
+    <?php if (empty($employments)): ?>
+
+        <!-- NO EMPLOYMENT -->
+        <section class="wp-timesheet-panel">
+
+            <div class="wp-timesheets-empty">
+
+                <div class="wp-timesheets-empty-icon">
+                    <i class="bi bi-briefcase"></i>
+                </div>
+
+                <h3>No Employment Found</h3>
+
+                <p>
+                    You don't have any employment records yet.
+                    Your timesheets will appear here once you have an employment.
+                </p>
+
+            </div>
+
+        </section>
+
+    <?php else: ?>
+
+        <!-- MONTH SELECTOR -->
+        <section class="wp-month-selector">
+
+            <div>
+                <label for="month">Select Month</label>
 
                 <input
                     type="month"
                     name="month"
                     id="month"
+                    form="month-filter"
                     value="<?= htmlspecialchars($selected_month) ?>"
                     required>
+            </div>
 
-                <button type="submit">View Timesheet</button>
+            <form method="GET" id="month-filter">
+
+                <input
+                    type="hidden"
+                    name="month"
+                    id="selected-month-hidden"
+                    value="<?= htmlspecialchars($selected_month) ?>">
+
+                <button type="submit" class="wp-btn wp-btn-primary">
+                    <i class="bi bi-calendar3"></i>
+                    View Month
+                </button>
 
             </form>
 
-            <!-- DAILY WORK AND IDLE HOURS -->
-            <h2>Daily Work Hours</h2>
+        </section>
 
-            <?php if (empty($daily_records)): ?>
+        <!-- TIMESHEET HISTORY -->
+        <section class="wp-timesheet-panel">
 
-                <p>No time records found for this month.</p>
+            <div class="wp-timesheet-panel-header">
+
+                <div>
+                    <h2>Timesheet History</h2>
+
+                    <p>
+                        View your previous working months and submission status.
+                    </p>
+                </div>
+
+                <i class="bi bi-clock-history"></i>
+
+            </div>
+
+            <?php if (empty($history_months)): ?>
+
+                <div class="wp-timesheets-empty">
+
+                    <div class="wp-timesheets-empty-icon">
+                        <i class="bi bi-calendar-x"></i>
+                    </div>
+
+                    <h3>No Recorded Months</h3>
+
+                    <p>
+                        Your recorded working months will appear here.
+                    </p>
+
+                </div>
 
             <?php else: ?>
 
-                <table border="1" cellpadding="10">
+                <div class="wp-timesheets-table-wrapper">
 
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Work Hours</th>
-                            <th>Idle Hours</th>
-                        </tr>
-                    </thead>
+                    <table class="wp-timesheets-table">
 
-                    <tbody>
-
-                        <?php foreach ($daily_records as $date => $record): ?>
-
-                            <?php
-                            $work = $record['working_seconds'];
-                            $idle = $record['idle_seconds'];
-
-                            $work_time = sprintf(
-                                '%02d:%02d:%02d',
-                                intdiv($work, 3600),
-                                intdiv($work % 3600, 60),
-                                $work % 60
-                            );
-
-                            $idle_time = sprintf(
-                                '%02d:%02d:%02d',
-                                intdiv($idle, 3600),
-                                intdiv($idle % 3600, 60),
-                                $idle % 60
-                            );
-                            ?>
-
+                        <thead>
                             <tr>
-                                <td>
-                                    <?= htmlspecialchars($date) ?>
-                                </td>
-
-                                <td><?= $work_time ?></td>
-
-                                <td><?= $idle_time ?></td>
+                                <th>Month</th>
+                                <th>Total Working Hours</th>
+                                <th>Status</th>
+                                <th>Action</th>
                             </tr>
+                        </thead>
 
-                        <?php endforeach; ?>
+                        <tbody>
 
-                    </tbody>
+                            <?php foreach ($history_months as $month => $record): ?>
 
-                </table>
+                                <?php
+                                $month_timesheet = $history_timesheets[$month] ?? null;
+
+                                $month_status = $month_timesheet['status'] ?? null;
+
+                                $month_is_completed = $month < date('Y-m');
+
+                                $history_work = (int) $record['working_seconds'];
+
+                                $history_work_time = formatTimesheetDuration(
+                                    $history_work
+                                );
+
+                                $month_label = date(
+                                    'F Y',
+                                    strtotime($month . '-01')
+                                );
+                                ?>
+
+                                <tr>
+
+                                    <td>
+                                        <?= htmlspecialchars($month_label) ?>
+                                    </td>
+
+                                    <td>
+                                        <strong><?= $history_work_time ?></strong>
+                                    </td>
+
+                                    <td>
+
+                                        <?php if ($month_status === 'approved'): ?>
+
+                                            <span class="wp-timesheet-status approved">
+                                                Approved
+                                            </span>
+
+                                        <?php elseif ($month_status === 'submitted'): ?>
+
+                                            <span class="wp-timesheet-status submitted">
+                                                Awaiting Review
+                                            </span>
+
+                                        <?php elseif ($month_status === 'rejected'): ?>
+
+                                            <span class="wp-timesheet-status rejected">
+                                                Rejected
+                                            </span>
+
+                                        <?php elseif (!$month_is_completed): ?>
+
+                                            <span class="wp-timesheet-status progress">
+                                                In Progress
+                                            </span>
+
+                                        <?php else: ?>
+
+                                            <span class="wp-timesheet-status pending">
+                                                Not Submitted
+                                            </span>
+
+                                        <?php endif; ?>
+
+                                    </td>
+
+                                    <td class="wp-table-action">
+
+                                        <?php if (
+                                            $month_is_completed &&
+                                            $history_work > 0 &&
+                                            $month_status === 'rejected'
+                                        ): ?>
+
+                                            <form
+                                                method="POST"
+                                                action="timesheets.php?month=<?= urlencode($month) ?>">
+
+                                                <input
+                                                    type="hidden"
+                                                    name="month"
+                                                    value="<?= htmlspecialchars($month) ?>">
+
+                                                <button
+                                                    type="submit"
+                                                    name="submit_timesheet"
+                                                    class="wp-btn wp-btn-outline">
+
+                                                    <i class="bi bi-arrow-repeat"></i>
+                                                    Resubmit
+
+                                                </button>
+
+                                            </form>
+
+                                        <?php elseif (
+                                            $month_is_completed &&
+                                            $history_work > 0 &&
+                                            empty($month_timesheet)
+                                        ): ?>
+
+                                            <form
+                                                method="POST"
+                                                action="timesheets.php?month=<?= urlencode($month) ?>">
+
+                                                <input
+                                                    type="hidden"
+                                                    name="month"
+                                                    value="<?= htmlspecialchars($month) ?>">
+
+                                                <button
+                                                    type="submit"
+                                                    name="submit_timesheet"
+                                                    class="wp-btn wp-btn-primary">
+
+                                                    <i class="bi bi-send"></i>
+                                                    Submit
+
+                                                </button>
+
+                                            </form>
+
+                                        <?php else: ?>
+
+                                            <span class="wp-timesheets-no-action">
+                                                No action needed
+                                            </span>
+
+                                        <?php endif; ?>
+
+                                    </td>
+
+                                </tr>
+
+                                <?php if (
+                                    $month_status === 'rejected' &&
+                                    !empty($month_timesheet['employer_comment'])
+                                ): ?>
+
+                                    <tr>
+                                        <td colspan="4">
+
+                                            <div class="wp-timesheet-feedback">
+
+                                                <strong>
+                                                    <i class="bi bi-chat-left-text"></i>
+                                                    Employer Feedback
+                                                </strong>
+
+                                                <p>
+                                                    <?= nl2br(
+                                                        htmlspecialchars(
+                                                            $month_timesheet['employer_comment']
+                                                        )
+                                                    ) ?>
+                                                </p>
+
+                                            </div>
+
+                                        </td>
+                                    </tr>
+
+                                <?php endif; ?>
+
+                            <?php endforeach; ?>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
 
             <?php endif; ?>
 
-            <!-- DAILY TIME PROOF UPLOAD -->
-            <h2>Daily Time Proof</h2>
+        </section>
 
-            <p>
-                Upload a screenshot to support your recorded working hours.
-                You can submit proof even if the month is not yet completed.
-            </p>
+        <!-- DAILY WORK HOURS -->
+        <section class="wp-timesheet-panel">
+
+            <div class="wp-timesheet-panel-header">
+
+                <div>
+                    <h2>Daily Work Hours</h2>
+
+                    <p>
+                        Your recorded working and idle hours for
+                        <?= htmlspecialchars(
+                            date('F Y', strtotime($selected_month . '-01'))
+                        ) ?>.
+                    </p>
+                </div>
+
+                <i class="bi bi-clock"></i>
+
+            </div>
+
+            <?php if (empty($daily_records)): ?>
+
+                <div class="wp-timesheets-empty">
+
+                    <div class="wp-timesheets-empty-icon">
+                        <i class="bi bi-calendar-minus"></i>
+                    </div>
+
+                    <h3>No Time Records</h3>
+
+                    <p>
+                        There are no recorded working hours for this month.
+                    </p>
+
+                </div>
+
+            <?php else: ?>
+
+                <div class="wp-timesheets-table-wrapper">
+
+                    <table class="wp-timesheets-table">
+
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Working Hours</th>
+                                <th>Idle Hours</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            <?php foreach ($daily_records as $date => $record): ?>
+
+                                <tr>
+
+                                    <td>
+                                        <?= htmlspecialchars(
+                                            date('M d, Y', strtotime($date))
+                                        ) ?>
+                                    </td>
+
+                                    <td>
+                                        <strong>
+                                            <?= formatTimesheetDuration(
+                                                $record['working_seconds']
+                                            ) ?>
+                                        </strong>
+                                    </td>
+
+                                    <td>
+                                        <?= formatTimesheetDuration(
+                                            $record['idle_seconds']
+                                        ) ?>
+                                    </td>
+
+                                </tr>
+
+                            <?php endforeach; ?>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            <?php endif; ?>
+
+        </section>
+
+        <!-- DAILY TIME PROOF UPLOAD -->
+        <section class="wp-timesheet-panel">
+
+            <div class="wp-timesheet-panel-header">
+
+                <div>
+                    <h2>Daily Time Proof</h2>
+
+                    <p>
+                        Upload a screenshot to support your recorded working hours.
+                    </p>
+                </div>
+
+                <i class="bi bi-cloud-arrow-up"></i>
+
+            </div>
 
             <?php if (!empty($daily_records)): ?>
 
-                <form method="POST" enctype="multipart/form-data">
+                <form
+                    method="POST"
+                    enctype="multipart/form-data"
+                    class="wp-proof-form">
 
                     <input
                         type="hidden"
                         name="month"
                         value="<?= htmlspecialchars($selected_month) ?>">
 
-                    <label for="work_date">Select Work Date:</label>
+                    <div>
+                        <label for="work_date">Work Date</label>
 
-                    <select name="work_date" id="work_date" required>
+                        <select name="work_date" id="work_date" required>
 
-                        <option value="">Choose a recorded date</option>
-
-                        <?php foreach ($daily_records as $date => $record): ?>
-
-                            <option value="<?= htmlspecialchars($date) ?>">
-                                <?= htmlspecialchars($date) ?>
+                            <option value="">
+                                Choose a recorded date
                             </option>
 
-                        <?php endforeach; ?>
+                            <?php foreach ($daily_records as $date => $record): ?>
 
-                    </select>
+                                <option value="<?= htmlspecialchars($date) ?>">
+                                    <?= htmlspecialchars(
+                                        date('F d, Y', strtotime($date))
+                                    ) ?>
+                                </option>
 
-                    <br><br>
+                            <?php endforeach; ?>
 
-                    <label for="screenshot">Screenshot:</label>
+                        </select>
+                    </div>
 
-                    <input
-                        type="file"
-                        name="screenshot"
-                        id="screenshot"
-                        accept="image/png,image/jpeg,image/webp"
-                        required>
+                    <div>
+                        <label for="screenshot">Screenshot</label>
 
-                    <p>
-                        <small>
-                            PNG, JPG, or WebP. Maximum file size: 5 MB.
+                        <input
+                            type="file"
+                            name="screenshot"
+                            id="screenshot"
+                            accept="image/png,image/jpeg,image/webp"
+                            required>
+
+                        <small class="wp-form-hint">
+                            JPG, PNG, or WebP. Maximum file size: 5 MB.
                         </small>
-                    </p>
+                    </div>
 
-                    <label for="worker_note">Note (Optional):</label>
+                    <div class="full-width">
 
-                    <textarea
-                        name="worker_note"
-                        id="worker_note"
-                        rows="3"
-                        maxlength="1000"
-                        placeholder="Add a short explanation about your screenshot..."></textarea>
+                        <label for="worker_note">
+                            Note <span>(Optional)</span>
+                        </label>
 
-                    <br><br>
+                        <textarea
+                            name="worker_note"
+                            id="worker_note"
+                            rows="3"
+                            maxlength="1000"
+                            placeholder="Add a short explanation about your screenshot..."></textarea>
 
-                    <button type="submit" name="submit_time_proof">
-                        Submit Time Proof
-                    </button>
+                    </div>
+
+                    <div class="full-width">
+
+                        <button
+                            type="submit"
+                            name="submit_time_proof"
+                            class="wp-btn wp-btn-primary">
+
+                            <i class="bi bi-upload"></i>
+                            Submit Time Proof
+
+                        </button>
+
+                    </div>
 
                 </form>
 
             <?php else: ?>
 
-                <p>
+                <p class="wp-timesheets-muted">
                     You need recorded working hours before submitting time proof.
                 </p>
 
             <?php endif; ?>
 
-            <!-- SUBMITTED DAILY PROOFS -->
-            <h2>My Submitted Time Proofs</h2>
+        </section>
+
+        <!-- SUBMITTED DAILY PROOFS -->
+        <section class="wp-timesheet-panel">
+
+            <div class="wp-timesheet-panel-header">
+
+                <div>
+                    <h2>My Submitted Time Proofs</h2>
+
+                    <p>
+                        Screenshots and feedback for
+                        <?= htmlspecialchars(
+                            date('F Y', strtotime($selected_month . '-01'))
+                        ) ?>.
+                    </p>
+                </div>
+
+                <i class="bi bi-file-earmark-image"></i>
+
+            </div>
 
             <?php if (empty($daily_proofs)): ?>
 
-                <p>You haven't submitted any time proofs for this month.</p>
+                <div class="wp-timesheets-empty">
+
+                    <div class="wp-timesheets-empty-icon">
+                        <i class="bi bi-images"></i>
+                    </div>
+
+                    <h3>No Time Proofs Yet</h3>
+
+                    <p>
+                        Your submitted screenshots will appear here.
+                    </p>
+
+                </div>
 
             <?php else: ?>
 
-                <?php foreach ($daily_proofs as $proof): ?>
+                <div class="wp-proof-list">
 
-                    <section class="timesheet-card">
+                    <?php foreach ($daily_proofs as $proof): ?>
 
-                        <h3>
-                            <?= htmlspecialchars($proof['work_date']) ?>
-                        </h3>
+                        <article class="wp-proof-card">
 
-                        <p>
-                            Status:
-                            <strong>
-                                <?= htmlspecialchars(
-                                    ucwords(str_replace('_', ' ', $proof['status']))
-                                ) ?>
-                            </strong>
-                        </p>
+                            <div class="wp-proof-card-header">
 
-                        <?php if (!empty($proof['worker_note'])): ?>
+                                <div>
+                                    <h3>
+                                        <?= htmlspecialchars(
+                                            date(
+                                                'F d, Y',
+                                                strtotime($proof['work_date'])
+                                            )
+                                        ) ?>
+                                    </h3>
 
-                            <p>
-                                Your Note:
-                                <?= htmlspecialchars($proof['worker_note']) ?>
-                            </p>
+                                    <p>
+                                        Submitted:
+                                        <?= htmlspecialchars(
+                                            $proof['submitted_at'] ?? 'N/A'
+                                        ) ?>
+                                    </p>
+                                </div>
 
-                        <?php endif; ?>
+                                <?php
+                                $proof_status = $proof['status'] ?? 'pending';
 
-                        <?php if (!empty($proof['employer_comment'])): ?>
+                                $proof_status_class = 'pending';
 
-                            <p>
-                                Employer Comment:
-                                <?= htmlspecialchars($proof['employer_comment']) ?>
-                            </p>
+                                if ($proof_status === 'approved') {
+                                    $proof_status_class = 'approved';
+                                } elseif ($proof_status === 'rejected') {
+                                    $proof_status_class = 'rejected';
+                                } elseif ($proof_status === 'submitted') {
+                                    $proof_status_class = 'submitted';
+                                }
+                                ?>
 
-                        <?php endif; ?>
+                                <span class="wp-timesheet-status <?= $proof_status_class ?>">
+                                    <?= htmlspecialchars(
+                                        ucwords(str_replace('_', ' ', $proof_status))
+                                    ) ?>
+                                </span>
 
-                        <?php if (!empty($proof['screenshot_url'])): ?>
+                            </div>
 
-                            <p>
+                            <?php if (!empty($proof['worker_note'])): ?>
+
+                                <div class="wp-proof-detail">
+
+                                    <strong>Your Note</strong>
+
+                                    <p>
+                                        <?= nl2br(
+                                            htmlspecialchars($proof['worker_note'])
+                                        ) ?>
+                                    </p>
+
+                                </div>
+
+                            <?php endif; ?>
+
+                            <?php if (!empty($proof['employer_comment'])): ?>
+
+                                <div class="wp-timesheet-feedback">
+
+                                    <strong>Employer Feedback</strong>
+
+                                    <p>
+                                        <?= nl2br(
+                                            htmlspecialchars($proof['employer_comment'])
+                                        ) ?>
+                                    </p>
+
+                                </div>
+
+                            <?php endif; ?>
+
+                            <?php if (!empty($proof['screenshot_url'])): ?>
+
                                 <a
                                     href="<?= htmlspecialchars($proof['screenshot_url']) ?>"
                                     target="_blank"
-                                    rel="noopener noreferrer">
-                                    View My Screenshot
+                                    rel="noopener noreferrer"
+                                    class="wp-proof-image-link">
+
+                                    <i class="bi bi-image"></i>
+                                    View Screenshot
+
+                                    <i class="bi bi-box-arrow-up-right"></i>
+
                                 </a>
+
+                            <?php else: ?>
+
+                                <p class="wp-timesheets-muted">
+                                    Screenshot preview is temporarily unavailable.
+                                </p>
+
+                            <?php endif; ?>
+
+                        </article>
+
+                    <?php endforeach; ?>
+
+                </div>
+
+            <?php endif; ?>
+
+        </section>
+
+        <!-- MONTHLY SUMMARY -->
+        <section class="wp-timesheet-panel">
+
+            <div class="wp-timesheet-panel-header">
+
+                <div>
+                    <h2>Monthly Summary</h2>
+
+                    <p>
+                        Your total recorded hours for
+                        <?= htmlspecialchars(
+                            date('F Y', strtotime($selected_month . '-01'))
+                        ) ?>.
+                    </p>
+                </div>
+
+                <i class="bi bi-bar-chart"></i>
+
+            </div>
+
+            <div class="wp-monthly-summary">
+
+                <div class="wp-summary-card">
+
+                    <div class="wp-summary-icon">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+
+                    <div>
+                        <span>Total Working Hours</span>
+
+                        <strong>
+                            <?= formatTimesheetDuration(
+                                $monthly_working_seconds
+                            ) ?>
+                        </strong>
+                    </div>
+
+                </div>
+
+                <div class="wp-summary-card">
+
+                    <div class="wp-summary-icon idle">
+                        <i class="bi bi-cup-hot"></i>
+                    </div>
+
+                    <div>
+                        <span>Total Idle Hours</span>
+
+                        <strong>
+                            <?= formatTimesheetDuration(
+                                $monthly_idle_seconds
+                            ) ?>
+                        </strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- MONTHLY TIMESHEET STATUS -->
+        <section class="wp-timesheet-panel">
+
+            <div class="wp-timesheet-panel-header">
+
+                <div>
+                    <h2>Monthly Timesheet Status</h2>
+
+                    <p>
+                        Submission and employer review information.
+                    </p>
+                </div>
+
+                <i class="bi bi-clipboard-check"></i>
+
+            </div>
+
+            <div class="wp-current-timesheet-status">
+
+                <?php if (!empty($existing_timesheet)): ?>
+
+                    <?php
+                    $current_status = $existing_timesheet['status'];
+
+                    $current_status_class = 'pending';
+
+                    if ($current_status === 'approved') {
+                        $current_status_class = 'approved';
+                    } elseif ($current_status === 'rejected') {
+                        $current_status_class = 'rejected';
+                    } elseif ($current_status === 'submitted') {
+                        $current_status_class = 'submitted';
+                    }
+                    ?>
+
+                    <p>
+                        <strong>Status:</strong>
+
+                        <span class="wp-timesheet-status <?= $current_status_class ?>">
+                            <?= htmlspecialchars(
+                                ucfirst($current_status)
+                            ) ?>
+                        </span>
+                    </p>
+
+                    <?php if (!empty($existing_timesheet['submitted_at'])): ?>
+
+                        <p>
+                            <strong>Submitted:</strong>
+                            <?= htmlspecialchars(
+                                $existing_timesheet['submitted_at']
+                            ) ?>
+                        </p>
+
+                    <?php endif; ?>
+
+                    <?php if (!empty($existing_timesheet['reviewed_at'])): ?>
+
+                        <p>
+                            <strong>Last Reviewed:</strong>
+                            <?= htmlspecialchars(
+                                $existing_timesheet['reviewed_at']
+                            ) ?>
+                        </p>
+
+                    <?php endif; ?>
+
+                    <?php if (!empty($existing_timesheet['employer_comment'])): ?>
+
+                        <div class="wp-timesheet-feedback">
+
+                            <strong>
+                                <i class="bi bi-chat-left-text"></i>
+                                Employer Feedback
+                            </strong>
+
+                            <p>
+                                <?= nl2br(
+                                    htmlspecialchars(
+                                        $existing_timesheet['employer_comment']
+                                    )
+                                ) ?>
                             </p>
 
-                        <?php else: ?>
+                        </div>
 
-                            <p>Screenshot preview is temporarily unavailable.</p>
+                    <?php endif; ?>
 
-                        <?php endif; ?>
-
-                        <hr>
-
-                    </section>
-
-                <?php endforeach; ?>
-
-            <?php endif; ?>
-
-            <!-- MONTHLY SUMMARY -->
-            <h2>Monthly Summary</h2>
-
-            <?php
-            $monthly_work = sprintf(
-                '%02d:%02d:%02d',
-                intdiv($monthly_working_seconds, 3600),
-                intdiv($monthly_working_seconds % 3600, 60),
-                $monthly_working_seconds % 60
-            );
-
-            $monthly_idle = sprintf(
-                '%02d:%02d:%02d',
-                intdiv($monthly_idle_seconds, 3600),
-                intdiv($monthly_idle_seconds % 3600, 60),
-                $monthly_idle_seconds % 60
-            );
-            ?>
-
-            <p>
-                Total Work Hours:
-                <strong><?= $monthly_work ?></strong>
-            </p>
-
-            <p>
-                Total Idle Hours:
-                <strong><?= $monthly_idle ?></strong>
-            </p>
-
-            <!-- EXISTING MONTHLY TIMESHEET STATUS -->
-            <h2>Monthly Timesheet Status</h2>
-
-            <?php if (!empty($existing_timesheet)): ?>
-
-                <p>
-                    Status:
-                    <strong>
-                        <?= htmlspecialchars(
-                            ucfirst($existing_timesheet['status'])
-                        ) ?>
-                    </strong>
-                </p>
-
-                <?php if (!empty($existing_timesheet['submitted_at'])): ?>
+                <?php else: ?>
 
                     <p>
-                        Submitted:
-                        <?= htmlspecialchars($existing_timesheet['submitted_at']) ?>
+                        No monthly timesheet has been submitted for this month.
                     </p>
 
                 <?php endif; ?>
 
-                <?php if (!empty($existing_timesheet['reviewed_at'])): ?>
+                <!-- SUBMISSION RULE -->
+                <?php if (
+                    !empty($time_sessions) &&
+                    $is_completed_month &&
+                    (
+                        empty($existing_timesheet) ||
+                        $existing_timesheet['status'] === 'rejected'
+                    )
+                ): ?>
 
-                    <p>
-                        Reviewed:
-                        <?= htmlspecialchars($existing_timesheet['reviewed_at']) ?>
-                    </p>
+                    <?php if (
+                        !empty($existing_timesheet) &&
+                        $existing_timesheet['status'] === 'rejected'
+                    ): ?>
+
+                        <div class="wp-timesheets-alert error">
+                            <i class="bi bi-exclamation-circle-fill"></i>
+
+                            <p>
+                                Your timesheet was rejected.
+                                Review your employer's feedback before resubmitting.
+                            </p>
+                        </div>
+
+                    <?php endif; ?>
+
+                    <div class="wp-timesheet-actions">
+
+                        <form method="POST">
+
+                            <input
+                                type="hidden"
+                                name="month"
+                                value="<?= htmlspecialchars($selected_month) ?>">
+
+                            <button
+                                type="submit"
+                                name="submit_timesheet"
+                                class="wp-btn wp-btn-primary">
+
+                                <?php if (
+                                    !empty($existing_timesheet) &&
+                                    $existing_timesheet['status'] === 'rejected'
+                                ): ?>
+
+                                    <i class="bi bi-arrow-repeat"></i>
+                                    Resubmit Timesheet
+
+                                <?php else: ?>
+
+                                    <i class="bi bi-send"></i>
+                                    Submit Monthly Timesheet
+
+                                <?php endif; ?>
+
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                <?php elseif (!$is_completed_month): ?>
+
+                    <div class="wp-timesheets-alert info">
+                        <i class="bi bi-info-circle-fill"></i>
+
+                        <p>
+                            You can submit your monthly timesheet after the month has ended.
+                        </p>
+                    </div>
+
+                <?php elseif (!empty($existing_timesheet)): ?>
+
+                    <?php if ($existing_timesheet['status'] === 'submitted'): ?>
+
+                        <div class="wp-timesheets-alert info">
+                            <i class="bi bi-hourglass-split"></i>
+
+                            <p>
+                                Your timesheet is awaiting employer review.
+                            </p>
+                        </div>
+
+                    <?php elseif ($existing_timesheet['status'] === 'approved'): ?>
+
+                        <div class="wp-timesheets-alert success">
+                            <i class="bi bi-check-circle-fill"></i>
+
+                            <p>
+                                Your timesheet has been approved.
+                                No further action is required.
+                            </p>
+                        </div>
+
+                    <?php endif; ?>
 
                 <?php endif; ?>
 
-                <?php if (!empty($existing_timesheet['employer_comment'])): ?>
+            </div>
 
-                    <p>
-                        Employer Comment:
-                        <?= htmlspecialchars($existing_timesheet['employer_comment']) ?>
-                    </p>
+        </section>
 
-                <?php endif; ?>
+    <?php endif; ?>
 
-            <?php else: ?>
+</div>
 
-                <p>No monthly timesheet has been submitted for this month.</p>
+<script>
+    const monthInput = document.getElementById('month');
+    const hiddenMonthInput = document.getElementById('selected-month-hidden');
 
-            <?php endif; ?>
+    if (monthInput && hiddenMonthInput) {
+        monthInput.addEventListener('change', function() {
+            hiddenMonthInput.value = this.value;
+        });
+    }
+</script>
 
-            <!-- EXISTING MONTHLY SUBMISSION RULE -->
-            <?php if (
-                !empty($time_sessions) &&
-                $is_completed_month &&
-                empty($existing_timesheet)
-            ): ?>
-
-                <form method="POST">
-
-                    <input
-                        type="hidden"
-                        name="month"
-                        value="<?= htmlspecialchars($selected_month) ?>">
-
-                    <button type="submit" name="submit_timesheet">
-                        Submit Monthly Timesheet
-                    </button>
-
-                </form>
-
-            <?php elseif (!$is_completed_month): ?>
-
-                <p>
-                    You can submit your monthly timesheet after the month has ended.
-                </p>
-
-            <?php elseif (!empty($existing_timesheet)): ?>
-
-                <p>This month's timesheet has already been submitted.</p>
-
-            <?php endif; ?>
-
-        <?php endif; ?>
-
-        <br>
-
-        <a href="dashboard.php">Back to Dashboard</a>
-
-    </main>
-
-</body>
-
-</html>
+<?php require_once '../../includes/footer.php'; ?>

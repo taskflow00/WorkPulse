@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // =====================================
-    // 1. TIMER DATA
+    // 1. TIMER DATA AND CONFIGURATION
     // =====================================
 
     const status = timer.dataset.status;
@@ -21,16 +21,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const resumedAt = Date.parse(timer.dataset.resumedAt);
     const idleStartedAt = Date.parse(idleTimer.dataset.idleStartedAt);
 
-    // Mark the session as idle after 5 minutes.
-    // =====================================
-    // IDLE TIME CONFIGURATION
-    // =====================================
+    // Read the idle timeout configured in Supabase.
+    // PHP passes this value through the timer's data attribute.
+    const configuredIdleSeconds =
+        Number(timer.dataset.idleTimeoutSeconds);
 
-    // Change this value when testing.
-    const IDLE_DURATION_SECONDS = 300;
-
-    // Convert seconds to milliseconds.
-    const IDLE_THRESHOLD = IDLE_DURATION_SECONDS * 1000;
+    // Use 300 seconds (5 minutes) if the setting is missing or invalid.
+    const IDLE_THRESHOLD =
+        (Number.isFinite(configuredIdleSeconds) &&
+         configuredIdleSeconds > 0
+            ? configuredIdleSeconds
+            : 300) * 1000;
 
     // Synchronize activity with the database every 2 seconds.
     const ACTIVITY_SYNC_INTERVAL = 2000;
@@ -45,6 +46,11 @@ document.addEventListener('DOMContentLoaded', function () {
     let activityRequestInProgress = false;
     let idleRequestInProgress = false;
     let rolloverRequestInProgress = false;
+
+    // Extra time to account for activity synchronization and network delays.
+    const IDLE_BUFFER =
+        ACTIVITY_SYNC_INTERVAL + 1500;
+
 
     // =====================================
     // 2. FORMAT TIMER
@@ -63,6 +69,7 @@ document.addEventListener('DOMContentLoaded', function () {
         );
     }
 
+
     // =====================================
     // 3. UPDATE WORKING AND IDLE TIME
     // =====================================
@@ -74,6 +81,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let workingTime = totalSeconds;
         let idleTime = idleSeconds;
 
+        // Continue counting working time while running.
         if (status === 'running' && Number.isFinite(resumedAt)) {
 
             workingTime += Math.max(
@@ -83,6 +91,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         }
 
+        // Continue counting idle time while idle.
         if (status === 'idle' && Number.isFinite(idleStartedAt)) {
 
             idleTime += Math.max(
@@ -95,6 +104,7 @@ document.addEventListener('DOMContentLoaded', function () {
         timer.textContent = formatTime(workingTime);
         idleTimer.textContent = formatTime(idleTime);
     }
+
 
     // =====================================
     // 4. SEND REQUEST TO PHP
@@ -135,6 +145,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         }
 
+        // Reload if the user's session is no longer authorized.
         if (response.status === 401) {
 
             window.location.reload();
@@ -142,6 +153,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return result;
         }
 
+        // Handle unsuccessful HTTP responses.
         if (!response.ok) {
 
             throw new Error(
@@ -162,6 +174,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         return result;
     }
+
 
     // =====================================
     // 5. CHECK DAILY ROLLOVER
@@ -193,8 +206,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+
     // =====================================
-    // 6. RECORD ACTIVITY
+    // 6. RECORD USER ACTIVITY
     // =====================================
 
     async function recordActivity() {
@@ -227,8 +241,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+
     // =====================================
-    // 7. DETECT IDLE
+    // 7. MARK SESSION AS IDLE
     // =====================================
 
     async function markIdle() {
@@ -269,14 +284,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+
+    // =====================================
+    // 8. CHECK IDLE TIME
+    // =====================================
+
     function checkIdle() {
 
         if (status !== 'running') {
             return;
         }
 
-        const allowedTime =
-            IDLE_THRESHOLD + ACTIVITY_SYNC_INTERVAL + 1500;
+        const allowedTime = IDLE_THRESHOLD + IDLE_BUFFER;
 
         if (Date.now() - lastActivityAt >= allowedTime) {
 
@@ -285,8 +304,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+
     // =====================================
-    // 8. DETECT WINDOW / TAB CHANGES
+    // 9. DETECT WINDOW / TAB CHANGES
     // =====================================
 
     function handleWindowAway() {
@@ -296,8 +316,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Record only the first event when leaving the page.
-        // This prevents blur and visibilitychange from resetting
-        // the away timer separately.
         if (awayStartedAt === null) {
 
             awayStartedAt = Date.now();
@@ -305,6 +323,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         }
     }
+
 
     function handleWindowReturn() {
 
@@ -316,10 +335,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         awayStartedAt = null;
 
-        const allowedTime =
-            IDLE_THRESHOLD + ACTIVITY_SYNC_INTERVAL + 1500;
+        const allowedTime = IDLE_THRESHOLD + IDLE_BUFFER;
 
-        // If the worker was away long enough, mark the session idle.
+        // Check whether the worker was away long enough to be idle.
         if (awayDuration >= allowedTime) {
 
             checkIdle();
@@ -331,8 +349,9 @@ document.addEventListener('DOMContentLoaded', function () {
         lastActivityAt = Date.now();
     }
 
+
     // =====================================
-    // 9. OPEN IDLE MODAL
+    // 10. SHOW IDLE MODAL
     // =====================================
 
     function showIdleModal() {
@@ -345,6 +364,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.body.style.overflow = 'hidden';
     }
 
+
     // Show the modal immediately if the session is already idle.
     if (status === 'idle') {
 
@@ -352,8 +372,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     }
 
+
     // =====================================
-    // 10. HANDLE USER ACTIVITY
+    // 11. HANDLE USER ACTIVITY
     // =====================================
 
     function handleActivity() {
@@ -376,6 +397,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         lastActivityAt = Date.now();
 
+        // Send activity to the database when needed.
         if (
             lastActivityAt - lastActivitySentAt >=
             ACTIVITY_SYNC_INTERVAL
@@ -386,8 +408,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+
     // =====================================
-    // 11. LISTEN FOR USER ACTIVITY
+    // 12. LISTEN FOR USER ACTIVITY
     // =====================================
 
     const activityEvents = [
@@ -409,11 +432,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     });
 
+
     // =====================================
-    // 12. LISTEN FOR WINDOW / TAB CHANGES
+    // 13. LISTEN FOR WINDOW / TAB CHANGES
     // =====================================
 
-    // Browser tab becomes hidden or visible.
+    // Detect when the browser tab becomes hidden or visible.
     document.addEventListener('visibilitychange', function () {
 
         if (document.hidden) {
@@ -430,14 +454,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     });
 
-    // Browser window loses focus, such as Alt + Tab.
+
+    // Detect when the browser window loses focus.
     window.addEventListener('blur', function () {
 
         handleWindowAway();
 
     });
 
-    // Browser window regains focus.
+
+    // Detect when the browser window regains focus.
     window.addEventListener('focus', function () {
 
         handleWindowReturn();
@@ -446,8 +472,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     });
 
+
     // =====================================
-    // 13. START TIMER UPDATES
+    // 14. START TIMER UPDATES
     // =====================================
 
     updateTimers();
@@ -459,13 +486,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     }, 1000);
 
+
     // =====================================
-    // 14. DAILY ROLLOVER CHECK
+    // 15. DAILY ROLLOVER CHECK
     // =====================================
 
     setInterval(checkDailyRollover, 15000);
 
-    // Run initial rollover check.
+    // Run an initial rollover check.
     checkDailyRollover();
 
 });

@@ -126,7 +126,6 @@ if (!empty($employments)) {
     $timesheetUrl = SUPABASE_URL .
         '/rest/v1/timesheets?select=*' .
         '&employment_id=in.(' . $employmentList . ')' .
-        '&status=eq.submitted' .
         '&order=month.desc';
 
     $timesheetResponse = file_get_contents(
@@ -346,6 +345,38 @@ foreach ($entries as $entry) {
                         ) ?>
                     </p>
 
+                    <p>
+                        Status:
+                        <strong>
+                            <?= htmlspecialchars(
+                                ucfirst($timesheet['status'])
+                            ) ?>
+                        </strong>
+                    </p>
+
+                    <?php if (!empty($timesheet['employer_comment'])): ?>
+
+                        <p>
+                            Previous Employer Comment:
+                            <?= htmlspecialchars($timesheet['employer_comment']) ?>
+                        </p>
+
+                    <?php endif; ?>
+
+                    <?php if (!empty($timesheet['reviewed_at'])): ?>
+
+                        <p>
+                            Reviewed:
+                            <?= htmlspecialchars(
+                                date(
+                                    'M d, Y h:i A',
+                                    strtotime($timesheet['reviewed_at'])
+                                )
+                            ) ?>
+                        </p>
+
+                    <?php endif; ?>
+
                     <h3>Monthly Summary</h3>
 
                     <p>
@@ -435,45 +466,62 @@ foreach ($entries as $entry) {
                     <?php endif; ?>
 
                     <!-- APPROVE OR REJECT -->
-                    <h3>Review Timesheet</h3>
 
-                    <form method="POST">
+                    <!-- APPROVE OR REJECT -->
+                    <?php if ($timesheet['status'] === 'submitted'): ?>
 
-                        <input
-                            type="hidden"
-                            name="review_timesheet"
-                            value="1">
+                        <h3>Review Timesheet</h3>
 
-                        <input
-                            type="hidden"
-                            name="timesheet_id"
-                            value="<?= htmlspecialchars($timesheet['id']) ?>">
+                        <form method="POST">
 
-                        <label for="comment-<?= htmlspecialchars($timesheet['id']) ?>">
-                            Employer Comment
-                        </label>
+                            <input
+                                type="hidden"
+                                name="review_timesheet"
+                                value="1">
 
-                        <textarea
-                            id="comment-<?= htmlspecialchars($timesheet['id']) ?>"
-                            name="comment"
-                            rows="3"
-                            placeholder="Write your feedback or reason for rejection..."></textarea>
+                            <input
+                                type="hidden"
+                                name="timesheet_id"
+                                value="<?= htmlspecialchars($timesheet['id']) ?>">
 
-                        <button
-                            type="submit"
-                            name="status"
-                            value="approved">
-                            Approve
-                        </button>
+                            <label for="comment-<?= htmlspecialchars($timesheet['id']) ?>">
+                                Employer Comment
+                            </label>
 
-                        <button
-                            type="submit"
-                            name="status"
-                            value="rejected">
-                            Reject
-                        </button>
+                            <textarea
+                                id="comment-<?= htmlspecialchars($timesheet['id']) ?>"
+                                name="comment"
+                                rows="3"
+                                placeholder="Write your feedback or reason for rejection..."></textarea>
 
-                    </form>
+                            <button
+                                type="submit"
+                                name="status"
+                                value="approved">
+                                Approve
+                            </button>
+
+                            <button
+                                type="submit"
+                                name="status"
+                                value="rejected">
+                                Reject
+                            </button>
+
+                        </form>
+
+                    <?php elseif ($timesheet['status'] === 'rejected'): ?>
+
+                        <p>
+                            This timesheet was rejected. The worker may correct and resubmit it.
+                        </p>
+
+                    <?php elseif ($timesheet['status'] === 'approved'): ?>
+
+                        <p>This timesheet has been approved and is finalized.</p>
+
+                    <?php endif; ?>
+
 
                 </section>
 
