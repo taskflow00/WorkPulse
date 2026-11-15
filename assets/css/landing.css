@@ -1,35 +1,55 @@
+
 /* ========================================
    WORKPULSE - LANDING PAGE
-   Stylesheet: landing.css
 ======================================== */
 
-/* Landing page */
 .wp-landing {
     overflow: hidden;
     background: var(--wp-surface);
 }
 
-/* Landing navigation */
+/* BRAND */
+
+.landing-brand-icon {
+    width: 39px;
+    height: 39px;
+    display: grid;
+    place-items: center;
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 11px;
+    font-size: 20px;
+}
+
+/* NAVIGATION */
+
 .wp-landing-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    min-height: 76px;
+    padding: 0 7%;
     display: flex;
     align-items: center;
     justify-content: space-between;
-
-    min-height: 76px;
-    padding: 0 7%;
-
-    background: var(--wp-surface);
+    gap: 25px;
+    background: rgba(255,255,255,.96);
     border-bottom: 1px solid var(--wp-border);
+    backdrop-filter: blur(14px);
 }
 
 .wp-landing-brand {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 10px;
-
     color: var(--wp-text);
     font-size: 21px;
     font-weight: 800;
+    text-decoration: none;
+}
+
+.wp-landing-brand:hover {
+    color: var(--wp-text);
 }
 
 .wp-landing-nav-links {
@@ -38,56 +58,72 @@
     gap: 28px;
 }
 
-.wp-landing-nav-links a {
+.wp-landing-nav-links a:not(.wp-btn) {
     color: var(--wp-muted);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 650;
+    text-decoration: none;
 }
 
-.wp-landing-nav-links a:hover {
+.wp-landing-nav-links a:not(.wp-btn):hover {
     color: var(--wp-primary-hover);
 }
 
-/* Hero section */
+/* HERO */
+
 .wp-hero {
+    position: relative;
+    min-height: 590px;
+    padding: 75px 9%;
     display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
+    grid-template-columns: 1.1fr .9fr;
     align-items: center;
     gap: 50px;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 80% 20%, rgba(255,255,255,.9), transparent 28%),
+        radial-gradient(circle at 5% 100%, rgba(193,139,159,.12), transparent 35%),
+        linear-gradient(120deg, #FFFFFF 0%, #FAF4F6 55%, #F3E5EB 100%);
+}
 
-    min-height: 580px;
-    padding: 80px 9%;
-
-    background: linear-gradient(
-        135deg,
-        #FFFFFF 0%,
-        #FAF4F6 100%
-    );
+.wp-hero::before {
+    content: "";
+    position: absolute;
+    width: 520px;
+    height: 520px;
+    right: -180px;
+    top: -280px;
+    border: 1px solid rgba(169,117,137,.16);
+    border-radius: 50%;
 }
 
 .wp-hero-content {
+    position: relative;
+    z-index: 2;
     max-width: 600px;
 }
 
 .wp-hero-label {
-    display: inline-block;
-    padding: 7px 13px;
-    margin-bottom: 20px;
-
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 13px;
+    margin-bottom: 22px;
     color: var(--wp-primary-hover);
     background: var(--wp-primary-light);
+    border: 1px solid #EBD9E1;
     border-radius: 30px;
-
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
 }
 
 .wp-hero-title {
-    margin-bottom: 20px;
-    font-size: clamp(36px, 5vw, 58px);
-    font-weight: 800;
-    line-height: 1.12;
-    letter-spacing: -1.8px;
+    margin: 0 0 20px;
+    font-size: clamp(43px, 5.3vw, 66px);
+    font-weight: 850;
+    line-height: 1.08;
+    letter-spacing: -2.5px;
 }
 
 .wp-hero-title span {
@@ -97,10 +133,9 @@
 .wp-hero-description {
     max-width: 500px;
     margin-bottom: 28px;
-
     color: var(--wp-muted);
-    font-size: 16px;
-    line-height: 1.8;
+    font-size: 15px;
+    line-height: 1.9;
 }
 
 .wp-hero-actions {
@@ -109,23 +144,344 @@
     gap: 12px;
 }
 
-/* Hero image */
+.wp-hero-actions .wp-btn {
+    min-height: 46px;
+    padding: 12px 19px;
+}
+
+.wp-hero-trust {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 17px;
+    margin-top: 25px;
+}
+
+.wp-hero-trust span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--wp-muted);
+    font-size: 10px;
+}
+
+.wp-hero-trust i {
+    color: var(--wp-primary-hover);
+}
+
+/* HERO VISUAL */
+
 .wp-hero-image {
+    position: relative;
+    min-height: 390px;
+    display: grid;
+    place-items: center;
+}
+
+.landing-visual {
+    position: relative;
+    width: 100%;
+    min-height: 370px;
+    display: grid;
+    place-items: center;
+}
+
+.landing-visual-decoration {
+    position: absolute;
+    width: 340px;
+    height: 340px;
+    border: 1px solid rgba(169,117,137,.2);
+    border-radius: 50%;
+}
+
+.landing-visual-decoration::before,
+.landing-visual-decoration::after {
+    content: "";
+    position: absolute;
+    border: 1px solid rgba(169,117,137,.14);
+    border-radius: 50%;
+}
+
+.landing-visual-decoration::before {
+    inset: 25px;
+}
+
+.landing-visual-decoration::after {
+    inset: 50px;
+}
+
+.landing-visual-card {
+    position: relative;
+    z-index: 2;
+    width: min(100%, 370px);
+    padding: 25px;
+    background: #fff;
+    border: 1px solid #F0E4E9;
+    border-radius: 19px;
+    box-shadow: 0 25px 65px rgba(114,75,94,.13);
+    transform: rotate(-2deg);
+    transition: transform .3s ease;
+}
+
+.landing-visual-card:hover {
+    transform: rotate(0) translateY(-5px);
+}
+
+.landing-visual-top {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 10px;
+    color: var(--wp-muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1px;
 }
 
-.wp-hero-image img {
-    width: 100%;
-    max-width: 500px;
-    border-radius: 24px;
-    object-fit: cover;
+.landing-visual-logo {
+    width: 35px;
+    height: 35px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: var(--wp-primary);
+    border-radius: 10px;
+    font-size: 18px;
 }
 
-/* General landing sections */
+.landing-visual-top > i {
+    margin-left: auto;
+    font-size: 17px;
+}
+
+.landing-visual-heading {
+    padding: 26px 0 22px;
+}
+
+.landing-visual-heading small {
+    color: var(--wp-primary-hover);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+}
+
+.landing-visual-heading h3 {
+    margin: 8px 0 0;
+    font-size: 29px;
+    font-weight: 850;
+    line-height: 1.2;
+}
+
+.landing-progress-card {
+    padding: 16px;
+    background: #FAF6F8;
+    border: 1px solid #F0E4E9;
+    border-radius: 12px;
+}
+
+.landing-progress-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 11px;
+}
+
+.landing-progress-heading span {
+    color: var(--wp-text);
+    font-weight: 700;
+}
+
+.landing-progress-heading strong {
+    color: var(--wp-success);
+    font-size: 10px;
+}
+
+.landing-progress-track {
+    height: 7px;
+    margin: 12px 0 9px;
+    overflow: hidden;
+    background: #E9DDE2;
+    border-radius: 20px;
+}
+
+.landing-progress-track span {
+    display: block;
+    width: 72%;
+    height: 100%;
+    background: var(--wp-primary);
+    border-radius: inherit;
+}
+
+.landing-progress-card > small {
+    color: var(--wp-muted);
+    font-size: 9px;
+}
+
+.landing-visual-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 13px;
+}
+
+.landing-visual-stats > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid var(--wp-border);
+    border-radius: 10px;
+}
+
+.landing-visual-stats i {
+    margin-bottom: 3px;
+    color: var(--wp-primary-hover);
+    font-size: 17px;
+}
+
+.landing-visual-stats strong {
+    color: var(--wp-text);
+    font-size: 10px;
+}
+
+.landing-visual-stats small {
+    color: var(--wp-muted);
+    font-size: 9px;
+}
+
+.landing-floating-icon {
+    position: absolute;
+    z-index: 3;
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    color: var(--wp-primary-hover);
+    background: #fff;
+    border: 1px solid #F0E4E9;
+    border-radius: 14px;
+    box-shadow: 0 10px 25px rgba(80,45,60,.1);
+    font-size: 19px;
+}
+
+.landing-floating-one {
+    top: 28px;
+    right: 5%;
+}
+
+.landing-floating-two {
+    bottom: 24px;
+    left: 4%;
+}
+
+/* SECTION INTRO */
+
+.landing-intro {
+    max-width: 780px;
+    padding: 90px 25px 55px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.landing-section-label {
+    display: inline-block;
+    margin-bottom: 13px;
+    color: var(--wp-primary-hover);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+}
+
+.landing-intro h2 {
+    margin-bottom: 14px;
+    font-size: clamp(27px, 3.5vw, 36px);
+    font-weight: 850;
+    letter-spacing: -.8px;
+}
+
+.landing-intro p {
+    max-width: 620px;
+    margin: 0 auto;
+    font-size: 14px;
+    line-height: 1.9;
+}
+
+/* AUDIENCE CARDS */
+
+.landing-audience {
+    width: min(1100px, 88%);
+    padding: 10px 0 85px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+}
+
+.landing-audience-card {
+    padding: 34px;
+    background: #fff;
+    border: 1px solid var(--wp-border);
+    border-radius: 16px;
+    box-shadow: var(--wp-shadow);
+    transition: var(--wp-transition);
+}
+
+.landing-audience-card:hover {
+    border-color: var(--wp-primary);
+    box-shadow: 0 12px 30px rgba(114,75,94,.09);
+    transform: translateY(-4px);
+}
+
+.landing-audience-employer {
+    background: linear-gradient(145deg, #fff, #FBF5F7);
+}
+
+.landing-audience-icon {
+    width: 52px;
+    height: 52px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 23px;
+    color: var(--wp-primary-hover);
+    background: var(--wp-primary-light);
+    border-radius: 14px;
+    font-size: 23px;
+}
+
+.landing-audience-card > span {
+    color: var(--wp-primary-hover);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.3px;
+}
+
+.landing-audience-card h3 {
+    margin: 11px 0;
+    font-size: 24px;
+    font-weight: 850;
+    line-height: 1.3;
+}
+
+.landing-audience-card p {
+    max-width: 440px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    line-height: 1.9;
+}
+
+.landing-audience-card > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--wp-primary-hover);
+    font-size: 12px;
+    font-weight: 750;
+}
+
+/* FEATURES */
+
 .wp-landing-section {
     padding: 85px 9%;
+    background: var(--wp-background);
 }
 
 .wp-section-heading {
@@ -137,24 +493,25 @@
 .wp-section-heading h2 {
     margin-bottom: 12px;
     font-size: 32px;
-    font-weight: 800;
+    font-weight: 850;
+    letter-spacing: -.7px;
 }
 
 .wp-section-heading p {
+    margin: 0;
     font-size: 14px;
+    line-height: 1.8;
 }
 
-/* Features */
 .wp-feature-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 22px;
+    gap: 20px;
 }
 
 .wp-feature-card {
     padding: 27px;
-
-    background: var(--wp-surface);
+    background: #fff;
     border: 1px solid var(--wp-border);
     border-radius: var(--wp-radius);
     transition: var(--wp-transition);
@@ -162,102 +519,206 @@
 
 .wp-feature-card:hover {
     border-color: var(--wp-primary);
-    box-shadow: var(--wp-shadow);
+    box-shadow: 0 10px 25px rgba(114,75,94,.08);
     transform: translateY(-4px);
 }
 
 .wp-feature-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
     width: 48px;
     height: 48px;
+    display: grid;
+    place-items: center;
     margin-bottom: 20px;
-
     color: var(--wp-primary-hover);
     background: var(--wp-primary-light);
     border-radius: 13px;
-
     font-size: 22px;
 }
 
 .wp-feature-card h3 {
-    margin-bottom: 10px;
+    margin-bottom: 9px;
     font-size: 16px;
+    font-weight: 750;
 }
 
 .wp-feature-card p {
     margin: 0;
-    font-size: 13px;
-    line-height: 1.8;
+    font-size: 12px;
+    line-height: 1.85;
 }
 
-/* How it works */
+/* HOW IT WORKS */
+
+.landing-how {
+    padding: 85px 9%;
+}
+
 .wp-steps-grid {
+    max-width: 1050px;
+    margin: 0 auto;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 25px;
 }
 
 .wp-step {
+    padding: 25px 20px;
     text-align: center;
 }
 
 .wp-step-number {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    width: 48px;
-    height: 48px;
-    margin: 0 auto 17px;
-
-    color: #FFFFFF;
+    width: 52px;
+    height: 52px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 19px;
+    color: #fff;
     background: var(--wp-primary);
     border-radius: 50%;
-
     font-size: 17px;
-    font-weight: 750;
+    font-weight: 800;
+    box-shadow: 0 7px 17px rgba(193,139,159,.25);
 }
 
-/* Call to action */
+.wp-step h3 {
+    margin-bottom: 9px;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.wp-step p {
+    max-width: 290px;
+    margin: 0 auto;
+    font-size: 12px;
+    line-height: 1.85;
+}
+
+/* CALL TO ACTION */
+
 .wp-landing-cta {
-    padding: 65px 9%;
-    color: #FFFFFF;
+    position: relative;
+    padding: 75px 9%;
+    overflow: hidden;
+    color: #fff;
     background: var(--wp-primary-hover);
     text-align: center;
 }
 
+.wp-landing-cta::before,
+.wp-landing-cta::after {
+    content: "";
+    position: absolute;
+    width: 280px;
+    height: 280px;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 50%;
+}
+
+.wp-landing-cta::before {
+    top: -190px;
+    left: -80px;
+}
+
+.wp-landing-cta::after {
+    right: -80px;
+    bottom: -190px;
+}
+
+.wp-landing-cta > span {
+    position: relative;
+    z-index: 1;
+    color: rgba(255,255,255,.8);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+}
+
 .wp-landing-cta h2 {
-    margin-bottom: 12px;
-    color: #FFFFFF;
-    font-size: 30px;
+    position: relative;
+    z-index: 1;
+    margin: 12px 0;
+    color: #fff;
+    font-size: 34px;
+    font-weight: 850;
 }
 
 .wp-landing-cta p {
-    margin-bottom: 25px;
-    color: rgba(255, 255, 255, 0.85);
+    position: relative;
+    z-index: 1;
+    max-width: 530px;
+    margin: 0 auto 25px;
+    color: rgba(255,255,255,.85);
+    font-size: 13px;
+    line-height: 1.8;
 }
 
-/* Landing footer */
+.landing-cta-button {
+    position: relative;
+    z-index: 1;
+    color: var(--wp-primary-hover);
+    background: #fff;
+}
+
+.landing-cta-button:hover {
+    color: var(--wp-primary-hover);
+    background: #F7EDF1;
+}
+
+/* FOOTER */
+
 .wp-landing-footer {
-    padding: 35px 9%;
+    padding: 35px 9% 20px;
+    color: #fff;
     background: #25232A;
-    color: #FFFFFF;
 }
 
-.wp-landing-footer p {
+.landing-footer-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding-bottom: 25px;
+    border-bottom: 1px solid rgba(255,255,255,.12);
+}
+
+.wp-landing-footer .wp-landing-brand {
+    color: #fff;
+}
+
+.landing-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 23px;
+}
+
+.landing-footer-links a {
+    color: #D0CBD1;
+    font-size: 11px;
+}
+
+.landing-footer-links a:hover {
+    color: #fff;
+}
+
+.landing-footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    padding-top: 18px;
+}
+
+.landing-footer-bottom p {
     margin: 0;
     color: #BDB8C0;
-    font-size: 12px;
+    font-size: 10px;
 }
 
-/* Responsive */
+/* RESPONSIVE */
+
 @media (max-width: 992px) {
     .wp-hero {
         grid-template-columns: 1fr;
-        padding: 65px 7%;
+        padding: 65px 8%;
         text-align: center;
     }
 
@@ -270,12 +731,13 @@
         margin-right: auto;
     }
 
-    .wp-hero-actions {
+    .wp-hero-actions,
+    .wp-hero-trust {
         justify-content: center;
     }
 
-    .wp-hero-image img {
-        max-width: 420px;
+    .wp-hero-image {
+        min-height: 360px;
     }
 
     .wp-feature-grid {
@@ -283,38 +745,78 @@
     }
 }
 
-@media (max-width: 576px) {
+@media (max-width: 650px) {
     .wp-landing-nav {
-        padding: 0 18px;
-    }
-
-    .wp-landing-nav-links {
+        padding: 12px 5%;
+        align-items: flex-start;
+        flex-direction: column;
         gap: 12px;
     }
 
-    .wp-landing-nav-links a {
+    .wp-landing-nav-links {
+        width: 100%;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .wp-landing-nav-links a:not(.wp-btn) {
+        font-size: 11px;
+    }
+
+    .wp-landing-nav-links .wp-btn {
+        min-height: 34px;
+        padding: 7px 11px;
         font-size: 11px;
     }
 
     .wp-hero {
         min-height: auto;
-        padding: 55px 20px;
+        padding: 55px 7%;
     }
 
     .wp-hero-title {
-        font-size: 36px;
+        font-size: 42px;
     }
 
     .wp-hero-description {
-        font-size: 14px;
+        font-size: 13px;
     }
 
-    .wp-landing-section {
-        padding: 55px 20px;
+    .wp-hero-image {
+        min-height: 320px;
+    }
+
+    .landing-visual-card {
+        width: min(100%, 340px);
+        padding: 21px;
+    }
+
+    .landing-visual-decoration {
+        width: 290px;
+        height: 290px;
+    }
+
+    .landing-intro {
+        padding: 65px 7% 40px;
+    }
+
+    .landing-audience {
+        width: 88%;
+        padding-bottom: 60px;
+        grid-template-columns: 1fr;
+    }
+
+    .landing-audience-card {
+        padding: 27px;
+    }
+
+    .wp-landing-section,
+    .landing-how {
+        padding: 65px 7%;
     }
 
     .wp-section-heading h2 {
-        font-size: 25px;
+        font-size: 26px;
     }
 
     .wp-feature-grid,
@@ -322,11 +824,47 @@
         grid-template-columns: 1fr;
     }
 
+    .wp-step {
+        padding: 15px;
+    }
+
     .wp-landing-cta {
-        padding: 50px 20px;
+        padding: 60px 7%;
     }
 
     .wp-landing-cta h2 {
-        font-size: 25px;
+        font-size: 27px;
+    }
+
+    .wp-landing-footer {
+        padding: 30px 7% 20px;
+    }
+
+    .landing-footer-top,
+    .landing-footer-bottom {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .landing-footer-links {
+        gap: 17px;
+    }
+}
+
+@media (max-width: 380px) {
+    .wp-hero-title {
+        font-size: 36px;
+    }
+
+    .wp-hero-actions {
+        flex-direction: column;
+    }
+
+    .wp-hero-actions .wp-btn {
+        width: 100%;
+    }
+
+    .landing-visual-card {
+        padding: 17px;
     }
 }

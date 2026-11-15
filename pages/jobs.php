@@ -59,200 +59,402 @@ if ($response === false) {
 
 ?>
 
-<h1>Find Remote Jobs</h1>
-
-<?php if (
-    isset($_SESSION['user']) &&
-    $_SESSION['role'] === 'worker'
-): ?>
-
-    <a href="worker/applications.php">
-        Back to My Applications
-    </a>
-
-<?php endif; ?>
 
 
-<p>Discover opportunities and find work that matches your skills.</p>
+<!DOCTYPE html>
+<html lang="en">
 
-<?php if ($message != ''): ?>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find Jobs | WorkPulse</title>
 
-    <p><?php echo htmlspecialchars($message); ?></p>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/components.css">
+    <link rel="stylesheet" href="../assets/css/marketplace.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
 
-<?php elseif (empty($jobs)): ?>
+<body>
 
-    <p>No job listings are available right now.</p>
+    <div class="wp-landing">
 
-<?php else: ?>
+        <!-- NAVIGATION -->
+        <nav class="wp-landing-nav">
 
-    <!-- Search and Filters -->
-    <div class="job-filters">
+            <a href="../index.php" class="wp-landing-brand">
+                <span class="landing-brand-icon"><i class="bi bi-activity"></i></span>
+                WorkPulse
+            </a>
 
-        <h2>Find Your Opportunity</h2>
+            <div class="wp-landing-nav-links">
+                <a href="../index.php">Home</a>
+                <a href="jobs.php" class="marketplace-active">Find Jobs</a>
 
-        <!-- Search by job title or company -->
-        <label for="job-search">Search Jobs</label>
+                <?php if (isset($_SESSION['user']['id'])): ?>
 
-        <input
-            type="text"
-            id="job-search"
-            placeholder="Search job title or company...">
-
-        <br><br>
-
-        <!-- Filter by employment type -->
-        <label for="employment-filter">Employment Type</label>
-
-        <select id="employment-filter">
-            <option value="">All Employment Types</option>
-            <option value="full_time">Full-time</option>
-            <option value="part_time">Part-time</option>
-        </select>
-
-        <br><br>
-
-        <!-- Filter by hourly rate -->
-        <label for="minimum-rate">Minimum Hourly Rate (PHP)</label>
-
-        <input
-            type="number"
-            id="minimum-rate"
-            min="0"
-            step="0.01"
-            placeholder="Minimum rate">
-
-        <br><br>
-
-        <label for="maximum-rate">Maximum Hourly Rate (PHP)</label>
-
-        <input
-            type="number"
-            id="maximum-rate"
-            min="0"
-            step="0.01"
-            placeholder="Maximum rate">
-
-        <br><br>
-
-        <!-- Filter by required skills -->
-        <label for="skill-filter">Required Skills</label>
-
-        <input
-            type="text"
-            id="skill-filter"
-            placeholder="Example: PHP, Graphic Design...">
-
-        <br><br>
-
-        <button type="button" id="clear-filters">
-            Clear Filters
-        </button>
-
-    </div>
-
-    <hr>
-
-    <!-- Job Count -->
-    <p id="job-count">
-        <?php echo count($jobs); ?> job(s) available
-    </p>
-
-    <!-- No matching jobs message -->
-    <p id="no-matching-jobs" style="display: none;">
-        No jobs match your search. Try changing your filters.
-    </p>
-
-    <!-- Job Listings -->
-    <div id="job-listings">
-
-        <?php foreach ($jobs as $job): ?>
-
-            <?php
-            // Prepare job information for JavaScript filtering
-            $skills = $job['required_skills'] ?? [];
-
-            if (!is_array($skills)) {
-                $skills = [];
-            }
-
-            $searchable_text = strtolower(
-                $job['title'] . ' ' .
-                    $job['company_name'] . ' ' .
-                    $job['description']
-            );
-
-            $searchable_skills = strtolower(implode(' ', $skills));
-            ?>
-
-            <div
-                class="job-card"
-                data-search="<?php echo htmlspecialchars($searchable_text, ENT_QUOTES, 'UTF-8'); ?>"
-                data-type="<?php echo htmlspecialchars($job['employment_type'], ENT_QUOTES, 'UTF-8'); ?>"
-                data-rate="<?php echo htmlspecialchars((string)$job['hourly_rate'], ENT_QUOTES, 'UTF-8'); ?>"
-                data-skills="<?php echo htmlspecialchars($searchable_skills, ENT_QUOTES, 'UTF-8'); ?>">
-
-                <h2>
-                    <?php echo htmlspecialchars($job['title']); ?>
-                </h2>
-
-                <p>
-                    Company:
-                    <?php echo htmlspecialchars($job['company_name']); ?>
-                </p>
-
-                <p>
-                    Hourly Rate:
-                    $<?php echo number_format((float)$job['hourly_rate'], 2); ?>/hour
-                </p>
-
-                <p>
-                    Employment Type:
-                    <?php echo htmlspecialchars(
-                        ucwords(str_replace('_', ' ', $job['employment_type']))
-                    ); ?>
-                </p>
-
-                <p>
-                    Work Schedule:
-                    <?php echo htmlspecialchars($job['work_schedule'] ?? 'Not specified'); ?>
-                </p>
-
-                <p>
-                    Description:
-                    <?php echo nl2br(htmlspecialchars($job['description'])); ?>
-                </p>
-
-                <p>Required Skills:</p>
-
-                <?php if (!empty($skills)): ?>
-
-                    <?php foreach ($skills as $skill): ?>
-
-                        <span class="skill-tag">
-                            <?php echo htmlspecialchars($skill); ?>
-                        </span>
-
-                    <?php endforeach; ?>
+                    <?php if (($_SESSION['role'] ?? '') === 'worker'): ?>
+                        <a href="worker/applications.php">My Applications</a>
+                        <a href="worker/dashboard.php" class="wp-btn wp-btn-primary">Dashboard</a>
+                    <?php elseif (($_SESSION['role'] ?? '') === 'employer'): ?>
+                        <a href="employer/dashboard.php" class="wp-btn wp-btn-primary">Dashboard</a>
+                    <?php elseif (($_SESSION['role'] ?? '') === 'admin'): ?>
+                        <a href="admin/dashboard.php" class="wp-btn wp-btn-primary">Dashboard</a>
+                    <?php endif; ?>
 
                 <?php else: ?>
 
-                    <span>No specific skills required.</span>
+                    <a href="../login.php">Sign In</a>
+                    <a href="../register.php" class="wp-btn wp-btn-primary">Get Started</a>
 
                 <?php endif; ?>
+            </div>
 
-                <a href="job-details.php?id=<?php echo urlencode($job['id']); ?>">
-                    View Details
-                </a>
+        </nav>
 
-                <hr>
+
+        <!-- MARKETPLACE HERO -->
+        <section class="marketplace-hero">
+
+            <div class="marketplace-hero-content">
+
+                <span class="wp-hero-label">
+                    <i class="bi bi-briefcase"></i>
+                    YOUR NEXT OPPORTUNITY
+                </span>
+
+                <h1>
+                    Find work that<br>
+                    <span>moves you forward.</span>
+                </h1>
+
+                <p>
+                    Explore opportunities, discover roles that match your skills,
+                    and take the next step in your professional journey.
+                </p>
+
+                <div class="marketplace-hero-stats">
+                    <div>
+                        <strong><?= count($jobs) ?></strong>
+                        <span>Open opportunities</span>
+                    </div>
+
+                    <div>
+                        <strong><i class="bi bi-search"></i></strong>
+                        <span>Find your next role</span>
+                    </div>
+                </div>
 
             </div>
 
-        <?php endforeach; ?>
+            <div class="marketplace-hero-visual">
+                <div class="marketplace-hero-circle"></div>
+
+                <div class="marketplace-hero-card">
+                    <div class="marketplace-hero-card-icon">
+                        <i class="bi bi-briefcase-fill"></i>
+                    </div>
+
+                    <span>YOUR NEXT CHAPTER</span>
+                    <h3>New opportunities<br>are waiting.</h3>
+
+                    <div class="marketplace-hero-card-bottom">
+                        <i class="bi bi-check-circle-fill"></i>
+                        Start exploring today
+                    </div>
+                </div>
+
+                <div class="marketplace-hero-floating">
+                    <i class="bi bi-stars"></i>
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- JOB SEARCH -->
+        <main class="marketplace-main">
+
+            <div class="marketplace-heading">
+                <div>
+                    <span class="landing-section-label">JOB MARKETPLACE</span>
+                    <h2>Explore opportunities</h2>
+                    <p>Search and filter jobs to find the right match.</p>
+                </div>
+
+                <?php if (
+                    isset($_SESSION['user']['id']) &&
+                    ($_SESSION['role'] ?? '') === 'worker'
+                ): ?>
+                    <a href="worker/applications.php" class="wp-btn wp-btn-outline">
+                        <i class="bi bi-file-earmark-text"></i>
+                        My Applications
+                    </a>
+                <?php endif; ?>
+            </div>
+
+
+            <?php if ($message !== ''): ?>
+
+                <div class="wp-alert wp-alert-danger">
+                    <i class="bi bi-exclamation-circle"></i>
+                    <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
+                </div>
+
+            <?php endif; ?>
+
+
+            <!-- FILTER PANEL -->
+            <section class="marketplace-filter-panel">
+
+                <div class="marketplace-filter-heading">
+                    <div>
+                        <h3><i class="bi bi-sliders"></i> Find your match</h3>
+                        <p>Use the filters to narrow down your search.</p>
+                    </div>
+
+                    <button type="button" id="clear-filters" class="marketplace-clear">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        Clear filters
+                    </button>
+                </div>
+
+                <div class="marketplace-filter-grid">
+
+                    <div class="marketplace-search-field">
+                        <label for="job-search">Search jobs</label>
+                        <div class="marketplace-input-wrap">
+                            <i class="bi bi-search"></i>
+                            <input
+                                type="text"
+                                id="job-search"
+                                class="wp-input"
+                                placeholder="Job title, company, or keywords...">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="wp-label" for="employment-filter">Employment type</label>
+                        <select id="employment-filter" class="wp-select">
+                            <option value="">All types</option>
+                            <option value="full_time">Full-time</option>
+                            <option value="part_time">Part-time</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="wp-label" for="minimum-rate">Minimum rate (₱/hr)</label>
+                        <input
+                            type="number"
+                            id="minimum-rate"
+                            class="wp-input"
+                            min="0"
+                            step="0.01"
+                            placeholder="Minimum">
+                    </div>
+
+                    <div>
+                        <label class="wp-label" for="maximum-rate">Maximum rate (₱/hr)</label>
+                        <input
+                            type="number"
+                            id="maximum-rate"
+                            class="wp-input"
+                            min="0"
+                            step="0.01"
+                            placeholder="Maximum">
+                    </div>
+
+                    <div>
+                        <label class="wp-label" for="skill-filter">Required skill</label>
+                        <input
+                            type="text"
+                            id="skill-filter"
+                            class="wp-input"
+                            placeholder="e.g. PHP, Design">
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- RESULTS -->
+            <div class="marketplace-results-heading">
+                <div>
+                    <h3>Available jobs</h3>
+                    <p id="job-count"><?= count($jobs) ?> job(s) available</p>
+                </div>
+            </div>
+
+
+            <div id="no-matching-jobs" class="marketplace-empty" style="display:none;">
+                <i class="bi bi-search"></i>
+                <h3>No matching jobs found</h3>
+                <p>Try changing your search or clearing some filters.</p>
+            </div>
+
+
+            <?php if (empty($jobs) && $message === ''): ?>
+
+                <div class="marketplace-empty">
+                    <i class="bi bi-briefcase"></i>
+                    <h3>No jobs available right now</h3>
+                    <p>Check back later for new opportunities.</p>
+                </div>
+
+            <?php endif; ?>
+
+
+            <!-- JOB CARDS -->
+            <div id="job-listings" class="wp-job-grid">
+
+                <?php foreach ($jobs as $job): ?>
+
+                    <?php
+                    $skills = $job['required_skills'] ?? [];
+
+                    if (!is_array($skills)) {
+                        $skills = [];
+                    }
+
+                    $searchable_text = strtolower(
+                        $job['title'] . ' ' .
+                            $job['company_name'] . ' ' .
+                            $job['description']
+                    );
+
+                    $searchable_skills = strtolower(implode(' ', $skills));
+                    ?>
+
+                    <article
+                        class="job-card wp-job-card"
+                        data-search="<?= htmlspecialchars($searchable_text, ENT_QUOTES, 'UTF-8') ?>"
+                        data-type="<?= htmlspecialchars($job['employment_type'], ENT_QUOTES, 'UTF-8') ?>"
+                        data-rate="<?= htmlspecialchars((string)$job['hourly_rate'], ENT_QUOTES, 'UTF-8') ?>"
+                        data-skills="<?= htmlspecialchars($searchable_skills, ENT_QUOTES, 'UTF-8') ?>">
+
+                        <div class="wp-job-card-header">
+
+                            <div class="marketplace-company-icon">
+                                <i class="bi bi-building"></i>
+                            </div>
+
+                            <span class="wp-badge wp-badge-success">
+                                <i class="bi bi-circle-fill"></i>
+                                Open
+                            </span>
+
+                        </div>
+
+                        <div class="marketplace-job-heading">
+                            <h3 class="wp-job-title">
+                                <?= htmlspecialchars($job['title'], ENT_QUOTES, 'UTF-8') ?>
+                            </h3>
+
+                            <p class="wp-job-company">
+                                <i class="bi bi-building"></i>
+                                <?= htmlspecialchars($job['company_name'], ENT_QUOTES, 'UTF-8') ?>
+                            </p>
+                        </div>
+
+                        <div class="marketplace-job-meta">
+
+                            <span>
+                                <i class="bi bi-clock"></i>
+                                <?= htmlspecialchars(ucwords(str_replace('_', ' ', $job['employment_type'])), ENT_QUOTES, 'UTF-8') ?>
+                            </span>
+
+                            <span>
+                                <i class="bi bi-calendar-week"></i>
+                                <?= htmlspecialchars($job['work_schedule'] ?? 'Not specified', ENT_QUOTES, 'UTF-8') ?>
+                            </span>
+
+                        </div>
+
+                        <p class="wp-job-description">
+                            <?= htmlspecialchars(mb_strimwidth($job['description'], 0, 150, '...'), ENT_QUOTES, 'UTF-8') ?>
+                        </p>
+
+                        <div class="wp-job-skills">
+
+                            <?php if (!empty($skills)): ?>
+
+                                <?php foreach (array_slice($skills, 0, 5) as $skill): ?>
+                                    <span class="wp-job-skill">
+                                        <?= htmlspecialchars($skill, ENT_QUOTES, 'UTF-8') ?>
+                                    </span>
+                                <?php endforeach; ?>
+
+                                <?php if (count($skills) > 5): ?>
+                                    <span class="wp-job-skill">
+                                        +<?= count($skills) - 5 ?> more
+                                    </span>
+                                <?php endif; ?>
+
+                            <?php else: ?>
+
+                                <span class="wp-job-skill">No specific skills</span>
+
+                            <?php endif; ?>
+
+                        </div>
+
+                        <div class="wp-job-card-footer">
+
+                            <div>
+                                <small>Hourly rate</small>
+                                <strong class="wp-job-budget">
+                                    ₱<?= number_format((float)$job['hourly_rate'], 2) ?>
+                                    <span>/hr</span>
+                                </strong>
+                            </div>
+
+                            <a
+                                href="job-details.php?id=<?= urlencode($job['id']) ?>"
+                                class="wp-btn wp-btn-primary">
+                                View Details
+                                <i class="bi bi-arrow-right"></i>
+                            </a>
+
+                        </div>
+
+                    </article>
+
+                <?php endforeach; ?>
+
+            </div>
+
+        </main>
+
+
+        <!-- FOOTER -->
+        <footer class="wp-landing-footer">
+
+            <div class="landing-footer-top">
+                <a href="../index.php" class="wp-landing-brand">
+                    <span class="landing-brand-icon"><i class="bi bi-activity"></i></span>
+                    WorkPulse
+                </a>
+
+                <div class="landing-footer-links">
+                    <a href="../index.php">Home</a>
+                    <a href="jobs.php">Find Jobs</a>
+                    <a href="../login.php">Sign In</a>
+                    <a href="../register.php">Create Account</a>
+                </div>
+            </div>
+
+            <div class="landing-footer-bottom">
+                <p>© <?= date('Y') ?> WorkPulse. All rights reserved.</p>
+                <p>Work smarter. Move forward.</p>
+            </div>
+
+        </footer>
 
     </div>
 
-<?php endif; ?>
+    <script src="../assets/js/script.js"></script>
 
-<script src="../assets/js/script.js">
-</script>
+</body>
+
+</html>
