@@ -1,18 +1,6 @@
-
 <?php
-session_start();
-
-require_once '../../config/supabase.php';
-
-// Only employers can access this page
-if (
-    !isset($_SESSION['user']) ||
-    !isset($_SESSION['role']) ||
-    $_SESSION['role'] !== 'employer'
-) {
-    header('Location: ../../login.php');
-    exit;
-}
+$required_role = 'employer';
+require_once '../../includes/auth.php';
 
 $application_id = $_GET['id'] ?? '';
 
@@ -119,4 +107,3 @@ if (!preg_match('/^https:\/\//i', $signed_url)) {
 // Redirect to the temporary resume link
 header('Location: ' . $signed_url);
 exit;
-?>

@@ -1,10 +1,7 @@
 <?php
-session_start();
+$required_role = 'worker';
 
-if (!isset($_SESSION['user']) || $_SESSION['role'] != 'worker') {
-    header('Location: ../../login.php');
-    exit;
-}
+require_once '../../includes/auth.php';
 
 echo "Welcome, Worker!";
 ?>
@@ -15,4 +12,4 @@ echo "Welcome, Worker!";
 <a href="tasks.php">My Tasks</a>
 <a href="time-tracker.php">Time Tracker</a>
 <a href="timesheets.php">Time Sheets</a>
-<a href="earnigs.php">earnings</a>
+<a href="earnings.php">earnings</a>

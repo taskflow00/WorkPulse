@@ -1,26 +1,6 @@
 <?php
-session_start();
-
-require_once '../../config/supabase.php';
-
-// Check if the user is logged in.
-if (!isset($_SESSION['access_token']) || !isset($_SESSION['role'])) {
-    header('Location: ../../login.php');
-    exit;
-}
-
-// Only admins can access this page.
-if ($_SESSION['role'] !== 'admin') {
-    if ($_SESSION['role'] === 'worker') {
-        header('Location: ../worker/dashboard.php');
-    } elseif ($_SESSION['role'] === 'employer') {
-        header('Location: ../employer/dashboard.php');
-    } else {
-        header('Location: ../../login.php');
-    }
-
-    exit;
-}
+$required_role = 'admin';
+require_once '../../includes/auth.php';
 
 date_default_timezone_set('Asia/Manila');
 

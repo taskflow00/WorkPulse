@@ -1,12 +1,7 @@
 <?php
-session_start();
+$required_role = 'employer';
+require_once '../../includes/auth.php';
 
-if (!isset($_SESSION['user']) || $_SESSION['role'] != 'employer') {
-    header('Location: ../../login.php');
-    exit;
-}
-
-echo "Welcome, Employer!";
 ?>
 
 <a href="../../logout.php">Logout</a>
@@ -18,3 +13,4 @@ echo "Welcome, Employer!";
 <a href="timesheets.php">Timesheets</a>
 <a href="time-proofs.php">Daily Time Proofs</a>
 <a href="earnings.php">Labor Costs</a>
+<a href="jobs.php">My Job Listings</a>

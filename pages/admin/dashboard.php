@@ -1,26 +1,8 @@
 <?php
-session_start();
 
-require_once '../../config/supabase.php';
+$required_role = 'admin';
 
-// Check if the user is logged in.
-if (!isset($_SESSION['access_token']) || !isset($_SESSION['role'])) {
-    header('Location: ../../login.php');
-    exit;
-}
-
-// Only admins can access this page.
-if ($_SESSION['role'] !== 'admin') {
-    if ($_SESSION['role'] === 'worker') {
-        header('Location: ../worker/dashboard.php');
-    } elseif ($_SESSION['role'] === 'employer') {
-        header('Location: ../employer/dashboard.php');
-    } else {
-        header('Location: ../../login.php');
-    }
-
-    exit;
-}
+require_once '../../includes/auth.php';
 
 $token = $_SESSION['access_token'];
 
@@ -131,6 +113,10 @@ if ($jobs_response !== false) {
 
     <p>
         <a href="../../logout.php">Logout</a>
+        <a href="applications.php">Application Management</a>
+        <a href="employments.php">Employment Management</a>
+        <a href="users.php">Users Management</a>
+
     </p>
 
     <hr>

@@ -1,19 +1,10 @@
 <?php
-session_start();
-require_once '../../config/supabase.php';
+$required_role = 'worker';
+require_once '../../includes/auth.php';
 
 // Use Philippine time.
 date_default_timezone_set('Asia/Manila');
 
-// Only workers can access this page.
-if (
-    !isset($_SESSION['user']) ||
-    !isset($_SESSION['role']) ||
-    $_SESSION['role'] !== 'worker'
-) {
-    header('Location: ../../login.php');
-    exit;
-}
 
 $worker_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];

@@ -1,25 +1,6 @@
 <?php
-session_start();
-
-require_once '../../config/supabase.php';
-
-// Check login and employer role.
-if (!isset($_SESSION['access_token']) || !isset($_SESSION['role'])) {
-    header('Location: ../../login.php');
-    exit;
-}
-
-if ($_SESSION['role'] !== 'employer') {
-    if ($_SESSION['role'] === 'worker') {
-        header('Location: ../worker/dashboard.php');
-    } elseif ($_SESSION['role'] === 'admin') {
-        header('Location: ../admin/dashboard.php');
-    } else {
-        header('Location: ../../login.php');
-    }
-
-    exit;
-}
+$required_role = 'employer';
+require_once '../../includes/auth.php';
 
 $token = $_SESSION['access_token'];
 $employer_id = $_SESSION['user']['id'];

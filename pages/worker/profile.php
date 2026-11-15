@@ -1,13 +1,6 @@
 <?php
-session_start();
-
-require_once '../../config/supabase.php';
-
-// Only logged-in workers can access this page
-if (!isset($_SESSION['user']) || $_SESSION['role'] !== 'worker') {
-    header('Location: ../../login.php');
-    exit;
-}
+$required_role = 'worker';
+require_once '../../includes/auth.php';
 
 $user_id = $_SESSION['user']['id'];
 $message = '';

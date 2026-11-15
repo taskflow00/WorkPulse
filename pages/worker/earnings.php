@@ -1,16 +1,6 @@
 <?php
-session_start();
-require_once '../../config/supabase.php';
-
-// Only workers can access this page.
-if (
-    !isset($_SESSION['user']) ||
-    !isset($_SESSION['role']) ||
-    $_SESSION['role'] !== 'worker'
-) {
-    header('Location: ../../login.php');
-    exit;
-}
+$required_role = 'worker';
+require_once '../../includes/auth.php';
 
 $worker_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];

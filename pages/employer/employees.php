@@ -1,14 +1,6 @@
 <?php
-session_start();
-require_once '../../config/supabase.php';
-
-if (
-    !isset($_SESSION['user']) ||
-    $_SESSION['role'] !== 'employer'
-) {
-    header('Location: ../../login.php');
-    exit;
-}
+$required_role = 'employer';
+require_once '../../includes/auth.php';
 
 $employer_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];

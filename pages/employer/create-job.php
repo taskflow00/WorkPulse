@@ -1,13 +1,6 @@
 <?php
-session_start();
-
-require_once '../../config/supabase.php';
-
-// Only logged-in employers can access this page
-if (!isset($_SESSION['user']) || $_SESSION['role'] != 'employer') {
-    header('Location: ../../login.php');
-    exit;
-}
+$required_role = 'employer';
+require_once '../../includes/auth.php';
 
 $message = '';
 $message_type = '';
