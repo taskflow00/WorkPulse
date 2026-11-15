@@ -1,6 +1,12 @@
 <?php
+
+$page_title = 'User Management';
+$active_page = 'users';
+$page_styles = ['/assets/css/admin-users.css'];
+
 $required_role = 'admin';
 require_once '../../includes/auth.php';
+
 
 date_default_timezone_set('Asia/Manila');
 
@@ -637,403 +643,443 @@ if ($response === false) {
     }
 }
 
+// Load shared header
+require_once '../../includes/header.php';
+
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<div class="wp-page admin-users-page">
 
-    <title>WorkPulse | User Management</title>
-</head>
+    <section class="admin-users-heading">
 
-<body>
+        <div>
+            <span class="admin-users-eyebrow">PLATFORM ADMINISTRATION</span>
+            <h1 class="wp-page-title">User Management</h1>
+            <p class="wp-page-description">
+                Manage registered accounts, review account statuses, and enforce platform rules.
+            </p>
+        </div>
 
-    <h1>Admin - User Management</h1>
+        <div class="admin-users-total">
+            <i class="bi bi-people"></i>
+            <div>
+                <strong><?= number_format(count($users)) ?></strong>
+                <span>Accounts Found</span>
+            </div>
+        </div>
 
-    <p>
-        <a href="dashboard.php">Back to Dashboard</a> |
-        <a href="../../logout.php">Logout</a>
-    </p>
-
-    <hr>
-
-    <h2>Registered Accounts</h2>
-
-    <p>Search, filter, and manage registered WorkPulse users.</p>
+    </section>
 
 
     <?php if ($message !== ''): ?>
 
-        <p>
-            <strong>
-                <?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?>
-            </strong>
-        </p>
+        <div class="alert alert-info" role="alert">
+            <i class="bi bi-info-circle me-2"></i>
+            <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
+        </div>
 
     <?php endif; ?>
 
 
     <?php if ($cleanup_warning !== ''): ?>
 
-        <p style="color: red;">
-            <strong>
-                <?php echo htmlspecialchars($cleanup_warning, ENT_QUOTES, 'UTF-8'); ?>
-            </strong>
-        </p>
+        <div class="alert alert-warning" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <?= htmlspecialchars($cleanup_warning, ENT_QUOTES, 'UTF-8') ?>
+        </div>
 
     <?php endif; ?>
 
 
-    <form method="GET" action="">
+    <section class="wp-panel admin-users-panel">
 
-        <div>
+        <div class="wp-panel-header">
+            <div>
+                <h3 class="wp-panel-title">Registered Accounts</h3>
+                <p class="wp-panel-description">
+                    Search users and manage their access to WorkPulse.
+                </p>
+            </div>
+        </div>
 
-            <label for="search">Search by Name</label>
 
-            <input
-                type="text"
-                id="search"
-                name="search"
-                value="<?php echo htmlspecialchars($search, ENT_QUOTES, 'UTF-8'); ?>"
-                placeholder="Enter a user's name">
+        <div class="wp-panel-body">
+
+            <!-- Search and filters -->
+            <form method="GET" action="" class="admin-users-filters">
+
+                <div class="admin-users-search">
+                    <i class="bi bi-search"></i>
+
+                    <input
+                        type="text"
+                        name="search"
+                        placeholder="Search by user's name..."
+                        value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+
+
+                <select name="role" class="form-select admin-users-role-filter">
+
+                    <option value="all" <?= $role === 'all' ? 'selected' : '' ?>>
+                        All Accounts
+                    </option>
+
+                    <option value="worker" <?= $role === 'worker' ? 'selected' : '' ?>>
+                        Workers
+                    </option>
+
+                    <option value="employer" <?= $role === 'employer' ? 'selected' : '' ?>>
+                        Employers
+                    </option>
+
+                    <option value="admin" <?= $role === 'admin' ? 'selected' : '' ?>>
+                        Administrators
+                    </option>
+
+                </select>
+
+
+                <button type="submit" class="wp-btn wp-btn-primary">
+                    <i class="bi bi-funnel"></i>
+                    Filter
+                </button>
+
+
+                <?php if ($search !== '' || $role !== 'all'): ?>
+
+                    <a href="users.php" class="wp-btn wp-btn-secondary">
+                        Clear
+                    </a>
+
+                <?php endif; ?>
+
+            </form>
+
+
+            <!-- User table -->
+            <?php if (count($users) > 0): ?>
+
+                <div class="table-responsive admin-users-table-wrapper">
+
+                    <table class="admin-users-table">
+
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Role</th>
+                                <th>Registered</th>
+                                <th>Account Status</th>
+                                <th>Account Management</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            <?php foreach ($users as $user): ?>
+
+                                <?php
+                                $user_id = $user['id'];
+                                $user_role = $user['role'];
+                                $account_status = $user['account_status'] ?? 'active';
+
+                                $is_self = $user_id === $admin_id;
+                                $is_admin = $user_role === 'admin';
+
+                                $is_expired_suspension =
+                                    $account_status === 'suspended' &&
+                                    !empty($user['restricted_until']) &&
+                                    strtotime($user['restricted_until']) <= time();
+
+                                $status_class = $account_status === 'active'
+                                    ? 'active'
+                                    : ($account_status === 'banned' ? 'banned' : 'suspended');
+                                ?>
+
+                                <tr>
+
+                                    <!-- User -->
+                                    <td>
+                                        <div class="admin-user-identity">
+
+                                            <div class="admin-user-avatar">
+                                                <?= htmlspecialchars(
+                                                    strtoupper(substr(trim($user['full_name'] ?? 'U'), 0, 1)),
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
+                                            </div>
+
+                                            <div class="admin-user-details">
+                                                <strong>
+                                                    <?= htmlspecialchars(
+                                                        $user['full_name'] ?? 'Unnamed User',
+                                                        ENT_QUOTES,
+                                                        'UTF-8'
+                                                    ) ?>
+                                                </strong>
+
+                                                <span>
+                                                    <?= htmlspecialchars($user_id, ENT_QUOTES, 'UTF-8') ?>
+                                                </span>
+                                            </div>
+
+                                        </div>
+                                    </td>
+
+
+                                    <!-- Role -->
+                                    <td>
+                                        <span class="admin-user-role <?= htmlspecialchars($user_role, ENT_QUOTES, 'UTF-8') ?>">
+                                            <?= htmlspecialchars(ucfirst($user_role), ENT_QUOTES, 'UTF-8') ?>
+                                        </span>
+                                    </td>
+
+
+                                    <!-- Registration date -->
+                                    <td>
+                                        <span class="admin-user-date">
+                                            <?= !empty($user['created_at'])
+                                                ? htmlspecialchars(date('M d, Y', strtotime($user['created_at'])), ENT_QUOTES, 'UTF-8')
+                                                : '—' ?>
+                                        </span>
+                                    </td>
+
+
+                                    <!-- Account status -->
+                                    <td>
+
+                                        <span class="admin-user-status <?= $status_class ?>">
+                                            <span class="admin-user-status-dot"></span>
+
+                                            <?php if ($is_expired_suspension): ?>
+                                                Suspension Expired
+                                            <?php else: ?>
+                                                <?= htmlspecialchars(ucfirst($account_status), ENT_QUOTES, 'UTF-8') ?>
+                                            <?php endif; ?>
+
+                                        </span>
+
+
+                                        <?php if ($account_status === 'suspended' && !empty($user['restricted_until'])): ?>
+
+                                            <span class="admin-user-restriction-date">
+                                                Until:
+                                                <?= htmlspecialchars(
+                                                    date('M d, Y h:i A', strtotime($user['restricted_until'])),
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
+                                            </span>
+
+                                        <?php endif; ?>
+
+
+                                        <?php if (!empty($user['restriction_reason'])): ?>
+
+                                            <details class="admin-user-reason">
+                                                <summary>View reason</summary>
+                                                <p>
+                                                    <?= htmlspecialchars(
+                                                        $user['restriction_reason'],
+                                                        ENT_QUOTES,
+                                                        'UTF-8'
+                                                    ) ?>
+                                                </p>
+                                            </details>
+
+                                        <?php endif; ?>
+
+                                    </td>
+
+
+                                    <!-- Account actions -->
+                                    <td class="admin-user-actions">
+
+                                        <?php if ($is_self || $is_admin): ?>
+
+                                            <span class="admin-user-protected">
+                                                <i class="bi bi-shield-lock"></i>
+                                                Protected account
+                                            </span>
+
+
+                                        <?php elseif ($account_status === 'active'): ?>
+
+                                            <details class="admin-user-manage">
+
+                                                <summary class="admin-user-manage-btn">
+                                                    <i class="bi bi-shield"></i>
+                                                    Manage Account
+                                                    <i class="bi bi-chevron-down"></i>
+                                                </summary>
+
+
+                                                <div class="admin-user-manage-content">
+
+                                                    <!-- Suspend -->
+                                                    <form method="POST" action="" class="admin-user-action-form">
+
+                                                        <input
+                                                            type="hidden"
+                                                            name="csrf_token"
+                                                            value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
+
+                                                        <input
+                                                            type="hidden"
+                                                            name="user_id"
+                                                            value="<?= htmlspecialchars($user_id, ENT_QUOTES, 'UTF-8') ?>">
+
+                                                        <input type="hidden" name="action" value="suspend">
+
+                                                        <strong>
+                                                            <i class="bi bi-clock-history"></i>
+                                                            Temporary Suspension
+                                                        </strong>
+
+                                                        <label>Suspension until</label>
+
+                                                        <input
+                                                            type="datetime-local"
+                                                            name="restricted_until"
+                                                            value="<?= htmlspecialchars($default_suspend_until, ENT_QUOTES, 'UTF-8') ?>"
+                                                            required>
+
+                                                        <label>Reason</label>
+
+                                                        <input
+                                                            type="text"
+                                                            name="reason"
+                                                            placeholder="Reason for suspension"
+                                                            maxlength="500"
+                                                            required>
+
+                                                        <button type="submit" class="admin-user-action-btn suspend">
+                                                            Suspend Account
+                                                        </button>
+
+                                                    </form>
+
+
+                                                    <div class="admin-user-action-divider"></div>
+
+
+                                                    <!-- Permanent ban -->
+                                                    <form
+                                                        method="POST"
+                                                        action=""
+                                                        class="admin-user-action-form"
+                                                        onsubmit="return confirm('Are you sure you want to permanently ban this account?');">
+
+                                                        <input
+                                                            type="hidden"
+                                                            name="csrf_token"
+                                                            value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
+
+                                                        <input
+                                                            type="hidden"
+                                                            name="user_id"
+                                                            value="<?= htmlspecialchars($user_id, ENT_QUOTES, 'UTF-8') ?>">
+
+                                                        <input type="hidden" name="action" value="ban">
+
+                                                        <strong>
+                                                            <i class="bi bi-ban"></i>
+                                                            Permanent Ban
+                                                        </strong>
+
+                                                        <label>Reason</label>
+
+                                                        <input
+                                                            type="text"
+                                                            name="reason"
+                                                            placeholder="Reason for permanent ban"
+                                                            maxlength="500"
+                                                            required>
+
+                                                        <button type="submit" class="admin-user-action-btn ban">
+                                                            Permanently Ban
+                                                        </button>
+
+                                                    </form>
+
+                                                </div>
+
+                                            </details>
+
+
+                                        <?php elseif (in_array($account_status, ['suspended', 'banned'], true)): ?>
+
+                                            <form
+                                                method="POST"
+                                                action=""
+                                                class="admin-user-restore-form"
+                                                onsubmit="return confirm('Restore this account and allow the user to access WorkPulse again?');">
+
+                                                <input
+                                                    type="hidden"
+                                                    name="csrf_token"
+                                                    value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
+
+                                                <input
+                                                    type="hidden"
+                                                    name="user_id"
+                                                    value="<?= htmlspecialchars($user_id, ENT_QUOTES, 'UTF-8') ?>">
+
+                                                <input type="hidden" name="action" value="restore">
+
+                                                <button type="submit" class="admin-user-action-btn restore">
+                                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                                    Restore Account
+                                                </button>
+
+                                            </form>
+
+                                        <?php endif; ?>
+
+                                    </td>
+
+                                </tr>
+
+                            <?php endforeach; ?>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            <?php else: ?>
+
+                <div class="admin-users-empty">
+
+                    <div class="admin-users-empty-icon">
+                        <i class="bi bi-people"></i>
+                    </div>
+
+                    <h4>No accounts found</h4>
+
+                    <p>
+                        Try changing your search or role filter.
+                    </p>
+
+                    <?php if ($search !== '' || $role !== 'all'): ?>
+
+                        <a href="users.php" class="wp-btn wp-btn-secondary">
+                            Clear Filters
+                        </a>
+
+                    <?php endif; ?>
+
+                </div>
+
+            <?php endif; ?>
 
         </div>
 
-        <div>
+    </section>
 
-            <label for="role">Account Role</label>
+</div>
 
-            <select name="role" id="role">
-
-                <option value="all" <?php echo $role === 'all' ? 'selected' : ''; ?>>
-                    All Accounts
-                </option>
-
-                <option value="worker" <?php echo $role === 'worker' ? 'selected' : ''; ?>>
-                    Workers
-                </option>
-
-                <option value="employer" <?php echo $role === 'employer' ? 'selected' : ''; ?>>
-                    Employers
-                </option>
-
-                <option value="admin" <?php echo $role === 'admin' ? 'selected' : ''; ?>>
-                    Administrators
-                </option>
-
-            </select>
-
-        </div>
-
-        <button type="submit">Apply Filters</button>
-
-        <a href="users.php">Clear Filters</a>
-
-    </form>
-
-    <hr>
-
-    <p>
-        Showing <?php echo count($users); ?> account(s).
-        Maximum of 100 accounts per request.
-    </p>
-
-
-    <?php if (count($users) > 0): ?>
-
-        <table border="1" cellpadding="8">
-
-            <tr>
-                <th>Full Name</th>
-                <th>Role</th>
-                <th>Registration Date</th>
-                <th>User ID</th>
-                <th>Account Status</th>
-                <th>Actions</th>
-            </tr>
-
-
-            <?php foreach ($users as $user): ?>
-
-                <?php
-                $user_id = $user['id'];
-                $user_role = $user['role'];
-                $account_status = $user['account_status'] ?? 'active';
-
-                $is_self = $user_id === $admin_id;
-                $is_admin = $user_role === 'admin';
-
-                $is_expired_suspension =
-                    $account_status === 'suspended' &&
-                    !empty($user['restricted_until']) &&
-                    strtotime($user['restricted_until']) <= time();
-                ?>
-
-                <tr>
-
-                    <td>
-                        <?php echo htmlspecialchars(
-                            $user['full_name'] ?? 'Unnamed User',
-                            ENT_QUOTES,
-                            'UTF-8'
-                        ); ?>
-                    </td>
-
-                    <td>
-                        <?php echo htmlspecialchars(
-                            ucfirst($user_role),
-                            ENT_QUOTES,
-                            'UTF-8'
-                        ); ?>
-                    </td>
-
-                    <td>
-                        <?php
-                        echo date(
-                            'M d, Y h:i A',
-                            strtotime($user['created_at'])
-                        );
-                        ?>
-                    </td>
-
-                    <td>
-                        <?php echo htmlspecialchars(
-                            $user_id,
-                            ENT_QUOTES,
-                            'UTF-8'
-                        ); ?>
-                    </td>
-
-                    <td>
-
-                        <?php if ($account_status === 'banned'): ?>
-
-                            <strong style="color: red;">Banned</strong>
-
-                        <?php elseif ($account_status === 'suspended'): ?>
-
-                            <?php if ($is_expired_suspension): ?>
-
-                                <strong style="color: orange;">Suspension Expired</strong>
-
-                            <?php else: ?>
-
-                                <strong style="color: orange;">Suspended</strong>
-
-                            <?php endif; ?>
-
-                            <?php if (!empty($user['restricted_until'])): ?>
-
-                                <br>
-
-                                <small>
-                                    Until:
-                                    <?php
-                                    echo date(
-                                        'M d, Y h:i A',
-                                        strtotime($user['restricted_until'])
-                                    );
-                                    ?>
-                                </small>
-
-                            <?php endif; ?>
-
-                        <?php else: ?>
-
-                            <strong style="color: green;">Active</strong>
-
-                        <?php endif; ?>
-
-
-                        <?php if (!empty($user['restriction_reason'])): ?>
-
-                            <br>
-
-                            <small>
-                                Reason:
-                                <?php echo htmlspecialchars(
-                                    $user['restriction_reason'],
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                ); ?>
-                            </small>
-
-                        <?php endif; ?>
-
-                    </td>
-
-
-                    <td>
-
-                        <?php if ($is_self || $is_admin): ?>
-
-                            <small>
-                                Administrator accounts cannot be managed here.
-                            </small>
-
-                        <?php elseif ($account_status === 'active'): ?>
-
-                            <!-- Suspend Account -->
-                            <form method="POST" action="">
-
-                                <input
-                                    type="hidden"
-                                    name="csrf_token"
-                                    value="<?php echo htmlspecialchars(
-                                                $csrf_token,
-                                                ENT_QUOTES,
-                                                'UTF-8'
-                                            ); ?>">
-
-                                <input
-                                    type="hidden"
-                                    name="user_id"
-                                    value="<?php echo htmlspecialchars(
-                                                $user_id,
-                                                ENT_QUOTES,
-                                                'UTF-8'
-                                            ); ?>">
-
-                                <input
-                                    type="hidden"
-                                    name="action"
-                                    value="suspend">
-
-                                <label>Suspension until:</label>
-
-                                <br>
-
-                                <input
-                                    type="datetime-local"
-                                    name="restricted_until"
-                                    value="<?php echo $default_suspend_until; ?>"
-                                    required>
-
-                                <br>
-
-                                <input
-                                    type="text"
-                                    name="reason"
-                                    placeholder="Reason for suspension"
-                                    maxlength="500"
-                                    required>
-
-                                <br>
-
-                                <button type="submit">
-                                    Suspend Account
-                                </button>
-
-                            </form>
-
-                            <hr>
-
-
-                            <!-- Ban Account -->
-                            <form
-                                method="POST"
-                                action=""
-                                onsubmit="return confirm('Are you sure you want to permanently ban this account?');">
-
-                                <input
-                                    type="hidden"
-                                    name="csrf_token"
-                                    value="<?php echo htmlspecialchars(
-                                                $csrf_token,
-                                                ENT_QUOTES,
-                                                'UTF-8'
-                                            ); ?>">
-
-                                <input
-                                    type="hidden"
-                                    name="user_id"
-                                    value="<?php echo htmlspecialchars(
-                                                $user_id,
-                                                ENT_QUOTES,
-                                                'UTF-8'
-                                            ); ?>">
-
-                                <input
-                                    type="hidden"
-                                    name="action"
-                                    value="ban">
-
-                                <input
-                                    type="text"
-                                    name="reason"
-                                    placeholder="Reason for permanent ban"
-                                    maxlength="500"
-                                    required>
-
-                                <br>
-
-                                <button type="submit">
-                                    Ban Account
-                                </button>
-
-                            </form>
-
-
-                        <?php elseif (in_array(
-                            $account_status,
-                            ['suspended', 'banned'],
-                            true
-                        )): ?>
-
-                            <!-- Restore Account -->
-                            <form
-                                method="POST"
-                                action=""
-                                onsubmit="return confirm('Restore this account and allow the user to access WorkPulse again?');">
-
-                                <input
-                                    type="hidden"
-                                    name="csrf_token"
-                                    value="<?php echo htmlspecialchars(
-                                                $csrf_token,
-                                                ENT_QUOTES,
-                                                'UTF-8'
-                                            ); ?>">
-
-                                <input
-                                    type="hidden"
-                                    name="user_id"
-                                    value="<?php echo htmlspecialchars(
-                                                $user_id,
-                                                ENT_QUOTES,
-                                                'UTF-8'
-                                            ); ?>">
-
-                                <input
-                                    type="hidden"
-                                    name="action"
-                                    value="restore">
-
-                                <button type="submit">
-                                    Restore Account
-                                </button>
-
-                            </form>
-
-                        <?php endif; ?>
-
-                    </td>
-
-                </tr>
-
-            <?php endforeach; ?>
-
-        </table>
-
-    <?php elseif ($message === ''): ?>
-
-        <p>No registered accounts found.</p>
-
-    <?php endif; ?>
-
-</body>
-
-</html>
+<?php require_once '../../includes/footer.php'; ?>

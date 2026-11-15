@@ -348,46 +348,119 @@ if (isset($_POST['login'])) {
 
 ?>
 
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WorkPulse | Login</title>
+    <title>Sign In | WorkPulse</title>
+    <link rel="stylesheet" href="/assets/css/auth.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 
-<body>
+<body class="auth-page">
 
-    <h1>WorkPulse</h1>
-    <h2>Login to your account</h2>
+    <div class="auth-layout">
 
-    <?php if ($message != ''): ?>
-        <p>
-            <?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?>
-        </p>
-    <?php endif; ?>
+        <section class="auth-showcase">
+            <a href="/index.php" class="auth-brand">
+                <span class="brand-icon"><i class="bi bi-briefcase-fill"></i></span>
+                WorkPulse
+            </a>
 
-    <form method="POST" action="">
+            <div class="showcase-content">
+                <span class="showcase-label">YOUR WORK. YOUR FUTURE.</span>
+                <h1>Find opportunities.<br><span>Make progress.</span></h1>
+                <p>Connect with opportunities, manage your work, and build your professional journey with WorkPulse.</p>
 
-        <div>
-            <label>Email</label>
-            <input type="email" name="email" required>
-        </div>
+                <div class="showcase-card">
+                    <div class="showcase-card-icon"><i class="bi bi-check-circle-fill"></i></div>
+                    <div>
+                        <strong>Everything in one place</strong>
+                        <small>Jobs, tasks, and work progress.</small>
+                    </div>
+                </div>
+            </div>
 
-        <div>
-            <label>Password</label>
-            <input type="password" name="password" required>
-        </div>
+            <div class="showcase-footer">© 2026 WorkPulse. All rights reserved.</div>
+        </section>
 
-        <button type="submit" name="login">Login</button>
+        <main class="auth-main">
+            <div class="auth-form-container">
 
-    </form>
+                <div class="mobile-brand">
+                    <i class="bi bi-briefcase-fill"></i> WorkPulse
+                </div>
 
-    <p>
-        Don't have an account?
-        <a href="register.php">Register here</a>
-    </p>
+                <div class="auth-heading">
+                    <span>WELCOME BACK</span>
+                    <h2>Sign in to your account</h2>
+                    <p>Enter your details to continue to WorkPulse.</p>
+                </div>
+
+                <?php if ($message != ''): ?>
+                    <div class="auth-alert">
+                        <i class="bi bi-exclamation-circle"></i>
+                        <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
+                    </div>
+                <?php endif; ?>
+
+                <form method="POST" class="auth-form">
+
+                    <div class="auth-field">
+                        <label for="email">Email address</label>
+                        <div class="auth-input">
+                            <i class="bi bi-envelope"></i>
+                            <input type="email" id="email" name="email"
+                                placeholder="you@example.com"
+                                value="<?= htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                autocomplete="email" required>
+                        </div>
+                    </div>
+
+                    <div class="auth-field">
+                        <label for="password">Password</label>
+                        <div class="auth-input">
+                            <i class="bi bi-lock"></i>
+                            <input type="password" id="password" name="password"
+                                placeholder="Enter your password"
+                                autocomplete="current-password" required>
+                            <button type="button" class="password-toggle"
+                                onclick="togglePassword('password', this)"
+                                aria-label="Show password">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" name="login" class="auth-submit">
+                        Sign In <i class="bi bi-arrow-right"></i>
+                    </button>
+
+                </form>
+
+                <p class="auth-switch">
+                    Don't have an account?
+                    <a href="/register.php">Create an account</a>
+                </p>
+
+            </div>
+        </main>
+
+    </div>
+
+    <script>
+        function togglePassword(id, button) {
+            const input = document.getElementById(id);
+            const icon = button.querySelector('i');
+
+            input.type = input.type === 'password' ? 'text' : 'password';
+            icon.classList.toggle('bi-eye');
+            icon.classList.toggle('bi-eye-slash');
+        }
+    </script>
 
 </body>
 
