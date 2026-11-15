@@ -1,14 +1,15 @@
+
 FROM dunglas/frankenphp:1-php8.5
 
-# Install the PHP cURL extension used by the Supabase API requests.
-RUN install-php-extensions curl
+# Install PHP extensions required by WorkPulse.
+RUN install-php-extensions curl zip
 
 # Install Composer.
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
-# Copy Composer files first to make dependency installation cacheable.
+# Copy Composer files first.
 COPY composer.json composer.lock ./
 
 # Install production dependencies.
@@ -18,12 +19,13 @@ RUN composer install \
     --no-interaction \
     --optimize-autoloader
 
-# Copy the rest of the WorkPulse application.
+# Copy the WorkPulse application.
 COPY . .
 
-# Vercel provides PORT. Use port 80 as the local/default fallback.
+# Configure the web server.
 ENV SERVER_NAME=:80
 
 EXPOSE 80
 
+# Start FrankenPHP using our project's Caddyfile.
 CMD ["frankenphp", "run", "--config", "/app/Caddyfile", "--adapter", "caddyfile"]
