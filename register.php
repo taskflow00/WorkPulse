@@ -1,12 +1,11 @@
 <?php
 
-require_once __DIR__ . '/config/supabase.php';
+require_once __DIR__ . '/includes/session.php';
 
 date_default_timezone_set('Asia/Manila');
 
 $message = '';
 $message_type = '';
-$show_verification = false;
 
 $email = '';
 $full_name = '';
@@ -35,7 +34,7 @@ function get_supabase_http_status($headers)
 // REGISTRATION
 // ==========================================
 
-if (isset($_POST['register'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 
     $full_name = trim($_POST['full_name'] ?? '');
     $email = strtolower(trim($_POST['email'] ?? ''));
@@ -107,96 +106,30 @@ if (isset($_POST['register'])) {
                 !empty($user_id)
             ) {
 
-                $message = 'Your account has been created. Please check your email for the verification link before signing in.';
-                $message_type = 'success';
-                $show_verification = true;
+                // Store the email temporarily for the verification page.
+                $_SESSION['pending_verification_email'] = $email;
+
+                // Redirect to the OTP verification page.
+                header('Location: /verify-email.php');
+                exit;
             } else {
-
-                $error_message = $result['msg']
-                    ?? $result['message']
-                    ?? $result['error_description']
-                    ?? $result['error']
-                    ?? 'Please try again.';
-
-                $message = 'Registration failed. ' . $error_message;
-                $message_type = 'danger';
-            }
-        }
-    }
-}
-
-
-// ==========================================
-// RESEND VERIFICATION EMAIL
-// ==========================================
-
-if (isset($_POST['resend_verification'])) {
-
-    $email = strtolower(trim($_POST['resend_email'] ?? ''));
-
-    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-
-        $message = 'Please enter a valid email address.';
-        $message_type = 'danger';
-        $show_verification = true;
-    } else {
-
-        $url = SUPABASE_URL . '/auth/v1/resend';
-
-        $data = [
-            'type' => 'signup',
-            'email' => $email
-        ];
-
-        $options = [
-            'http' => [
-                'method' => 'POST',
-                'header' =>
-                "Content-Type: application/json\r\n" .
-                    "apikey: " . SUPABASE_KEY . "\r\n",
-                'content' => json_encode($data),
-                'ignore_errors' => true,
-                'timeout' => 20
-            ]
-        ];
-
-        $context = stream_context_create($options);
-
-        $response = file_get_contents($url, false, $context);
-        $headers = $http_response_header ?? [];
-
-        if ($response === false) {
-
-            $message = 'Unable to contact the verification service. Please try again later.';
-            $message_type = 'danger';
-        } else {
-
-            $http_status = get_supabase_http_status($headers);
-
-            if ($http_status >= 200 && $http_status < 300) {
-
-                // Do not reveal whether the email exists or is already verified.
-                $message = 'If an account with this email still needs verification, a new verification email will be sent. Please check your inbox and spam folder.';
-                $message_type = 'success';
-            } else {
-
-                $result = json_decode($response, true);
 
                 $error_code = $result['code'] ?? '';
 
                 if ($error_code === 'over_email_send_rate_limit') {
 
-                    $message = 'Too many verification emails have been requested. Please wait before trying again.';
+                    $message = 'Too many registration attempts. Please wait before trying again.';
+                } elseif ($error_code === 'weak_password') {
+
+                    $message = 'Your password is too weak. Please choose a stronger password.';
                 } else {
 
-                    $message = 'Unable to resend the verification email. Please try again later.';
+                    $message = 'Unable to create your account with those details. Please check them and try again.';
                 }
 
                 $message_type = 'danger';
             }
         }
-
-        $show_verification = true;
     }
 }
 
@@ -305,32 +238,11 @@ $alert_icon = $alert_icons[$message_type] ?? 'bi-info-circle-fill';
 
                     <div class="auth-alert alert-<?= htmlspecialchars($message_type, ENT_QUOTES, 'UTF-8') ?>">
 
-                        <i class="bi <?= $alert_icon ?>"></i>
+                        <i class="bi <?= htmlspecialchars($alert_icon, ENT_QUOTES, 'UTF-8') ?>"></i>
 
                         <span>
                             <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
                         </span>
-
-                    </div>
-
-                <?php endif; ?>
-
-
-                <?php if ($show_verification): ?>
-
-                    <!-- VERIFICATION NOTICE -->
-                    <div class="auth-verification-notice">
-
-                        <i class="bi bi-envelope-check"></i>
-
-                        <div>
-                            <strong>Check your email</strong>
-
-                            <p>
-                                Open the verification link sent to your email address.
-                                If you don't receive it, you can request another one below.
-                            </p>
-                        </div>
 
                     </div>
 
@@ -478,56 +390,6 @@ $alert_icon = $alert_icons[$message_type] ?? 'bi-info-circle-fill';
                 </form>
 
 
-                <!-- RESEND VERIFICATION -->
-                <div class="auth-resend-section">
-
-                    <div class="auth-resend-heading">
-                        <strong>Already registered?</strong>
-
-                        <p>
-                            Didn't receive your verification email?
-                            Request a new one here.
-                        </p>
-                    </div>
-
-                    <form method="POST" class="auth-form">
-
-                        <div class="auth-field">
-
-                            <label for="resend_email">Email address</label>
-
-                            <div class="auth-input">
-
-                                <i class="bi bi-envelope"></i>
-
-                                <input
-                                    type="email"
-                                    id="resend_email"
-                                    name="resend_email"
-                                    placeholder="Enter your registered email"
-                                    value="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8') ?>"
-                                    autocomplete="email"
-                                    required>
-
-                            </div>
-
-                        </div>
-
-                        <button
-                            type="submit"
-                            name="resend_verification"
-                            class="auth-submit">
-
-                            <i class="bi bi-envelope-arrow-up"></i>
-                            Resend Verification Email
-
-                        </button>
-
-                    </form>
-
-                </div>
-
-
                 <p class="auth-switch">
 
                     Already have an account?
@@ -558,4 +420,4 @@ $alert_icon = $alert_icons[$message_type] ?? 'bi-info-circle-fill';
 
 </body>
 
-</html>
+</html>C:\php\php.exe -l register.php

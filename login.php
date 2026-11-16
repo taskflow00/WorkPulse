@@ -28,11 +28,9 @@ if (isset($_POST['login'])) {
     if ($email === '' || $password === '') {
 
         $message = 'Please enter your email and password.';
-
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 
         $message = 'Please enter a valid email address.';
-
     } else {
 
         // Supabase login endpoint
@@ -48,7 +46,7 @@ if (isset($_POST['login'])) {
             'http' => [
                 'method' => 'POST',
                 'header' =>
-                    "Content-Type: application/json\r\n" .
+                "Content-Type: application/json\r\n" .
                     "apikey: " . SUPABASE_KEY . "\r\n",
                 'content' => json_encode($data),
                 'ignore_errors' => true,
@@ -63,7 +61,6 @@ if (isset($_POST['login'])) {
         if ($response === false) {
 
             $message = 'Unable to connect to Supabase.';
-
         } else {
 
             $result = json_decode($response, true);
@@ -110,7 +107,6 @@ if (isset($_POST['login'])) {
 
                     $message = 'Unable to connect to the profile service. ' .
                         ($error['message'] ?? '');
-
                 } else {
 
                     // Get the HTTP status code
@@ -129,7 +125,6 @@ if (isset($_POST['login'])) {
                         $message = 'Unable to retrieve your account profile. HTTP ' .
                             $profile_status . '. Supabase response: ' .
                             $profile_response;
-
                     } else {
 
                         $profile = json_decode($profile_response, true);
@@ -142,7 +137,6 @@ if (isset($_POST['login'])) {
 
                             $message = 'No usable account profile was returned. ' .
                                 'Please check your profiles table and RLS policies.';
-
                         } else {
 
                             $role = $profile[0]['role'];
@@ -159,7 +153,6 @@ if (isset($_POST['login'])) {
                             if ($account_status === 'banned') {
 
                                 $message = 'Your account has been banned. Please contact support.';
-
                             } elseif ($account_status === 'suspended') {
 
                                 $restriction_time = !empty($restricted_until)
@@ -175,7 +168,6 @@ if (isset($_POST['login'])) {
                                     if ($restriction_time === false) {
 
                                         $message = 'Your account is temporarily suspended, but no end time is currently available. Please contact support.';
-
                                     } else {
 
                                         // Calculate remaining suspension time
@@ -215,7 +207,6 @@ if (isset($_POST['login'])) {
                                             '. Suspension ends on ' .
                                             $formatted_end . '.';
                                     }
-
                                 } else {
 
                                     // Suspension has expired.
@@ -228,7 +219,6 @@ if (isset($_POST['login'])) {
                                     if ($service_role_key === '') {
 
                                         $message = 'Unable to restore your account. Please contact support.';
-
                                     } else {
 
                                         $url = SUPABASE_URL .
@@ -246,7 +236,7 @@ if (isset($_POST['login'])) {
                                             'http' => [
                                                 'method' => 'PATCH',
                                                 'header' =>
-                                                    "Content-Type: application/json\r\n" .
+                                                "Content-Type: application/json\r\n" .
                                                     "apikey: " . $service_role_key . "\r\n" .
                                                     "Authorization: Bearer " . $service_role_key . "\r\n" .
                                                     "Prefer: return=minimal\r\n",
@@ -281,14 +271,12 @@ if (isset($_POST['login'])) {
                                         ) {
 
                                             $message = 'Unable to restore your account. Please try again later.';
-
                                         } else {
 
                                             $account_status = 'active';
                                         }
                                     }
                                 }
-
                             } elseif ($account_status !== 'active') {
 
                                 $message = 'Your account cannot log in. Please contact support.';
@@ -335,22 +323,18 @@ if (isset($_POST['login'])) {
                                     );
 
                                     exit;
-
                                 } elseif ($role === 'worker') {
 
                                     header('Location: pages/worker/dashboard.php');
                                     exit;
-
                                 } elseif ($role === 'employer') {
 
                                     header('Location: pages/employer/dashboard.php');
                                     exit;
-
                                 } elseif ($role === 'admin') {
 
                                     header('Location: pages/admin/dashboard.php');
                                     exit;
-
                                 } else {
 
                                     $message = 'Your account role is not recognized.';
@@ -359,7 +343,6 @@ if (isset($_POST['login'])) {
                         }
                     }
                 }
-
             } else {
 
                 $message = 'Login failed. ' .
@@ -481,8 +464,7 @@ if (isset($_POST['login'])) {
                                 placeholder="you@example.com"
                                 value="<?= htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
                                 autocomplete="email"
-                                required
-                            >
+                                required>
 
                         </div>
 
@@ -503,15 +485,13 @@ if (isset($_POST['login'])) {
                                 name="password"
                                 placeholder="Enter your password"
                                 autocomplete="current-password"
-                                required
-                            >
+                                required>
 
                             <button
                                 type="button"
                                 class="password-toggle"
                                 onclick="togglePassword('password', this)"
-                                aria-label="Show password"
-                            >
+                                aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
 
