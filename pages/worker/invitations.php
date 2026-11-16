@@ -7,6 +7,8 @@
 $required_role = 'worker';
 
 require_once '../../includes/auth.php';
+require_once '../../includes/send-email.php';
+require_once '../../includes/email-templates.php';
 
 date_default_timezone_set('Asia/Manila');
 
@@ -125,6 +127,72 @@ if (
 
 
     // ======================================
+    // GET INVITATION DETAILS BEFORE RESPONSE
+    // ======================================
+
+    $invitation_before = null;
+
+    $invitation_lookup_url = SUPABASE_URL .
+        '/rest/v1/invitations?' .
+        'select=id,employer_id,worker_id,application_id,status,interview_at,' .
+        'jobs(title),' .
+        'profiles!invitations_employer_id_fkey(full_name)' .
+        '&id=eq.' . rawurlencode($invitation_id) .
+        '&worker_id=eq.' . rawurlencode($worker_id) .
+        '&limit=1';
+
+    $lookup_options = [
+        'http' => [
+            'method' => 'GET',
+            'header' =>
+            "apikey: " . SUPABASE_KEY . "\r\n" .
+                "Authorization: Bearer " . $access_token . "\r\n" .
+                "Accept: application/json\r\n",
+            'ignore_errors' => true,
+            'timeout' => 20
+        ]
+    ];
+
+    $lookup_context = stream_context_create($lookup_options);
+
+    $lookup_response = @file_get_contents(
+        $invitation_lookup_url,
+        false,
+        $lookup_context
+    );
+
+    $lookup_status = $get_status_code(
+        $http_response_header ?? []
+    );
+
+    $lookup_data = json_decode(
+        $lookup_response ?: '[]',
+        true
+    );
+
+    if (
+        $lookup_status >= 200 &&
+        $lookup_status < 300 &&
+        is_array($lookup_data) &&
+        !empty($lookup_data[0])
+    ) {
+
+        $invitation_before = $lookup_data[0];
+    } else {
+
+        error_log(
+            'WorkPulse: Could not retrieve invitation before worker response. ' .
+                'Invitation ID: ' . $invitation_id
+        );
+    }
+
+    $was_pending = (
+        is_array($invitation_before) &&
+        ($invitation_before['status'] ?? '') === 'pending'
+    );
+
+
+    // ======================================
     // CALL SUPABASE RPC
     // ======================================
 
@@ -155,9 +223,15 @@ if (
 
     $context = stream_context_create($options);
 
-    $response = @file_get_contents($rpc_url, false, $context);
+    $response = @file_get_contents(
+        $rpc_url,
+        false,
+        $context
+    );
 
-    $status_code = $get_status_code($http_response_header ?? []);
+    $status_code = $get_status_code(
+        $http_response_header ?? []
+    );
 
     $result = json_decode($response ?: '[]', true);
 
@@ -175,19 +249,251 @@ if (
 
         $invitation_type = $result['invitation_type'] ?? '';
 
-        if ($invitation_type === 'job' && $decision === 'accepted') {
+
+        // ======================================
+        // NOTIFY EMPLOYER BY EMAIL
+        // ======================================
+
+        // Only send an email when the invitation was
+        // pending before this response was submitted.
+
+        if ($was_pending) {
+
+            try {
+
+                $employer_id =
+                    $invitation_before['employer_id'] ?? '';
+
+                $employer_name =
+                    $invitation_before['profiles']['full_name']
+                    ?? 'Employer';
+
+                $job_title =
+                    $invitation_before['jobs']['title']
+                    ?? 'Job Opportunity';
+
+                $interview_at =
+                    $invitation_before['interview_at'] ?? null;
+
+
+                // Get worker's name.
+                $worker_name =
+                    $_SESSION['user']['user_metadata']['full_name']
+                    ?? 'Worker';
+
+
+                // Retrieve employer email using Supabase Auth Admin API.
+                if (
+                    !defined('SUPABASE_SERVICE_ROLE_KEY') ||
+                    SUPABASE_SERVICE_ROLE_KEY === ''
+                ) {
+                    throw new Exception(
+                        'Supabase service role key is unavailable.'
+                    );
+                }
+
+                if ($employer_id === '') {
+                    throw new Exception('Employer ID is missing.');
+                }
+
+                $employer_url = SUPABASE_URL .
+                    '/auth/v1/admin/users/' .
+                    rawurlencode($employer_id);
+
+                $employer_options = [
+                    'http' => [
+                        'method' => 'GET',
+                        'header' =>
+                        "apikey: " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+                            "Authorization: Bearer " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+                            "Accept: application/json\r\n",
+                        'ignore_errors' => true,
+                        'timeout' => 20
+                    ]
+                ];
+
+                $employer_context = stream_context_create(
+                    $employer_options
+                );
+
+                $employer_response = @file_get_contents(
+                    $employer_url,
+                    false,
+                    $employer_context
+                );
+
+                $employer_status = $get_status_code(
+                    $http_response_header ?? []
+                );
+
+                $employer_data = json_decode(
+                    $employer_response ?: '[]',
+                    true
+                );
+
+                if (
+                    $employer_status < 200 ||
+                    $employer_status >= 300 ||
+                    empty($employer_data['email']) ||
+                    !filter_var(
+                        $employer_data['email'],
+                        FILTER_VALIDATE_EMAIL
+                    )
+                ) {
+                    throw new Exception(
+                        'Unable to retrieve the employer email address.'
+                    );
+                }
+
+
+                // Generate the notification email.
+                if (function_exists('invitationResponseEmail')) {
+
+                    $email_body = invitationResponseEmail(
+                        $employer_name,
+                        $worker_name,
+                        $job_title,
+                        $invitation_type,
+                        $decision,
+                        $interview_at
+                    );
+                } else {
+
+                    // Fallback email if the template function is unavailable.
+
+                    $safe_employer = $escape($employer_name);
+                    $safe_worker = $escape($worker_name);
+                    $safe_job = $escape($job_title);
+
+                    $response_label = $decision === 'accepted'
+                        ? 'Accepted'
+                        : 'Declined';
+
+                    $type_label = $invitation_type === 'job'
+                        ? 'Job Invitation'
+                        : 'Interview Invitation';
+
+                    $extra_message = '';
+
+                    if (
+                        $invitation_type === 'job' &&
+                        $decision === 'accepted'
+                    ) {
+
+                        $extra_message =
+                            '<p>The worker has accepted your direct invitation. ' .
+                            'An application has been created or linked, and the ' .
+                            'worker will enter your normal recruitment process. ' .
+                            'This does not mean the worker has been hired.</p>';
+                    } elseif ($invitation_type === 'interview') {
+
+                        $extra_message =
+                            '<p>' .
+                            (
+                                $decision === 'accepted'
+                                ? 'The worker confirmed the interview.'
+                                : 'The worker declined the interview invitation.'
+                            ) .
+                            '</p>';
+                    }
+
+                    $schedule_message = '';
+
+                    if (
+                        $invitation_type === 'interview' &&
+                        !empty($interview_at)
+                    ) {
+
+                        $schedule = new DateTime($interview_at);
+
+                        $schedule->setTimezone(
+                            new DateTimeZone('Asia/Manila')
+                        );
+
+                        $schedule_message =
+                            '<p><strong>Interview Schedule:</strong> ' .
+                            $escape($schedule->format('M d, Y - h:i A')) .
+                            ' (Asia/Manila)</p>';
+                    }
+
+                    $email_body = '
+                        <div style="font-family:Arial,sans-serif;line-height:1.6;">
+                            <h2>WorkPulse Notification</h2>
+
+                            <p>Hello ' . $safe_employer . ',</p>
+
+                            <p><strong>' . $safe_worker . '</strong> has
+                            <strong>' . $response_label . '</strong> your
+                            ' . $type_label . ' for
+                            <strong>' . $safe_job . '</strong>.</p>
+
+                            ' . $extra_message . '
+
+                            ' . $schedule_message . '
+
+                            <p>Please log in to WorkPulse to review the latest
+                            recruitment status.</p>
+
+                            <p>Regards,<br>WorkPulse Team</p>
+                        </div>
+                    ';
+                }
+
+
+                // Send email.
+                $email_sent = sendEmail(
+                    $employer_data['email'],
+                    'Invitation Response - WorkPulse',
+                    $email_body
+                );
+
+                if (!$email_sent) {
+
+                    error_log(
+                        'WorkPulse: Employer notification email was not sent. ' .
+                            'Invitation ID: ' . $invitation_id
+                    );
+                }
+            } catch (Throwable $exception) {
+
+                // Email failure must not undo the successful database response.
+                error_log(
+                    'WorkPulse employer notification error: ' .
+                        $exception->getMessage()
+                );
+            }
+        }
+
+
+        // ======================================
+        // WORKER FLASH MESSAGES
+        // ======================================
+
+        if (
+            $invitation_type === 'job' &&
+            $decision === 'accepted'
+        ) {
 
             $_SESSION['invitation_message'] =
                 'Job invitation accepted! Your application has been created or linked to this opportunity. You are not officially hired yet.';
-        } elseif ($invitation_type === 'job' && $decision === 'declined') {
+        } elseif (
+            $invitation_type === 'job' &&
+            $decision === 'declined'
+        ) {
 
             $_SESSION['invitation_message'] =
                 'You declined the job invitation.';
-        } elseif ($invitation_type === 'interview' && $decision === 'accepted') {
+        } elseif (
+            $invitation_type === 'interview' &&
+            $decision === 'accepted'
+        ) {
 
             $_SESSION['invitation_message'] =
                 'Interview confirmed! Please review your interview schedule and meeting details. This does not mean you have accepted a job offer.';
-        } elseif ($invitation_type === 'interview' && $decision === 'declined') {
+        } elseif (
+            $invitation_type === 'interview' &&
+            $decision === 'declined'
+        ) {
 
             $_SESSION['invitation_message'] =
                 'You declined the interview invitation. Your application remains available for the employer to review.';
@@ -244,7 +550,9 @@ $context = stream_context_create($options);
 
 $response = @file_get_contents($url, false, $context);
 
-$status_code = $get_status_code($http_response_header ?? []);
+$status_code = $get_status_code(
+    $http_response_header ?? []
+);
 
 $invitations = json_decode($response ?: '[]', true);
 
@@ -613,7 +921,7 @@ require_once '../../includes/header.php';
                             }
 
 
-                            // Validate the demo meeting link before displaying it.
+                            // Validate the demo meeting link.
                             $meeting_link = trim(
                                 $invitation['meeting_link'] ?? ''
                             );
@@ -621,7 +929,7 @@ require_once '../../includes/header.php';
                             $valid_meeting_link =
                                 $meeting_link !== '' &&
                                 preg_match(
-                                    '/^https:\/\/meet\.google\.com\/[A-Za-z0-9-]+$/',
+                                    '/^https:\/\/meet\.google\.com\/wpx-[a-f0-9]{4}-[a-f0-9]{4}$/i',
                                     $meeting_link
                                 );
 
@@ -760,32 +1068,33 @@ require_once '../../includes/header.php';
 
                                         <?php if ($valid_meeting_link): ?>
 
-                                            <?php if (!empty($meeting_link) && preg_match('/^https:\/\/meet\.google\.com\/wpx-[a-f0-9]{4}-[a-f0-9]{4}$/i', $meeting_link)): ?>
+                                            <div class="wp-invitation-meeting-link">
 
-                                                <div class="wp-invitation-meeting-link">
-                                                    <p>
-                                                        <strong>
-                                                            <i class="bi bi-camera-video"></i>
-                                                            Online Meeting
-                                                        </strong>
-                                                    </p>
+                                                <p>
+                                                    <strong>
+                                                        <i class="bi bi-camera-video"></i>
+                                                        Online Meeting
+                                                    </strong>
+                                                </p>
 
-                                                    <a
-                                                        href="<?= $escape($meeting_link) ?>"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        class="wp-meeting-url">
+                                                <a
+                                                    href="<?= $escape($meeting_link) ?>"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="wp-meeting-url">
 
-                                                        <?= $escape($meeting_link) ?>
-                                                        <i class="bi bi-box-arrow-up-right"></i>
-                                                    </a>
+                                                    <?= $escape($meeting_link) ?>
 
-                                                    <small>
-                                                        Demo link only. This does not open a real meeting room.
-                                                    </small>
-                                                </div>
+                                                    <i class="bi bi-box-arrow-up-right"></i>
 
-                                            <?php endif; ?>
+                                                </a>
+
+                                                <small>
+                                                    Demo link only. This does not open a real meeting room.
+                                                </small>
+
+                                            </div>
+
                                         <?php endif; ?>
 
                                     </div>

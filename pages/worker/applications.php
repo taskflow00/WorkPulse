@@ -8,6 +8,9 @@ $required_role = 'worker';
 
 require_once '../../includes/auth.php';
 
+require_once '../../includes/send-email.php';
+require_once '../../includes/email-templates.php';
+
 date_default_timezone_set('Asia/Manila');
 
 $worker_id = $_SESSION['user']['id'];
@@ -151,6 +154,55 @@ if (
 
 
     // ======================================
+    // GET INVITATION DETAILS BEFORE RESPONSE
+    // ======================================
+
+    $invitation_url = SUPABASE_URL .
+        '/rest/v1/invitations?' .
+        'select=id,employer_id,worker_id,application_id,status,interview_at,' .
+        'jobs(title),' .
+        'profiles!invitations_employer_id_fkey(full_name)' .
+        '&id=eq.' . rawurlencode($invitation_id) .
+        '&worker_id=eq.' . rawurlencode($worker_id) .
+        '&limit=1';
+
+    $invitation_options = [
+        'http' => [
+            'method' => 'GET',
+            'header' =>
+            "apikey: " . SUPABASE_KEY . "\r\n" .
+                "Authorization: Bearer " . $access_token . "\r\n" .
+                "Accept: application/json\r\n",
+            'ignore_errors' => true,
+            'timeout' => 30
+        ]
+    ];
+
+    $invitation_context = stream_context_create($invitation_options);
+
+    $invitation_response = @file_get_contents(
+        $invitation_url,
+        false,
+        $invitation_context
+    );
+
+    $invitation_status_code = $get_status_code(
+        $http_response_header ?? []
+    );
+
+    $invitation_data = json_decode(
+        $invitation_response ?: '[]',
+        true
+    );
+
+    $invitation_before = (
+        $invitation_status_code >= 200 &&
+        $invitation_status_code < 300 &&
+        !empty($invitation_data[0])
+    ) ? $invitation_data[0] : null;
+
+
+    // ======================================
     // CALL SUPABASE RPC
     // ======================================
 
@@ -212,6 +264,122 @@ if (
         is_array($result) &&
         !empty($result['success'])
     ) {
+
+        // ======================================
+        // NOTIFY EMPLOYER AFTER SUCCESSFUL RESPONSE
+        // ======================================
+
+        if (
+            $invitation_before !== null &&
+            ($invitation_before['status'] ?? '') === 'pending'
+        ) {
+
+            try {
+
+                $employer_id = $invitation_before['employer_id'] ?? '';
+
+                $employer_email = null;
+
+                // Retrieve employer email through Supabase Admin API.
+                if (
+                    $employer_id !== '' &&
+                    SUPABASE_SERVICE_ROLE_KEY !== ''
+                ) {
+
+                    $employer_email_url = SUPABASE_URL .
+                        '/auth/v1/admin/users/' .
+                        rawurlencode($employer_id);
+
+                    $employer_email_options = [
+                        'http' => [
+                            'method' => 'GET',
+                            'header' =>
+                            "apikey: " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+                                "Authorization: Bearer " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+                                "Accept: application/json\r\n",
+                            'ignore_errors' => true,
+                            'timeout' => 20
+                        ]
+                    ];
+
+                    $employer_email_context = stream_context_create(
+                        $employer_email_options
+                    );
+
+                    $employer_email_response = @file_get_contents(
+                        $employer_email_url,
+                        false,
+                        $employer_email_context
+                    );
+
+                    $employer_user = json_decode(
+                        $employer_email_response ?: '[]',
+                        true
+                    );
+
+                    $employer_email = $employer_user['email'] ?? null;
+                }
+
+                // Get worker and employer names.
+                $worker_name = $_SESSION['user']['user_metadata']['full_name']
+                    ?? 'A WorkPulse worker';
+
+                $employer_profile = $invitation_before['profiles'] ?? [];
+
+                $employer_name = $employer_profile['full_name']
+                    ?? 'Employer';
+
+                // Get job title.
+                $job = $invitation_before['jobs'] ?? [];
+
+                $job_title = $job['title'] ?? 'Job Opportunity';
+
+                // Determine whether this is a job or interview invitation.
+                $invitation_type = empty($invitation_before['application_id'])
+                    ? 'job'
+                    : 'interview';
+
+                if (
+                    is_string($employer_email) &&
+                    filter_var($employer_email, FILTER_VALIDATE_EMAIL)
+                ) {
+
+                    $email_body = invitationResponseEmail(
+                        $employer_name,
+                        $worker_name,
+                        $job_title,
+                        $invitation_type,
+                        $decision,
+                        $invitation_before['interview_at'] ?? null
+                    );
+
+                    $email_sent = sendEmail(
+                        $employer_email,
+                        'Invitation Response - WorkPulse',
+                        $email_body
+                    );
+
+                    if (!$email_sent) {
+                        error_log(
+                            'WorkPulse: Employer invitation response email failed.'
+                        );
+                    }
+                } else {
+
+                    error_log(
+                        'WorkPulse: Unable to retrieve employer email for invitation response.'
+                    );
+                }
+            } catch (Throwable $exception) {
+
+                // Email failure must not undo the saved invitation response.
+                error_log(
+                    'WorkPulse employer notification error: ' .
+                        $exception->getMessage()
+                );
+            }
+        }
+
 
         $invitation_type = $result['invitation_type'] ?? '';
 

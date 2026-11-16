@@ -725,3 +725,181 @@ function interviewInvitationEmail(
     </html>
     ";
 }
+
+
+// ============================================
+// 4. INVITATION RESPONSE EMAIL
+// Notifies employers when workers respond.
+// ============================================
+
+function invitationResponseEmail(
+    $employerName,
+    $workerName,
+    $jobTitle,
+    $invitationType,
+    $decision,
+    $interviewAt = null
+) {
+    $employerName = htmlspecialchars($employerName, ENT_QUOTES, 'UTF-8');
+    $workerName = htmlspecialchars($workerName, ENT_QUOTES, 'UTF-8');
+    $jobTitle = htmlspecialchars($jobTitle, ENT_QUOTES, 'UTF-8');
+
+    $isJobInvitation = $invitationType === 'job';
+    $isAccepted = $decision === 'accepted';
+
+    $typeLabel = $isJobInvitation
+        ? 'JOB INVITATION RESPONSE'
+        : 'INTERVIEW INVITATION RESPONSE';
+
+    $statusLabel = $isAccepted ? 'Accepted' : 'Declined';
+
+    $statusColor = $isAccepted ? '#21865B' : '#C34F59';
+    $statusBackground = $isAccepted ? '#EAF7F0' : '#FCEEEF';
+
+    if ($isJobInvitation && $isAccepted) {
+        $description = 'The worker accepted your direct job invitation. A job application has been created or linked, and the candidate can now proceed through your recruitment process. This does not mean the worker has been hired.';
+    } elseif (!$isJobInvitation && $isAccepted) {
+        $description = 'The worker accepted your interview invitation. Your interview schedule has been confirmed.';
+    } else {
+        $description = 'The worker declined your interview invitation. The job application remains available for you to review.';
+    }
+
+    $scheduleSection = '';
+
+    if (!$isJobInvitation && !empty($interviewAt)) {
+        try {
+            $date = new DateTimeImmutable($interviewAt);
+
+            $formattedDate = $date->setTimezone(
+                new DateTimeZone('Asia/Manila')
+            )->format('F d, Y - h:i A');
+
+            $formattedDate = htmlspecialchars(
+                $formattedDate,
+                ENT_QUOTES,
+                'UTF-8'
+            );
+
+            $scheduleSection = "
+                <div style='margin-top:18px;padding-top:16px;border-top:1px solid #EFE8EC;'>
+                    <p style='margin:0 0 7px;color:#89818B;font-size:12px;'>
+                        INTERVIEW SCHEDULE
+                    </p>
+                    <p style='margin:0;color:#302A33;font-size:15px;font-weight:bold;'>
+                        {$formattedDate}
+                    </p>
+                </div>
+            ";
+        } catch (Exception $e) {
+            $scheduleSection = '';
+        }
+    }
+
+    return "
+    <!DOCTYPE html>
+    <html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <meta name='color-scheme' content='light'>
+        <title>Invitation Response - WorkPulse</title>
+    </head>
+
+    <body style='margin:0;padding:0;background-color:#F4F2F4;font-family:Arial,Helvetica,sans-serif;color:#29252D;'>
+
+        <table role='presentation' width='100%' cellspacing='0' cellpadding='0' border='0'
+            style='background-color:#F4F2F4;padding:35px 15px;'>
+            <tr>
+                <td align='center'>
+
+                    <table role='presentation' width='100%' cellspacing='0' cellpadding='0' border='0'
+                        style='max-width:600px;background-color:#FFFFFF;border-radius:12px;overflow:hidden;'>
+
+                        <tr>
+                            <td style='background-color:#B77F96;padding:28px 35px;'>
+                                <h1 style='margin:0;color:#FFFFFF;font-size:25px;'>WorkPulse</h1>
+                                <p style='margin:5px 0 0;color:#FCEEF3;font-size:12px;letter-spacing:1px;'>
+                                    CONNECT. WORK. GROW.
+                                </p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style='padding:38px 35px;'>
+
+                                <span style='display:inline-block;background-color:#F8EDF2;color:#A36580;padding:7px 12px;border-radius:20px;font-size:11px;font-weight:bold;letter-spacing:0.5px;'>
+                                    {$typeLabel}
+                                </span>
+
+                                <h2 style='margin:22px 0 12px;color:#29252D;font-size:24px;'>
+                                    Hello, {$employerName}!
+                                </h2>
+
+                                <p style='margin:0;color:#77717A;font-size:14px;line-height:1.8;'>
+                                    <strong style='color:#29252D;'>{$workerName}</strong>
+                                    has responded to your invitation.
+                                </p>
+
+                                <div style='margin-top:25px;padding:22px;background-color:#FCFAFB;border:1px solid #EFE8EC;border-radius:9px;'>
+
+                                    <p style='margin:0 0 8px;color:#A36580;font-size:11px;font-weight:bold;letter-spacing:1px;'>
+                                        POSITION
+                                    </p>
+
+                                    <h3 style='margin:0;color:#302A33;font-size:20px;'>
+                                        {$jobTitle}
+                                    </h3>
+
+                                    <div style='margin-top:20px;padding-top:16px;border-top:1px solid #EFE8EC;'>
+                                        <p style='margin:0 0 9px;color:#77717A;font-size:12px;font-weight:bold;'>
+                                            RESPONSE
+                                        </p>
+
+                                        <span style='display:inline-block;padding:9px 15px;border-radius:6px;background-color:{$statusBackground};color:{$statusColor};font-size:13px;font-weight:bold;'>
+                                            {$statusLabel}
+                                        </span>
+
+                                        {$scheduleSection}
+                                    </div>
+
+                                </div>
+
+                                <p style='margin-top:25px;color:#77717A;font-size:14px;line-height:1.8;'>
+                                    {$description}
+                                </p>
+
+                                <p style='margin-top:20px;color:#77717A;font-size:14px;line-height:1.8;'>
+                                    Log in to your WorkPulse employer account to review the updated recruitment status.
+                                </p>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style='background-color:#FAF8F9;border-top:1px solid #F0ECF0;padding:24px 35px;'>
+                                <p style='margin:0;color:#B77F96;font-size:15px;font-weight:bold;'>
+                                    WorkPulse
+                                </p>
+
+                                <p style='margin:7px 0 0;color:#96909A;font-size:12px;line-height:1.7;'>
+                                    Connecting employers with skilled professionals.
+                                    <br>
+                                    This is an automated notification. Please do not reply directly.
+                                </p>
+
+                                <p style='margin:18px 0 0;color:#B1ABB3;font-size:11px;'>
+                                    &copy; " . date('Y') . " WorkPulse. All rights reserved.
+                                </p>
+                            </td>
+                        </tr>
+
+                    </table>
+
+                </td>
+            </tr>
+        </table>
+
+    </body>
+    </html>
+    ";
+}
