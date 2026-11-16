@@ -5,6 +5,9 @@ $active_page = 'tasks';
 
 require_once '../../includes/auth.php';
 
+require_once '../../includes/send-email.php';
+require_once '../../includes/email-templates.php';
+
 date_default_timezone_set('Asia/Manila');
 
 $worker_id = $_SESSION['user']['id'];
@@ -27,7 +30,7 @@ if (!preg_match('/^[0-9a-fA-F-]{36}$/', $task_id)) {
 
 // 2. Retrieve the task and verify ownership.
 $url = SUPABASE_URL .
-    '/rest/v1/tasks?select=id,title,description,status,worker_id' .
+    '/rest/v1/tasks?select=id,title,description,status,worker_id,employer_id' .
     '&id=eq.' . urlencode($task_id) .
     '&worker_id=eq.' . urlencode($worker_id);
 
@@ -323,6 +326,104 @@ if (isset($_POST['submit_work'])) {
                     ($rpc_result['success'] ?? false)
                 ) {
 
+                    // ============================================
+                    // SEND TASK SUBMISSION EMAIL TO EMPLOYER
+                    // ============================================
+
+                    $employer_id = $task['employer_id'] ?? '';
+
+                    $employer_email = '';
+                    $employer_name = 'Employer';
+
+                    // Get the employer's email from Supabase Auth.
+                    if (
+                        $employer_id !== '' &&
+                        defined('SUPABASE_SERVICE_ROLE_KEY') &&
+                        SUPABASE_SERVICE_ROLE_KEY !== ''
+                    ) {
+
+                        $employer_url = SUPABASE_URL .
+                            '/auth/v1/admin/users/' . urlencode($employer_id);
+
+                        $employer_options = [
+                            'http' => [
+                                'method' => 'GET',
+                                'header' =>
+                                "apikey: " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+                                    "Authorization: Bearer " . SUPABASE_SERVICE_ROLE_KEY . "\r\n",
+                                'ignore_errors' => true
+                            ]
+                        ];
+
+                        $employer_context = stream_context_create($employer_options);
+
+                        $employer_response = @file_get_contents(
+                            $employer_url,
+                            false,
+                            $employer_context
+                        );
+
+                        $employer_data = json_decode(
+                            $employer_response ?: '',
+                            true
+                        );
+
+                        if (is_array($employer_data)) {
+
+                            $employer_email = $employer_data['email'] ?? '';
+
+                            $employer_name =
+                                $employer_data['user_metadata']['full_name']
+                                ?? 'Employer';
+                        }
+                    }
+
+                    // Prepare and send the notification.
+                    if (
+                        $employer_email !== '' &&
+                        isEmailConfigured()
+                    ) {
+
+                        $worker_name =
+                            $_SESSION['user']['user_metadata']['full_name']
+                            ?? 'A worker';
+
+                        $submitted_at = date('F d, Y - h:i A');
+
+                        $review_url = rtrim($base_url, '/') .
+                            '/pages/employer/review-submission.php?id=' .
+                            urlencode($submission_id);
+
+                        $email_content = taskSubmissionEmail(
+                            $employer_name,
+                            $worker_name,
+                            $task['title'],
+                            $submitted_at,
+                            $submission_message,
+                            $review_url
+                        );
+
+                        $email_sent = sendEmail(
+                            $employer_email,
+                            'New Task Submission - ' . $task['title'],
+                            $email_content
+                        );
+
+                        if (!$email_sent) {
+                            error_log(
+                                'WorkPulse task submission email failed: ' .
+                                    getEmailError()
+                            );
+                        }
+                    } else {
+
+                        error_log(
+                            'WorkPulse task submission email skipped: employer email or SMTP configuration unavailable.'
+                        );
+                    }
+
+                    // The submission is already saved.
+                    // Email failure must not undo the submission.
                     header('Location: tasks.php?success=submitted');
                     exit;
                 } else {

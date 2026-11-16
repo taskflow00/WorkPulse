@@ -1,6 +1,8 @@
 <?php
 $required_role = 'employer';
 require_once '../../includes/auth.php';
+require_once '../../includes/send-email.php';
+require_once '../../includes/email-templates.php';
 
 date_default_timezone_set('Asia/Manila');
 
@@ -97,10 +99,158 @@ if (
         $response = file_get_contents($url, false, $review_context);
         $result = json_decode($response ?: '', true);
 
+
         if (
             is_array($result) &&
             ($result['success'] ?? false)
         ) {
+
+            // SEND WORKER EMAIL NOTIFICATION.
+            if (isEmailConfigured()) {
+
+                // Get the reviewed timesheet and calculated earnings.
+                $timesheet_url = SUPABASE_URL .
+                    '/rest/v1/earnings_records?select=timesheet_id,worker_id,month,total_working_seconds,hourly_rate,earnings_amount,timesheet_status' .
+                    '&timesheet_id=eq.' . urlencode($timesheet_id);
+
+                $timesheet_response = file_get_contents(
+                    $timesheet_url,
+                    false,
+                    $context
+                );
+
+                $earnings_records = json_decode(
+                    $timesheet_response ?: '',
+                    true
+                );
+
+                if (
+                    is_array($earnings_records) &&
+                    !empty($earnings_records[0])
+                ) {
+
+                    $record = $earnings_records[0];
+
+                    // Only send an approval email for an approved timesheet.
+                    if ($record['timesheet_status'] === $status) {
+
+                        $worker_id = $record['worker_id'];
+
+                        // Get worker name.
+                        $profile_url = SUPABASE_URL .
+                            '/rest/v1/profiles?select=full_name' .
+                            '&id=eq.' . urlencode($worker_id);
+
+                        $profile_response = file_get_contents(
+                            $profile_url,
+                            false,
+                            $context
+                        );
+
+                        $profile_data = json_decode(
+                            $profile_response ?: '',
+                            true
+                        );
+
+                        $worker_name = $profile_data[0]['full_name'] ?? 'Worker';
+
+                        // Get worker email through Supabase Auth Admin API.
+                        $service_key = defined('SUPABASE_SERVICE_ROLE_KEY')
+                            ? SUPABASE_SERVICE_ROLE_KEY
+                            : '';
+
+                        if ($service_key !== '') {
+
+                            $user_url = SUPABASE_URL .
+                                '/auth/v1/admin/users/' .
+                                urlencode($worker_id);
+
+                            $user_options = [
+                                'http' => [
+                                    'method' => 'GET',
+                                    'header' =>
+                                    "apikey: " . $service_key . "\r\n" .
+                                        "Authorization: Bearer " . $service_key . "\r\n",
+                                    'ignore_errors' => true
+                                ]
+                            ];
+
+                            $user_context = stream_context_create($user_options);
+
+                            $user_response = file_get_contents(
+                                $user_url,
+                                false,
+                                $user_context
+                            );
+
+                            $user_data = json_decode(
+                                $user_response ?: '',
+                                true
+                            );
+
+                            $worker_email = $user_data['email'] ?? '';
+
+                            if ($worker_email !== '') {
+
+                                $month_label = date(
+                                    'F Y',
+                                    strtotime($record['month'])
+                                );
+
+                                if ($status === 'approved') {
+
+                                    $working_hours = number_format(
+                                        (int) $record['total_working_seconds'] / 3600,
+                                        2
+                                    );
+
+                                    $email_message = timesheetApprovedEmail(
+                                        $worker_name,
+                                        $month_label,
+                                        $working_hours,
+                                        $record['hourly_rate'],
+                                        $record['earnings_amount']
+                                    );
+
+                                    $email_subject = 'Timesheet Approved - ' . $month_label;
+                                } else {
+
+                                    $email_message = timesheetRejectedEmail(
+                                        $worker_name,
+                                        $month_label,
+                                        $comment
+                                    );
+
+                                    $email_subject = 'Timesheet Rejected - ' . $month_label;
+                                }
+
+                                if (!sendEmail(
+                                    $worker_email,
+                                    $email_subject,
+                                    $email_message
+                                )) {
+                                    error_log(
+                                        'WorkPulse timesheet email failed: ' .
+                                            getEmailError()
+                                    );
+                                }
+                            } else {
+                                error_log(
+                                    'WorkPulse timesheet notification skipped: worker email not found.'
+                                );
+                            }
+                        } else {
+                            error_log(
+                                'WorkPulse timesheet notification skipped: service role key is not configured.'
+                            );
+                        }
+                    }
+                } else {
+                    error_log(
+                        'WorkPulse timesheet notification failed: earnings record not found.'
+                    );
+                }
+            }
 
             $_SESSION['timesheet_message'] =
                 $result['message'] ?? 'Timesheet successfully reviewed.';

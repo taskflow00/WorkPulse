@@ -1095,3 +1095,484 @@ function employmentOfferEmail(
     </html>
     ";
 }
+
+
+function taskAssignedEmail(
+    $workerName,
+    $employerName,
+    $taskTitle,
+    $description,
+    $priority,
+    $dueDate,
+    $estimatedHours,
+    $taskUrl
+) {
+    $workerName = htmlspecialchars($workerName, ENT_QUOTES, 'UTF-8');
+    $employerName = htmlspecialchars($employerName, ENT_QUOTES, 'UTF-8');
+    $taskTitle = htmlspecialchars($taskTitle, ENT_QUOTES, 'UTF-8');
+    $priority = htmlspecialchars(ucfirst($priority), ENT_QUOTES, 'UTF-8');
+
+    $description = trim($description);
+
+    $safeDescription = $description !== ''
+        ? nl2br(htmlspecialchars($description, ENT_QUOTES, 'UTF-8'))
+        : 'No additional description was provided.';
+
+    $formattedDueDate = 'No deadline specified';
+
+    if ($dueDate !== '') {
+        $timestamp = strtotime($dueDate);
+
+        if ($timestamp !== false) {
+            $formattedDueDate = date('F j, Y', $timestamp);
+        }
+    }
+
+    $formattedHours = $estimatedHours !== null && $estimatedHours !== ''
+        ? htmlspecialchars((string)$estimatedHours, ENT_QUOTES, 'UTF-8') . ' hours'
+        : 'Not specified';
+
+    $safeTaskUrl = htmlspecialchars($taskUrl, ENT_QUOTES, 'UTF-8');
+
+    return "
+    <!DOCTYPE html>
+    <html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <meta name='color-scheme' content='light'>
+        <title>New Task Assigned - WorkPulse</title>
+    </head>
+
+    <body style='
+        margin:0;
+        padding:0;
+        background-color:#F4F2F4;
+        font-family:Arial,Helvetica,sans-serif;
+        color:#29252D;
+    '>
+
+        <div style='display:none;max-height:0;overflow:hidden;opacity:0;'>
+            A new task has been assigned to you on WorkPulse.
+        </div>
+
+        <table role='presentation' width='100%' cellspacing='0'
+            cellpadding='0' border='0'
+            style='background-color:#F4F2F4;padding:35px 15px;'>
+
+            <tr>
+                <td align='center'>
+
+                    <table role='presentation' width='100%'
+                        cellspacing='0' cellpadding='0' border='0'
+                        style='max-width:600px;background-color:#FFFFFF;border-radius:12px;overflow:hidden;'>
+
+                        <tr>
+                            <td style='background-color:#B77F96;padding:28px 35px;'>
+                                <h1 style='margin:0;color:#FFFFFF;font-size:25px;font-weight:bold;'>
+                                    WorkPulse
+                                </h1>
+
+                                <p style='margin:5px 0 0;color:#FCEEF3;font-size:12px;letter-spacing:1px;'>
+                                    CONNECT. WORK. GROW.
+                                </p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style='padding:38px 35px;'>
+
+                                <span style='
+                                    display:inline-block;
+                                    background-color:#F8EDF2;
+                                    color:#A36580;
+                                    padding:7px 12px;
+                                    border-radius:20px;
+                                    font-size:11px;
+                                    font-weight:bold;
+                                    letter-spacing:0.5px;
+                                '>
+                                    NEW TASK ASSIGNMENT
+                                </span>
+
+                                <h2 style='
+                                    margin:22px 0 12px;
+                                    color:#29252D;
+                                    font-size:25px;
+                                    line-height:1.3;
+                                '>
+                                    You have a new task!
+                                </h2>
+
+                                <p style='
+                                    margin:0;
+                                    color:#716B75;
+                                    font-size:14px;
+                                    line-height:1.8;
+                                '>
+                                    Hello {$workerName},
+                                    <br><br>
+                                    <strong>{$employerName}</strong> has assigned
+                                    a new task to you through WorkPulse.
+                                    Here are the task details:
+                                </p>
+
+                                <div style='
+                                    margin:25px 0;
+                                    padding:22px;
+                                    background-color:#F8F6F7;
+                                    border-radius:9px;
+                                '>
+
+                                    <p style='
+                                        margin:0 0 8px;
+                                        color:#96909A;
+                                        font-size:11px;
+                                        font-weight:bold;
+                                        text-transform:uppercase;
+                                        letter-spacing:1px;
+                                    '>
+                                        TASK TITLE
+                                    </p>
+
+                                    <h3 style='
+                                        margin:0 0 20px;
+                                        color:#29252D;
+                                        font-size:19px;
+                                        line-height:1.4;
+                                    '>
+                                        {$taskTitle}
+                                    </h3>
+
+                                    <p style='
+                                        margin:0 0 7px;
+                                        color:#96909A;
+                                        font-size:11px;
+                                        font-weight:bold;
+                                        text-transform:uppercase;
+                                        letter-spacing:1px;
+                                    '>
+                                        DESCRIPTION
+                                    </p>
+
+                                    <p style='
+                                        margin:0 0 20px;
+                                        color:#514B55;
+                                        font-size:14px;
+                                        line-height:1.8;
+                                    '>
+                                        {$safeDescription}
+                                    </p>
+
+                                    <table role='presentation' width='100%'
+                                        cellspacing='0' cellpadding='0' border='0'>
+
+                                        <tr>
+                                            <td width='50%' style='padding:10px 8px 10px 0;'>
+                                                <p style='margin:0 0 5px;color:#96909A;font-size:11px;font-weight:bold;'>
+                                                    PRIORITY
+                                                </p>
+                                                <p style='margin:0;color:#514B55;font-size:14px;font-weight:bold;'>
+                                                    {$priority}
+                                                </p>
+                                            </td>
+
+                                            <td width='50%' style='padding:10px 0 10px 8px;'>
+                                                <p style='margin:0 0 5px;color:#96909A;font-size:11px;font-weight:bold;'>
+                                                    DEADLINE
+                                                </p>
+                                                <p style='margin:0;color:#514B55;font-size:14px;font-weight:bold;'>
+                                                    {$formattedDueDate}
+                                                </p>
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td colspan='2' style='padding-top:12px;'>
+                                                <p style='margin:0 0 5px;color:#96909A;font-size:11px;font-weight:bold;'>
+                                                    ESTIMATED HOURS
+                                                </p>
+                                                <p style='margin:0;color:#514B55;font-size:14px;font-weight:bold;'>
+                                                    {$formattedHours}
+                                                </p>
+                                            </td>
+                                        </tr>
+
+                                    </table>
+
+                                </div>
+
+                                <p style='
+                                    margin:0 0 25px;
+                                    color:#716B75;
+                                    font-size:14px;
+                                    line-height:1.8;
+                                '>
+                                    Please review the task details and check
+                                    your WorkPulse dashboard to get started.
+                                </p>
+
+                                <table role='presentation' cellspacing='0'
+                                    cellpadding='0' border='0'>
+                                    <tr>
+                                        <td align='center'
+                                            style='background-color:#B77F96;border-radius:7px;'>
+
+                                            <a href='{$safeTaskUrl}' style='
+                                                display:inline-block;
+                                                padding:14px 25px;
+                                                color:#FFFFFF;
+                                                font-size:14px;
+                                                font-weight:bold;
+                                                text-decoration:none;
+                                            '>
+                                                View My Tasks
+                                            </a>
+
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <p style='
+                                    margin:28px 0 0;
+                                    color:#96909A;
+                                    font-size:12px;
+                                    line-height:1.7;
+                                '>
+                                    If you have questions about this assignment,
+                                    please contact your employer through the
+                                    appropriate WorkPulse communication channel.
+                                </p>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style='
+                                background-color:#FAF9FA;
+                                padding:25px 35px;
+                                border-top:1px solid #EEE9ED;
+                                text-align:center;
+                            '>
+
+                                <p style='margin:0;color:#B77F96;font-size:15px;font-weight:bold;'>
+                                    WorkPulse
+                                </p>
+
+                                <p style='margin:7px 0 0;color:#96909A;font-size:12px;line-height:1.7;'>
+                                    Connecting employers with skilled professionals.
+                                    <br>
+                                    This is an automated notification. Please do not
+                                    reply directly to this email.
+                                </p>
+
+                                <p style='margin:18px 0 0;color:#B1ABB3;font-size:11px;'>
+                                    &copy; " . date('Y') . " WorkPulse. All rights reserved.
+                                </p>
+
+                            </td>
+                        </tr>
+
+                    </table>
+
+                </td>
+            </tr>
+        </table>
+
+    </body>
+    </html>
+    ";
+}
+
+// ============================================
+// TASK SUBMISSION EMAIL
+// ============================================
+
+function taskSubmissionEmail(
+    $employerName,
+    $workerName,
+    $taskTitle,
+    $submittedAt,
+    $submissionMessage,
+    $reviewUrl
+) {
+    $employerName = htmlspecialchars($employerName, ENT_QUOTES, 'UTF-8');
+    $workerName = htmlspecialchars($workerName, ENT_QUOTES, 'UTF-8');
+    $taskTitle = htmlspecialchars($taskTitle, ENT_QUOTES, 'UTF-8');
+    $submittedAt = htmlspecialchars($submittedAt, ENT_QUOTES, 'UTF-8');
+
+    $safeMessage = nl2br(
+        htmlspecialchars($submissionMessage, ENT_QUOTES, 'UTF-8')
+    );
+
+    $safeReviewUrl = htmlspecialchars($reviewUrl, ENT_QUOTES, 'UTF-8');
+
+    return "
+    <!DOCTYPE html>
+    <html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <meta name='color-scheme' content='light'>
+        <title>Task Submission - WorkPulse</title>
+    </head>
+
+    <body style='margin:0;padding:0;background-color:#F4F2F4;font-family:Arial,Helvetica,sans-serif;color:#29252D;'>
+
+        <table role='presentation' width='100%' cellspacing='0' cellpadding='0' border='0'
+            style='background-color:#F4F2F4;padding:35px 15px;'>
+
+            <tr>
+                <td align='center'>
+
+                    <table role='presentation' width='100%' cellspacing='0' cellpadding='0' border='0'
+                        style='max-width:600px;background-color:#FFFFFF;border-radius:12px;overflow:hidden;'>
+
+                        <tr>
+                            <td style='background-color:#B77F96;padding:28px 35px;'>
+                                <h1 style='margin:0;color:#FFFFFF;font-size:25px;'>WorkPulse</h1>
+                                <p style='margin:5px 0 0;color:#FCEEF3;font-size:12px;letter-spacing:1px;'>
+                                    CONNECT. WORK. GROW.
+                                </p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style='padding:38px 35px;'>
+
+                                <span style='display:inline-block;background-color:#EAF7F0;color:#21865B;padding:7px 12px;border-radius:20px;font-size:11px;font-weight:bold;'>
+                                    NEW TASK SUBMISSION
+                                </span>
+
+                                <h2 style='margin:22px 0 12px;color:#29252D;font-size:24px;'>
+                                    Work submitted for review
+                                </h2>
+
+                                <p style='margin:0;color:#77717A;font-size:14px;line-height:1.8;'>
+                                    Hello {$employerName},<br><br>
+                                    <strong style='color:#29252D;'>{$workerName}</strong>
+                                    has submitted completed work for one of your assigned tasks.
+                                </p>
+
+                                <div style='margin-top:25px;padding:22px;background-color:#FCFAFB;border:1px solid #EFE8EC;border-radius:9px;'>
+
+                                    <p style='margin:0 0 9px;color:#A36580;font-size:11px;font-weight:bold;letter-spacing:1px;'>
+                                        TASK
+                                    </p>
+
+                                    <h3 style='margin:0;color:#302A33;font-size:20px;line-height:1.4;'>
+                                        {$taskTitle}
+                                    </h3>
+
+                                    <p style='margin:16px 0 0;color:#77717A;font-size:12px;'>
+                                        Submitted on: {$submittedAt}
+                                    </p>
+
+                                    <div style='margin-top:20px;padding-top:17px;border-top:1px solid #EFE8EC;'>
+
+                                        <p style='margin:0 0 9px;color:#A36580;font-size:11px;font-weight:bold;letter-spacing:1px;'>
+                                            WORKER'S MESSAGE
+                                        </p>
+
+                                        <p style='margin:0;color:#45404A;font-size:14px;line-height:1.8;'>
+                                            {$safeMessage}
+                                        </p>
+
+                                    </div>
+                                </div>
+
+                                <div style='margin-top:28px;text-align:center;'>
+                                    <a href='{$safeReviewUrl}'
+                                        style='display:inline-block;padding:13px 25px;background-color:#B77F96;color:#FFFFFF;text-decoration:none;border-radius:7px;font-size:14px;font-weight:bold;'>
+                                        Review Submission
+                                    </a>
+                                </div>
+
+                                <p style='margin:25px 0 0;color:#77717A;font-size:13px;line-height:1.7;'>
+                                    Log in to WorkPulse to review the submitted work and approve it
+                                    or request revisions.
+                                </p>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style='background-color:#FAF8F9;border-top:1px solid #F0ECF0;padding:24px 35px;'>
+                                <p style='margin:0;color:#B77F96;font-size:15px;font-weight:bold;'>
+                                    WorkPulse
+                                </p>
+
+                                <p style='margin:7px 0 0;color:#96909A;font-size:12px;line-height:1.7;'>
+                                    Connecting employers with skilled professionals.<br>
+                                    This is an automated notification. Please do not reply directly.
+                                </p>
+
+                                <p style='margin:18px 0 0;color:#B1ABB3;font-size:11px;'>
+                                    &copy; " . date('Y') . " WorkPulse. All rights reserved.
+                                </p>
+                            </td>
+                        </tr>
+
+                    </table>
+
+                </td>
+            </tr>
+        </table>
+
+    </body>
+    </html>
+    ";
+}
+
+
+function timesheetApprovedEmail($workerName, $month, $workingHours, $hourlyRate, $earnings)
+{
+    $workerName = htmlspecialchars($workerName);
+    $month = htmlspecialchars($month);
+    $workingHours = htmlspecialchars($workingHours);
+    $hourlyRate = number_format((float) $hourlyRate, 2);
+    $earnings = number_format((float) $earnings, 2);
+
+    return "
+    <div style='font-family:Arial,sans-serif;color:#333;max-width:600px;margin:auto;'>
+        <h2 style='color:#16a34a;'>Your Timesheet Has Been Approved!</h2>
+        <p>Hello {$workerName},</p>
+        <p>Your monthly timesheet for <strong>{$month}</strong> has been approved by your employer.</p>
+
+        <div style='background:#f8fafc;padding:20px;border-radius:10px;'>
+            <p><strong>Approved Working Hours:</strong> {$workingHours}</p>
+            <p><strong>Hourly Rate:</strong> \${$hourlyRate}</p>
+            <p><strong>Approved Earnings:</strong>
+                <span style='color:#16a34a;font-size:22px;font-weight:bold;'>\${$earnings}</span>
+            </p>
+        </div>
+
+        <p>These are your approved earnings recorded in WorkPulse. This notification does not confirm that payment has been transferred.</p>
+        <p>Thank you for using WorkPulse!</p>
+    </div>";
+}
+
+
+function timesheetRejectedEmail($workerName, $month, $comment)
+{
+    $workerName = htmlspecialchars($workerName);
+    $month = htmlspecialchars($month);
+    $comment = htmlspecialchars(
+        $comment !== '' ? $comment : 'No additional comment was provided.'
+    );
+
+    return "
+    <div style='font-family:Arial,sans-serif;color:#333;max-width:600px;margin:auto;'>
+        <h2 style='color:#dc2626;'>Your Timesheet Needs Revision</h2>
+        <p>Hello {$workerName},</p>
+        <p>Your monthly timesheet for <strong>{$month}</strong> was rejected by your employer.</p>
+
+        <div style='background:#fef2f2;padding:20px;border-radius:10px;'>
+            <strong>Employer's Comment:</strong>
+            <p>{$comment}</p>
+        </div>
+
+        <p>Please review the feedback, correct your timesheet, and resubmit it.</p>
+        <p>Thank you for using WorkPulse!</p>
+    </div>";
+}

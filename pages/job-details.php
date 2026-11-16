@@ -83,7 +83,7 @@ if (
         'http' => [
             'method' => 'GET',
             'header' =>
-                "apikey: " . SUPABASE_KEY . "\r\n" .
+            "apikey: " . SUPABASE_KEY . "\r\n" .
                 "Authorization: Bearer " . $_SESSION['access_token'] . "\r\n",
             'ignore_errors' => true
         ]
@@ -110,11 +110,9 @@ if (isset($_POST['apply'])) {
     ) {
 
         $application_message = 'Please log in using a worker account to apply.';
-
     } elseif ($job === null) {
 
         $application_message = 'This job is no longer available.';
-
     } else {
 
         $worker_id = $_SESSION['user']['id'];
@@ -151,21 +149,18 @@ if (isset($_POST['apply'])) {
             if ($file['error'] !== UPLOAD_ERR_OK) {
 
                 $application_message = 'Resume upload failed.';
-
             } elseif ($file['size'] > 5 * 1024 * 1024) {
 
                 $application_message = 'Resume must not exceed 5 MB.';
-
             } elseif ($file['size'] <= 0) {
 
                 $application_message = 'Please select a valid resume file.';
-
             } else {
 
                 // Check the actual file type.
                 $file_info = finfo_open(FILEINFO_MIME_TYPE);
                 $mime_type = finfo_file($file_info, $file['tmp_name']);
-                finfo_close($file_info);
+
 
                 if (
                     !isset($allowed_types[$extension]) ||
@@ -173,7 +168,6 @@ if (isset($_POST['apply'])) {
                 ) {
 
                     $application_message = 'Only PDF, DOC, and DOCX files are allowed.';
-
                 } else {
 
                     // Create a unique Supabase Storage path.
@@ -189,7 +183,7 @@ if (isset($_POST['apply'])) {
                         'http' => [
                             'method' => 'POST',
                             'header' =>
-                                "apikey: " . SUPABASE_KEY . "\r\n" .
+                            "apikey: " . SUPABASE_KEY . "\r\n" .
                                 "Authorization: Bearer " . $_SESSION['access_token'] . "\r\n" .
                                 "Content-Type: " . $mime_type . "\r\n" .
                                 "x-upsert: true\r\n",
@@ -225,7 +219,6 @@ if (isset($_POST['apply'])) {
                     ) {
 
                         $application_message = 'Unable to upload your resume.';
-
                     } else {
 
                         // Update the worker's profile with the new resume.
@@ -236,7 +229,7 @@ if (isset($_POST['apply'])) {
                             'http' => [
                                 'method' => 'PATCH',
                                 'header' =>
-                                    "Content-Type: application/json\r\n" .
+                                "Content-Type: application/json\r\n" .
                                     "apikey: " . SUPABASE_KEY . "\r\n" .
                                     "Authorization: Bearer " . $_SESSION['access_token'] . "\r\n" .
                                     "Prefer: return=representation\r\n",
@@ -274,7 +267,6 @@ if (isset($_POST['apply'])) {
                         ) {
 
                             $application_message = 'Resume uploaded, but profile update failed. Please try again.';
-
                         } else {
 
                             $existing_resume = $resume_path;
@@ -318,7 +310,7 @@ if (isset($_POST['apply'])) {
                 'http' => [
                     'method' => 'POST',
                     'header' =>
-                        "Content-Type: application/json\r\n" .
+                    "Content-Type: application/json\r\n" .
                         "apikey: " . SUPABASE_KEY . "\r\n" .
                         "Authorization: Bearer " . $_SESSION['access_token'] . "\r\n" .
                         "Prefer: return=representation\r\n",
@@ -352,14 +344,12 @@ if (isset($_POST['apply'])) {
             if ($status_code === 201) {
 
                 $application_message = 'Application submitted successfully!';
-
             } elseif (
                 isset($result['code']) &&
                 $result['code'] === '23505'
             ) {
 
                 $application_message = 'You have already applied for this job.';
-
             } else {
 
                 $application_message = 'Application failed. ' .
@@ -737,8 +727,8 @@ if (isset($_POST['apply'])) {
                         <?php if ($application_message !== ''): ?>
 
                             <div class="wp-alert <?= strpos($application_message, 'successfully') !== false
-                                ? 'wp-alert-success'
-                                : 'wp-alert-danger' ?>">
+                                                        ? 'wp-alert-success'
+                                                        : 'wp-alert-danger' ?>">
 
                                 <?= htmlspecialchars(
                                     $application_message,
@@ -862,8 +852,8 @@ if (isset($_POST['apply'])) {
                             </div>
 
                             <a href="../login.php?redirect=<?= urlencode(
-                                'pages/job-details.php?id=' . $job['id']
-                            ) ?>"
+                                                                'pages/job-details.php?id=' . $job['id']
+                                                            ) ?>"
                                 class="wp-btn wp-btn-primary job-apply-button">
 
                                 Log In to Apply
@@ -889,8 +879,8 @@ if (isset($_POST['apply'])) {
                             </div>
 
                             <a href="../logout.php?redirect=<?= urlencode(
-                                'pages/job-details.php?id=' . $job['id']
-                            ) ?>"
+                                                                'pages/job-details.php?id=' . $job['id']
+                                                            ) ?>"
                                 class="wp-btn wp-btn-outline">
 
                                 Switch Account

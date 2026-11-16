@@ -403,7 +403,7 @@ require_once '../../includes/header.php';
                             <div class="wp-offer-detail">
                                 <span>Hourly Rate</span>
                                 <strong>
-                                    ₱<?php echo number_format((float)$offer['hourly_rate'], 2); ?>
+                                    $<?php echo number_format((float)$offer['hourly_rate'], 2); ?>
                                 </strong>
                             </div>
 

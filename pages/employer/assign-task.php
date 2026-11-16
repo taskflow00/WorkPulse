@@ -1,6 +1,10 @@
 <?php
+
 $required_role = 'employer';
+
 require_once '../../includes/auth.php';
+require_once '../../includes/send-email.php';
+require_once '../../includes/email-templates.php';
 
 $employer_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];
@@ -11,6 +15,8 @@ $page_styles = ['/assets/css/assign-task.css'];
 
 $message = '';
 $message_type = '';
+
+date_default_timezone_set('Asia/Manila');
 
 // Generate CSRF token.
 if (!isset($_SESSION['csrf_token'])) {
@@ -30,7 +36,156 @@ $headers =
     "apikey: " . SUPABASE_KEY . "\r\n" .
     "Authorization: Bearer " . $access_token . "\r\n";
 
-// Retrieve this employer's active employments.
+// --------------------------------------------------
+// GET WORKER EMAIL FROM SUPABASE AUTH
+// --------------------------------------------------
+
+$get_worker_email = function ($user_id) {
+
+    if (
+        !defined('SUPABASE_SERVICE_ROLE_KEY') ||
+        SUPABASE_SERVICE_ROLE_KEY === ''
+    ) {
+        error_log('Task assignment email: Service role key is not configured.');
+        return null;
+    }
+
+    $options = [
+        'http' => [
+            'method' => 'GET',
+            'header' =>
+            "apikey: " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+                "Authorization: Bearer " . SUPABASE_SERVICE_ROLE_KEY . "\r\n",
+            'ignore_errors' => true,
+            'timeout' => 15
+        ]
+    ];
+
+    $response = @file_get_contents(
+        SUPABASE_URL . '/auth/v1/admin/users/' . rawurlencode($user_id),
+        false,
+        stream_context_create($options)
+    );
+
+    $data = $response !== false
+        ? json_decode($response, true)
+        : null;
+
+    $email = is_array($data)
+        ? ($data['email'] ?? $data['user']['email'] ?? null)
+        : null;
+
+    if (
+        !is_string($email) ||
+        !filter_var($email, FILTER_VALIDATE_EMAIL)
+    ) {
+        return null;
+    }
+
+    return $email;
+};
+
+
+// --------------------------------------------------
+// GET EMPLOYER NAME
+// --------------------------------------------------
+
+$get_employer_name = function () use ($employer_id, $headers) {
+
+    $url = SUPABASE_URL .
+        '/rest/v1/profiles?select=full_name,company_name' .
+        '&id=eq.' . urlencode($employer_id) .
+        '&limit=1';
+
+    $options = [
+        'http' => [
+            'method' => 'GET',
+            'header' => $headers,
+            'ignore_errors' => true,
+            'timeout' => 15
+        ]
+    ];
+
+    $response = @file_get_contents(
+        $url,
+        false,
+        stream_context_create($options)
+    );
+
+    $data = json_decode($response ?: '', true);
+
+    if (!empty($data[0]['full_name'])) {
+        return $data[0]['full_name'];
+    }
+
+    if (!empty($data[0]['company_name'])) {
+        return $data[0]['company_name'];
+    }
+
+    return 'Your employer';
+};
+
+
+// --------------------------------------------------
+// SEND TASK ASSIGNMENT EMAIL
+// --------------------------------------------------
+
+$notify_worker = function (
+    $worker_id,
+    $worker_name,
+    $task
+) use ($get_worker_email, $get_employer_name, $base_url) {
+
+    if (!isEmailConfigured()) {
+        error_log('Task assignment email: SMTP is not configured.');
+        return ' However, the task assignment email could not be sent because SMTP is not configured.';
+    }
+
+    $worker_email = $get_worker_email($worker_id);
+
+    if ($worker_email === null) {
+        error_log('Task assignment email: Unable to retrieve worker email.');
+        return ' However, the worker email address could not be retrieved, so no email was sent.';
+    }
+
+    $employer_name = $get_employer_name();
+
+    $task_url = rtrim($base_url, '/') . '/pages/worker/tasks.php';
+
+    $email_body = taskAssignedEmail(
+        $worker_name,
+        $employer_name,
+        $task['title'],
+        $task['description'] ?? '',
+        $task['priority'] ?? 'medium',
+        $task['due_date'] ?? '',
+        $task['estimated_hours'] ?? null,
+        $task_url
+    );
+
+    $email_sent = sendEmail(
+        $worker_email,
+        'New Task Assigned - WorkPulse',
+        $email_body
+    );
+
+    if ($email_sent) {
+        return ' The worker has also been notified by email.';
+    }
+
+    error_log(
+        'Task assignment email failed: ' .
+            getEmailError()
+    );
+
+    return ' However, the task was assigned, but its email notification could not be sent.';
+};
+
+
+// --------------------------------------------------
+// RETRIEVE THIS EMPLOYER'S ACTIVE EMPLOYMENTS
+// --------------------------------------------------
+
 $url = SUPABASE_URL .
     '/rest/v1/employments?select=id,worker_id,hourly_rate,work_schedule' .
     '&employer_id=eq.' . urlencode($employer_id) .
@@ -47,13 +202,18 @@ $options = [
 
 $context = stream_context_create($options);
 $response = @file_get_contents($url, false, $context);
+
 $result = json_decode($response ?: '', true);
 
 $employments = (
     is_array($result) && isset($result[0])
 ) ? $result : [];
 
-// Retrieve worker names.
+
+// --------------------------------------------------
+// RETRIEVE WORKER NAMES
+// --------------------------------------------------
+
 $workers = [];
 
 if (!empty($employments)) {
@@ -66,6 +226,7 @@ if (!empty($employments)) {
 
     $context = stream_context_create($options);
     $profile_response = @file_get_contents($profile_url, false, $context);
+
     $profiles = json_decode($profile_response ?: '', true);
 
     if (is_array($profiles)) {
@@ -75,7 +236,11 @@ if (!empty($employments)) {
     }
 }
 
-// Process task assignment.
+
+// --------------------------------------------------
+// PROCESS TASK ASSIGNMENT
+// --------------------------------------------------
+
 if (isset($_POST['assign_task'])) {
 
     $submitted_token = $_POST['csrf_token'] ?? '';
@@ -173,24 +338,57 @@ if (isset($_POST['assign_task'])) {
                 ];
 
                 $context = stream_context_create($options);
-                $task_response = @file_get_contents($task_url, false, $context);
 
-                // Get the HTTP response status without deprecated variables.
+                $task_response = @file_get_contents(
+                    $task_url,
+                    false,
+                    $context
+                );
+
+                // Get the HTTP response status.
                 $status_code = 0;
-                $response_headers = http_get_last_response_headers();
+                $response_headers = $http_response_header ?? [];
 
-                if (is_array($response_headers) && isset($response_headers[0])) {
-                    preg_match('/\s(\d{3})\s/', $response_headers[0], $matches);
-                    $status_code = isset($matches[1]) ? (int)$matches[1] : 0;
+                foreach ($response_headers as $response_header) {
+
+                    if (
+                        preg_match(
+                            '/^HTTP\/\S+\s+(\d{3})/',
+                            $response_header,
+                            $matches
+                        )
+                    ) {
+                        $status_code = (int)$matches[1];
+                    }
                 }
 
                 $task_result = json_decode($task_response ?: '', true);
 
                 if (
-                    $status_code === 201 &&
+                    $status_code >= 200 &&
+                    $status_code < 300 &&
                     is_array($task_result) &&
                     isset($task_result[0]['id'])
                 ) {
+
+                    // The task is saved. Email notification comes afterward.
+                    $saved_task = $task_result[0];
+
+                    $worker_id = $saved_task['worker_id']
+                        ?? $selected_employment['worker_id'];
+
+                    $worker_name = $workers[$worker_id] ?? 'Worker';
+
+                    $email_note = $notify_worker(
+                        $worker_id,
+                        $worker_name,
+                        $saved_task
+                    );
+
+                    $_SESSION['task_assignment_message'] =
+                        'Task assigned successfully!' . $email_note;
+
+                    $_SESSION['task_assignment_message_type'] = 'success';
 
                     header('Location: assign-task.php?success=1');
                     exit;
@@ -202,6 +400,13 @@ if (isset($_POST['assign_task'])) {
                     $message = 'Some task information is invalid. Please review your entries.';
                 } else {
 
+                    error_log(
+                        'Task assignment failed. HTTP status: ' .
+                            $status_code .
+                            ' Response: ' .
+                            ($task_response ?: 'No response')
+                    );
+
                     $message = 'Unable to assign task. Please try again.';
                 }
             }
@@ -212,6 +417,26 @@ if (isset($_POST['assign_task'])) {
         $message_type = 'error';
     }
 }
+
+
+// --------------------------------------------------
+// SHOW MESSAGE AFTER REDIRECT
+// --------------------------------------------------
+
+if (isset($_GET['success']) && $_GET['success'] === '1') {
+
+    $message = $_SESSION['task_assignment_message']
+        ?? 'Task assigned successfully!';
+
+    $message_type = $_SESSION['task_assignment_message_type']
+        ?? 'success';
+
+    unset(
+        $_SESSION['task_assignment_message'],
+        $_SESSION['task_assignment_message_type']
+    );
+}
+
 
 require_once '../../includes/header.php';
 ?>
@@ -234,7 +459,7 @@ require_once '../../includes/header.php';
     <?php if ($message !== ''): ?>
         <div class="assign-task-alert <?php echo $message_type === 'success' ? 'success' : 'error'; ?>">
             <i class="bi <?php echo $message_type === 'success' ? 'bi-check-circle' : 'bi-exclamation-circle'; ?>"></i>
-            <?php echo htmlspecialchars($message); ?>
+            <?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?>
         </div>
     <?php endif; ?>
 
@@ -261,7 +486,7 @@ require_once '../../includes/header.php';
             <input
                 type="hidden"
                 name="csrf_token"
-                value="<?php echo htmlspecialchars($csrf_token); ?>">
+                value="<?php echo htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
 
             <div class="assign-task-main">
 
@@ -286,11 +511,13 @@ require_once '../../includes/header.php';
 
                             <?php foreach ($employments as $employment): ?>
                                 <option
-                                    value="<?php echo htmlspecialchars($employment['id']); ?>"
+                                    value="<?php echo htmlspecialchars($employment['id'], ENT_QUOTES, 'UTF-8'); ?>"
                                     <?php echo ($_POST['employment_id'] ?? '') === $employment['id'] ? 'selected' : ''; ?>>
 
                                     <?php echo htmlspecialchars(
-                                        $workers[$employment['worker_id']] ?? 'Unknown Worker'
+                                        $workers[$employment['worker_id']] ?? 'Unknown Worker',
+                                        ENT_QUOTES,
+                                        'UTF-8'
                                     ); ?>
 
                                 </option>
@@ -379,7 +606,7 @@ require_once '../../includes/header.php';
                                 type="date"
                                 name="due_date"
                                 id="due_date"
-                                value="<?php echo htmlspecialchars($_POST['due_date'] ?? ''); ?>"
+                                value="<?php echo htmlspecialchars($_POST['due_date'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                                 min="<?php echo date('Y-m-d'); ?>">
                         </div>
 
@@ -394,7 +621,7 @@ require_once '../../includes/header.php';
                             id="estimated_hours"
                             min="0.01"
                             step="0.01"
-                            value="<?php echo htmlspecialchars($_POST['estimated_hours'] ?? ''); ?>"
+                            value="<?php echo htmlspecialchars($_POST['estimated_hours'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                             placeholder="e.g. 8">
 
                         <small>This is optional and represents the expected time needed to complete the task.</small>
