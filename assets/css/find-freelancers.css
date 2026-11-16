@@ -584,3 +584,46 @@
         align-items: flex-start;
     }
 }
+
+.find-workers-alert-success {
+    border-color: #d6eadb;
+    background: #edf7ef;
+    color: #34764a;
+}
+
+.find-workers-alert-warning {
+    border-color: #f1e3c4;
+    background: #fff8e9;
+    color: #94702c;
+}
+
+.find-workers-alert-danger {
+    border-color: #f0d5d5;
+    background: #fff0f0;
+    color: #a64c4c;
+}
+
+
+.find-workers-alert-success {
+    border-color: #d6eadb;
+    background: #edf7ef;
+    color: #34764a;
+}
+
+.find-workers-alert-warning {
+    border-color: #f1e3c4;
+    background: #fff8e9;
+    color: #94702c;
+}
+
+.find-workers-alert-danger {
+    border-color: #f0d5d5;
+    background: #fff0f0;
+    color: #a64c4c;
+}
+
+.find-workers-alert-info {
+    border-color: #e9dce2;
+    background: #faf4f7;
+    color: #865b6d;
+}
