@@ -1,5 +1,6 @@
 <?php
 
+// Use the same Supabase-backed session used by the rest of WorkPulse.
 require_once __DIR__ . '/../includes/session.php';
 
 // Retrieve all open job listings
@@ -20,6 +21,7 @@ $context = stream_context_create($options);
 
 // Send the request
 $response = file_get_contents($url, false, $context);
+$response_headers = $http_response_header ?? [];
 
 $jobs = [];
 $message = '';
@@ -30,7 +32,6 @@ if ($response === false) {
 } else {
 
     // Get the HTTP status code
-    $response_headers = http_get_last_response_headers();
     $status_code = 0;
 
     if (is_array($response_headers) && isset($response_headers[0])) {
@@ -57,8 +58,6 @@ if ($response === false) {
 }
 
 ?>
-
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -392,8 +391,8 @@ if ($response === false) {
 
                     $searchable_text = strtolower(
                         $job['title'] . ' ' .
-                            $job['company_name'] . ' ' .
-                            $job['description']
+                        $job['company_name'] . ' ' .
+                        $job['description']
                     );
 
                     $searchable_skills = strtolower(implode(' ', $skills));

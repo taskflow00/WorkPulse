@@ -1,6 +1,12 @@
 <?php
+<<<<<<< HEAD
 
 require_once __DIR__ . '/../includes/session.php';
+=======
+session_start();
+
+require_once '../config/supabase.php';
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
 
 // Get the job ID
 $job_id = $_GET['id'] ?? '';

@@ -103,17 +103,30 @@ if (isset($_POST['login'])) {
                         ($error['message'] ?? '');
                 } else {
 
+<<<<<<< HEAD
                    // Get the HTTP status code
                     $profile_status = 0;
 
                     foreach ($http_response_header as $header) {
+=======
+                    // Get the HTTP status code
+                    $profile_headers = http_get_last_response_headers();
+
+                    $profile_status = 0;
+
+                    foreach ($profile_headers as $header) {
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
 
                         if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $matches)) {
 
                             $profile_status = (int) $matches[1];
                         }
                     }
+<<<<<<< HEAD
                     
+=======
+
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
                     // Check Supabase response
                     if ($profile_status != 200) {
 

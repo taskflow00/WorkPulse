@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 
+=======
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
 <?php
 
 // ==========================================
@@ -34,7 +37,11 @@ $stats_context = stream_context_create([
     'http' => [
         'method' => 'GET',
         'header' =>
+<<<<<<< HEAD
             "apikey: " . SUPABASE_KEY . "\r\n" .
+=======
+        "apikey: " . SUPABASE_KEY . "\r\n" .
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
             "Authorization: Bearer " . $token . "\r\n" .
             "Accept: application/json\r\n" .
             "Prefer: count=exact\r\n" .
@@ -60,21 +67,32 @@ $jobs_count_response = file_get_contents(
     $stats_context
 );
 
+<<<<<<< HEAD
 // Capture the response headers immediately
 $jobs_count_headers = $http_response_header ?? [];
 
+=======
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
 $active_jobs = '—';
 
 if ($jobs_count_response !== false) {
 
+<<<<<<< HEAD
     foreach ($jobs_count_headers as $header) {
+=======
+    foreach (http_get_last_response_headers() as $header) {
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
 
         if (stripos($header, 'Content-Range:') === 0) {
 
             preg_match('/\/(\d+)$/', $header, $matches);
 
             if (isset($matches[1])) {
+<<<<<<< HEAD
                 $active_jobs = (int) $matches[1];
+=======
+                $active_jobs = (int)$matches[1];
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
             }
 
             break;
@@ -99,21 +117,32 @@ $applications_count_response = file_get_contents(
     $stats_context
 );
 
+<<<<<<< HEAD
 // Capture the response headers immediately
 $applications_count_headers = $http_response_header ?? [];
 
+=======
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
 $pending_applications = '—';
 
 if ($applications_count_response !== false) {
 
+<<<<<<< HEAD
     foreach ($applications_count_headers as $header) {
+=======
+    foreach (http_get_last_response_headers() as $header) {
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
 
         if (stripos($header, 'Content-Range:') === 0) {
 
             preg_match('/\/(\d+)$/', $header, $matches);
 
             if (isset($matches[1])) {
+<<<<<<< HEAD
                 $pending_applications = (int) $matches[1];
+=======
+                $pending_applications = (int)$matches[1];
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
             }
 
             break;
@@ -138,21 +167,32 @@ $employees_count_response = file_get_contents(
     $stats_context
 );
 
+<<<<<<< HEAD
 // Capture the response headers immediately
 $employees_count_headers = $http_response_header ?? [];
 
+=======
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
 $current_employees = '—';
 
 if ($employees_count_response !== false) {
 
+<<<<<<< HEAD
     foreach ($employees_count_headers as $header) {
+=======
+    foreach (http_get_last_response_headers() as $header) {
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
 
         if (stripos($header, 'Content-Range:') === 0) {
 
             preg_match('/\/(\d+)$/', $header, $matches);
 
             if (isset($matches[1])) {
+<<<<<<< HEAD
                 $current_employees = (int) $matches[1];
+=======
+                $current_employees = (int)$matches[1];
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
             }
 
             break;
@@ -180,7 +220,11 @@ $earnings_context = stream_context_create([
     'http' => [
         'method' => 'GET',
         'header' =>
+<<<<<<< HEAD
             "apikey: " . SUPABASE_KEY . "\r\n" .
+=======
+        "apikey: " . SUPABASE_KEY . "\r\n" .
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
             "Authorization: Bearer " . $token . "\r\n" .
             "Accept: application/json\r\n",
         'ignore_errors' => true
@@ -207,7 +251,11 @@ if ($earnings_response !== false) {
 
         foreach ($earnings_records as $record) {
 
+<<<<<<< HEAD
             $total_earnings += (float) ($record['earnings_amount'] ?? 0);
+=======
+            $total_earnings += (float)($record['earnings_amount'] ?? 0);
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
         }
 
         $monthly_labor_costs = '$' . number_format($total_earnings, 2);
@@ -230,7 +278,11 @@ $applications_context = stream_context_create([
     'http' => [
         'method' => 'GET',
         'header' =>
+<<<<<<< HEAD
             "apikey: " . SUPABASE_KEY . "\r\n" .
+=======
+        "apikey: " . SUPABASE_KEY . "\r\n" .
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
             "Authorization: Bearer " . $token . "\r\n" .
             "Accept: application/json\r\n",
         'ignore_errors' => true
@@ -272,7 +324,11 @@ $jobs_context = stream_context_create([
     'http' => [
         'method' => 'GET',
         'header' =>
+<<<<<<< HEAD
             "apikey: " . SUPABASE_KEY . "\r\n" .
+=======
+        "apikey: " . SUPABASE_KEY . "\r\n" .
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
             "Authorization: Bearer " . $token . "\r\n" .
             "Accept: application/json\r\n",
         'ignore_errors' => true
@@ -477,6 +533,7 @@ require_once '../../includes/header.php';
                             if ($status === 'accepted') {
 
                                 $status_class = 'success';
+<<<<<<< HEAD
 
                             } elseif ($status === 'pending') {
 
@@ -486,6 +543,14 @@ require_once '../../includes/header.php';
 
                                 $status_class = 'info';
 
+=======
+                            } elseif ($status === 'pending') {
+
+                                $status_class = 'warning';
+                            } elseif ($status === 'shortlisted' || $status === 'interview') {
+
+                                $status_class = 'info';
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
                             } elseif ($status === 'rejected' || $status === 'withdrawn') {
 
                                 $status_class = 'danger';
@@ -749,7 +814,11 @@ require_once '../../includes/header.php';
                                 <div class="wp-application-meta">
 
                                     <span>
+<<<<<<< HEAD
                                         ₱<?= number_format((float) $hourly_rate, 2) ?>/hr
+=======
+                                        ₱<?= number_format((float)$hourly_rate, 2) ?>/hr
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
                                     </span>
 
                                     <span>
@@ -817,4 +886,8 @@ require_once '../../includes/header.php';
 // Include shared footer
 require_once '../../includes/footer.php';
 
+<<<<<<< HEAD
 ?>
+=======
+?>
+>>>>>>> f7f1bd69f0d5af8e65e63b6dff999b1d558d685a
