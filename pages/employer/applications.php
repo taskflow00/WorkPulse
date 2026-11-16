@@ -204,23 +204,52 @@ $get_worker_profile = function ($worker_id) use ($supabase_request) {
 };
 
 
+// Remembers why the last email failed.
+// '' = no problem, 'worker_email' = email address not found,
+// 'smtp' = the SMTP server did not accept the message.
+$email_problem = '';
+
 $notify_worker = function (
     $worker_id,
     $subject,
     $email_body
-) use ($get_worker_email) {
+) use ($get_worker_email, &$email_problem) {
+
+    $email_problem = '';
 
     $worker_email = $get_worker_email($worker_id);
 
     if ($worker_email === null) {
+        $email_problem = 'worker_email';
         return false;
     }
 
-    return sendEmail(
+    $email_sent = sendEmail(
         $worker_email,
         $subject,
         $email_body
     );
+
+    if (!$email_sent) {
+        $email_problem = 'smtp';
+    }
+
+    return $email_sent;
+};
+
+
+// Short sentence added to the page message after an email attempt.
+$email_note = function ($email_sent) use (&$email_problem) {
+
+    if ($email_sent) {
+        return ' The worker has also been notified by email.';
+    }
+
+    if ($email_problem === 'worker_email') {
+        return ' However, the worker email address could not be retrieved, so no email was sent. Check SUPABASE_SERVICE_ROLE_KEY.';
+    }
+
+    return ' However, the email notification could not be sent. Please check the SMTP settings.';
 };
 
 
@@ -264,7 +293,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Verify that this application belongs to the employer.
 
             $application_url = SUPABASE_URL .
-                '/rest/v1/applications?select=id,worker_id,job_id,status,application_statement,jobs!inner(title,company_name)' .
+                '/rest/v1/applications?select=id,worker_id,job_id,status,application_statement,jobs!inner(title,company_name,status,interview_required)' .
                 '&id=eq.' . rawurlencode($application_id) .
                 '&jobs.employer_id=eq.' . rawurlencode($employer_id) .
                 '&limit=1';
@@ -328,6 +357,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ) {
 
                         $message = 'This application is no longer eligible for an interview invitation.';
+                        $message_type = 'error';
+                    } elseif (
+                        ($application_data['jobs']['status'] ?? 'open') !== 'open'
+                    ) {
+
+                        $message = 'This job is closed. Reopen the job before scheduling an interview.';
                         $message_type = 'error';
                     } elseif ($interview_at_input === '') {
 
@@ -439,13 +474,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             $email_body
                                         );
 
-                                        if ($email_sent) {
-
-                                            $message = 'Interview invitation successfully sent. The worker has also been notified by email.';
-                                        } else {
-
-                                            $message = 'Interview invitation successfully saved, but the email notification could not be sent.';
-                                        }
+                                        $message = 'Interview invitation successfully sent.' .
+                                            $email_note($email_sent);
 
                                         $message_type = 'success';
                                     }
@@ -557,13 +587,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     $email_body
                                 );
 
-                                if ($email_sent) {
-
-                                    $message = 'Application rejected successfully. The worker has been notified by email.';
-                                } else {
-
-                                    $message = 'Application rejected successfully, but the email notification could not be sent.';
-                                }
+                                $message = 'Application rejected successfully.' .
+                                    $email_note($email_sent);
 
                                 $message_type = 'success';
                             } else {
@@ -577,7 +602,169 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
                 // ==========================================
-                // 5C. INVALID ACTION
+                // 5C. SHORTLIST APPLICATION
+                // ==========================================
+
+                elseif (isset($_POST['shortlist_application'])) {
+
+                    if ($application_status !== 'pending') {
+
+                        $message = 'Only pending applications can be shortlisted.';
+                        $message_type = 'error';
+                    } else {
+
+                        $shortlist_url = SUPABASE_URL .
+                            '/rest/v1/applications?id=eq.' .
+                            rawurlencode($application_id) .
+                            '&status=eq.pending';
+
+                        $shortlist_result = $supabase_request(
+                            $shortlist_url,
+                            'PATCH',
+                            ['status' => 'shortlisted']
+                        );
+
+                        if (
+                            $shortlist_result['success'] &&
+                            !empty($shortlist_result['data'][0])
+                        ) {
+
+                            $email_body = applicationStatusEmail(
+                                $worker_name,
+                                $job_title,
+                                'shortlisted'
+                            );
+
+                            $email_sent = $notify_worker(
+                                $worker_id,
+                                'Application Status Update - WorkPulse',
+                                $email_body
+                            );
+
+                            $message = 'Applicant shortlisted successfully.' .
+                                $email_note($email_sent);
+
+                            $message_type = 'success';
+                        } else {
+
+                            $message = 'Unable to shortlist the application. It may have already changed.';
+                            $message_type = 'error';
+                        }
+                    }
+                }
+
+
+                // ==========================================
+                // 5D. APPROVE APPLICATION FOR AN OFFER
+                // ==========================================
+
+                // Approving moves the application to "accepted".
+                // After that, the employer can send an employment offer.
+
+                elseif (isset($_POST['approve_application'])) {
+
+                    $approvable_statuses = [
+                        'pending',
+                        'shortlisted',
+                        'interview'
+                    ];
+
+                    // If the job does not say otherwise,
+                    // an interview is required.
+
+                    $interview_required =
+                        $application_data['jobs']['interview_required'] ?? true;
+
+                    if (
+                        !in_array(
+                            $application_status,
+                            $approvable_statuses,
+                            true
+                        )
+                    ) {
+
+                        $message = 'This application can no longer be approved.';
+                        $message_type = 'error';
+                    } else {
+
+                        // Find the latest interview invitation.
+
+                        $latest_interview_url = SUPABASE_URL .
+                            '/rest/v1/invitations?select=id,status' .
+                            '&application_id=eq.' . rawurlencode($application_id) .
+                            '&employer_id=eq.' . rawurlencode($employer_id) .
+                            '&order=created_at.desc&limit=1';
+
+                        $latest_interview_result = $supabase_request(
+                            $latest_interview_url
+                        );
+
+                        if (
+                            !$latest_interview_result['success'] ||
+                            !is_array($latest_interview_result['data'])
+                        ) {
+
+                            $message = 'Unable to check the interview status. Please try again.';
+                            $message_type = 'error';
+                        } else {
+
+                            $latest_interview_status =
+                                $latest_interview_result['data'][0]['status'] ?? null;
+
+                            if (
+                                $interview_required !== false &&
+                                $latest_interview_status !== 'accepted'
+                            ) {
+
+                                $message = 'This job requires an interview. Schedule an interview and wait for the worker to accept it before approving the applicant.';
+                                $message_type = 'error';
+                            } else {
+
+                                $approve_url = SUPABASE_URL .
+                                    '/rest/v1/applications?id=eq.' .
+                                    rawurlencode($application_id) .
+                                    '&status=in.(pending,shortlisted,interview)';
+
+                                $approve_result = $supabase_request(
+                                    $approve_url,
+                                    'PATCH',
+                                    ['status' => 'accepted']
+                                );
+
+                                if (
+                                    $approve_result['success'] &&
+                                    !empty($approve_result['data'][0])
+                                ) {
+
+                                    $email_body = applicationStatusEmail(
+                                        $worker_name,
+                                        $job_title,
+                                        'approved'
+                                    );
+
+                                    $email_sent = $notify_worker(
+                                        $worker_id,
+                                        'Application Status Update - WorkPulse',
+                                        $email_body
+                                    );
+
+                                    $message = 'Applicant approved. You can now prepare an employment offer.' .
+                                        $email_note($email_sent);
+
+                                    $message_type = 'success';
+                                } else {
+
+                                    $message = 'Unable to approve the application. It may have already changed.';
+                                    $message_type = 'error';
+                                }
+                            }
+                        }
+                    }
+                }
+
+
+                // ==========================================
+                // 5E. INVALID ACTION
                 // ==========================================
 
                 else {
@@ -1060,6 +1247,42 @@ require_once '../../includes/header.php';
 
 
                     // ==========================================
+                    // SHORTLIST AND APPROVAL PERMISSION
+                    // ==========================================
+
+                    // Jobs require an interview unless the employer
+                    // turned that setting off.
+
+                    $job_requires_interview =
+                        ($job['interview_required'] ?? true) !== false;
+
+                    $interview_confirmed =
+                        ($latest_invitation_status === 'accepted');
+
+                    $is_open_stage = in_array(
+                        $application_status,
+                        ['pending', 'shortlisted', 'interview'],
+                        true
+                    );
+
+                    $can_shortlist = ($application_status === 'pending');
+
+                    $can_approve = (
+                        $is_open_stage &&
+                        (
+                            $interview_confirmed ||
+                            !$job_requires_interview
+                        )
+                    );
+
+                    $needs_interview_first = (
+                        $is_open_stage &&
+                        $job_requires_interview &&
+                        !$interview_confirmed
+                    );
+
+
+                    // ==========================================
                     // EMPLOYMENT OFFER PERMISSION
                     // ==========================================
 
@@ -1427,6 +1650,65 @@ require_once '../../includes/header.php';
                         <!-- APPLICATION ACTIONS -->
 
                         <div class="employer-application-actions">
+
+                            <?php if ($can_approve): ?>
+
+                                <form method="POST">
+
+                                    <input
+                                        type="hidden"
+                                        name="csrf_token"
+                                        value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
+
+                                    <input
+                                        type="hidden"
+                                        name="application_id"
+                                        value="<?= htmlspecialchars($application['id'], ENT_QUOTES, 'UTF-8') ?>">
+
+                                    <button
+                                        type="submit"
+                                        name="approve_application"
+                                        class="employer-action-button employer-action-approve"
+                                        onclick="return confirm('Approve this applicant so you can send an employment offer?');">
+
+                                        <i class="bi bi-check-circle"></i>
+                                        Approve for Offer
+
+                                    </button>
+
+                                </form>
+
+                            <?php endif; ?>
+
+
+                            <?php if ($can_shortlist): ?>
+
+                                <form method="POST">
+
+                                    <input
+                                        type="hidden"
+                                        name="csrf_token"
+                                        value="<?= htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') ?>">
+
+                                    <input
+                                        type="hidden"
+                                        name="application_id"
+                                        value="<?= htmlspecialchars($application['id'], ENT_QUOTES, 'UTF-8') ?>">
+
+                                    <button
+                                        type="submit"
+                                        name="shortlist_application"
+                                        class="employer-action-button employer-action-shortlist">
+
+                                        <i class="bi bi-bookmark-star"></i>
+                                        Shortlist
+
+                                    </button>
+
+                                </form>
+
+                            <?php endif; ?>
+
 
                             <?php if ($can_reject): ?>
 
@@ -1827,6 +2109,7 @@ require_once '../../includes/header.php';
                                             <input
                                                 type="datetime-local"
                                                 name="interview_at"
+                                                min="<?= date('Y-m-d\TH:i') ?>"
                                                 required>
 
                                         </div>
@@ -1904,6 +2187,16 @@ require_once '../../includes/header.php';
                             <div class="employer-waiting-notice">
                                 <i class="bi bi-clock-history"></i>
                                 Waiting for the worker to respond to your interview invitation.
+                            </div>
+
+                        <?php elseif (
+                            $application_status === 'interview' &&
+                            $latest_invitation_status === 'accepted'
+                        ): ?>
+
+                            <div class="employer-waiting-notice">
+                                <i class="bi bi-calendar-check"></i>
+                                The worker accepted the interview. After the interview, approve the applicant to send an employment offer, or reject the application.
                             </div>
 
                         <?php endif; ?>

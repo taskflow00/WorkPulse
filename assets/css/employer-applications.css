@@ -939,3 +939,29 @@
         justify-content: center;
     }
 }
+
+
+/* ==========================================
+   APPROVE AND SHORTLIST BUTTONS
+========================================== */
+
+.employer-action-approve {
+    border-color: #cfe8da;
+    background: #eaf7f0;
+    color: #21865b;
+}
+
+.employer-action-approve:hover {
+    background: #dcf1e6;
+    border-color: #b9dcc8;
+}
+
+.employer-action-shortlist {
+    border-color: #e6d3dc;
+    color: #a36580;
+}
+
+.employer-action-shortlist:hover {
+    background: #f8edf2;
+    border-color: #d9bccb;
+}

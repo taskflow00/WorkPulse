@@ -3,6 +3,8 @@ date_default_timezone_set('Asia/Manila');
 
 $required_role = 'employer';
 require_once '../../includes/auth.php';
+require_once '../../includes/send-email.php';
+require_once '../../includes/email-templates.php';
 
 $employer_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];
@@ -171,6 +173,114 @@ if ($latest_offer) {
 }
 
 // --------------------------------------------------
+// 3B. EMAIL THE WORKER ABOUT THE OFFER
+// --------------------------------------------------
+
+// The worker email is stored in Supabase Auth.
+// Reading it needs the server-side service-role key.
+
+$get_worker_email = function ($user_id) {
+
+    if (
+        !defined('SUPABASE_SERVICE_ROLE_KEY') ||
+        SUPABASE_SERVICE_ROLE_KEY === ''
+    ) {
+        error_log('Worker email lookup failed: Service role key is not configured.');
+        return null;
+    }
+
+    $options = [
+        'http' => [
+            'method' => 'GET',
+            'header' =>
+            "apikey: " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+                "Authorization: Bearer " . SUPABASE_SERVICE_ROLE_KEY . "\r\n",
+            'ignore_errors' => true,
+            'timeout' => 15
+        ]
+    ];
+
+    $response = @file_get_contents(
+        SUPABASE_URL . '/auth/v1/admin/users/' . rawurlencode($user_id),
+        false,
+        stream_context_create($options)
+    );
+
+    $data = $response !== false ? json_decode($response, true) : null;
+
+    $email = is_array($data)
+        ? ($data['email'] ?? $data['user']['email'] ?? null)
+        : null;
+
+    if (!is_string($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return null;
+    }
+
+    return $email;
+};
+
+
+// Sends the offer email and returns a short sentence for the page message.
+
+$email_offer_to_worker = function ($saved_offer, $is_revision) use (
+    $get_worker_email,
+    $supabase_request,
+    $employer_id,
+    $worker_id,
+    $worker_name,
+    $job
+) {
+
+    $worker_email = $get_worker_email($worker_id);
+
+    if ($worker_email === null) {
+        return ' However, the worker email address could not be retrieved, so no email was sent. Check SUPABASE_SERVICE_ROLE_KEY.';
+    }
+
+    // Use the employer name, then the company name.
+
+    $employer_name = $job['company_name'] ?? 'Your employer';
+
+    $employer_result = $supabase_request(
+        'GET',
+        SUPABASE_URL .
+            '/rest/v1/profiles?select=full_name,company_name' .
+            '&id=eq.' . urlencode($employer_id) .
+            '&limit=1'
+    );
+
+    if (!empty($employer_result['data'][0]['full_name'])) {
+        $employer_name = $employer_result['data'][0]['full_name'];
+    }
+
+    $email_body = employmentOfferEmail(
+        $worker_name,
+        $employer_name,
+        $job['title'] ?? 'the job position',
+        $saved_offer['hourly_rate'] ?? 0,
+        $saved_offer['employment_type'] ?? '',
+        $saved_offer['start_date'] ?? '',
+        $is_revision,
+        $saved_offer['offer_message'] ?? ''
+    );
+
+    $email_sent = sendEmail(
+        $worker_email,
+        $is_revision
+            ? 'Your Employment Offer Was Revised - WorkPulse'
+            : 'New Employment Offer - WorkPulse',
+        $email_body
+    );
+
+    if ($email_sent) {
+        return ' The worker has also been notified by email.';
+    }
+
+    return ' However, the email notification could not be sent. Please check the SMTP settings.';
+};
+
+
+// --------------------------------------------------
 // 4. PROCESS FORM SUBMISSION
 // --------------------------------------------------
 
@@ -273,7 +383,8 @@ if (isset($_POST['send_offer'])) {
                         $latest_offer = $save_result['data'][0];
                         $offer_mode = 'blocked';
 
-                        $message = 'Employment offer revised and sent successfully!';
+                        $message = 'Employment offer revised and sent successfully!' .
+                            $email_offer_to_worker($latest_offer, true);
                         $message_type = 'success';
                     } else {
 
@@ -309,7 +420,8 @@ if (isset($_POST['send_offer'])) {
                         $latest_offer = $save_result['data'][0];
                         $offer_mode = 'blocked';
 
-                        $message = 'Employment offer sent successfully!';
+                        $message = 'Employment offer sent successfully!' .
+                            $email_offer_to_worker($latest_offer, false);
                         $message_type = 'success';
                     } else {
 

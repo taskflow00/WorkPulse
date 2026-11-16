@@ -903,3 +903,195 @@ function invitationResponseEmail(
     </html>
     ";
 }
+
+
+// ============================================
+// 5. EMPLOYMENT OFFER EMAIL
+// Notifies workers about a new or revised offer.
+// ============================================
+
+function employmentOfferEmail(
+    $workerName,
+    $employerName,
+    $jobTitle,
+    $hourlyRate,
+    $employmentType,
+    $startDate,
+    $isRevision = false,
+    $offerMessage = ''
+) {
+    $workerName = htmlspecialchars($workerName, ENT_QUOTES, 'UTF-8');
+    $employerName = htmlspecialchars($employerName, ENT_QUOTES, 'UTF-8');
+    $jobTitle = htmlspecialchars($jobTitle, ENT_QUOTES, 'UTF-8');
+
+    $typeLabels = [
+        'full_time' => 'Full Time',
+        'part_time' => 'Part Time'
+    ];
+
+    $employmentType = htmlspecialchars(
+        $typeLabels[$employmentType] ?? 'Not specified',
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    $hourlyRate = '$' . number_format((float) $hourlyRate, 2) . '/hour';
+
+    $formattedStart = 'Not specified';
+
+    if (!empty($startDate)) {
+        try {
+            $formattedStart = (new DateTimeImmutable($startDate))
+                ->format('F d, Y');
+        } catch (Exception $e) {
+            $formattedStart = (string) $startDate;
+        }
+    }
+
+    $formattedStart = htmlspecialchars($formattedStart, ENT_QUOTES, 'UTF-8');
+
+    $badge = $isRevision ? 'REVISED OFFER' : 'EMPLOYMENT OFFER';
+
+    $intro = $isRevision
+        ? 'has revised your employment offer based on your request.'
+        : 'would like to offer you a position.';
+
+    $messageSection = '';
+
+    if (trim((string) $offerMessage) !== '') {
+
+        $safeMessage = nl2br(
+            htmlspecialchars(trim($offerMessage), ENT_QUOTES, 'UTF-8')
+        );
+
+        $messageSection = "
+            <div style='margin-top:20px;padding:16px 18px;background-color:#F8F6F7;border-left:4px solid #B77F96;border-radius:6px;'>
+                <p style='margin:0 0 8px;color:#77717A;font-size:12px;font-weight:bold;letter-spacing:1px;'>
+                    MESSAGE FROM THE EMPLOYER
+                </p>
+                <p style='margin:0;color:#45404A;font-size:14px;line-height:1.8;'>
+                    {$safeMessage}
+                </p>
+            </div>
+        ";
+    }
+
+    return "
+    <!DOCTYPE html>
+    <html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <meta name='color-scheme' content='light'>
+        <title>Employment Offer - WorkPulse</title>
+    </head>
+
+    <body style='margin:0;padding:0;background-color:#F4F2F4;font-family:Arial,Helvetica,sans-serif;color:#29252D;'>
+
+        <table role='presentation' width='100%' cellspacing='0' cellpadding='0' border='0'
+            style='background-color:#F4F2F4;padding:35px 15px;'>
+
+            <tr>
+                <td align='center'>
+
+                    <table role='presentation' width='100%' cellspacing='0' cellpadding='0' border='0'
+                        style='max-width:600px;background-color:#FFFFFF;border-radius:12px;overflow:hidden;'>
+
+                        <tr>
+                            <td style='background-color:#B77F96;padding:28px 35px;'>
+                                <h1 style='margin:0;color:#FFFFFF;font-size:25px;font-weight:bold;'>
+                                    WorkPulse
+                                </h1>
+                                <p style='margin:5px 0 0;color:#FCEEF3;font-size:12px;letter-spacing:1px;'>
+                                    CONNECT. WORK. GROW.
+                                </p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style='padding:38px 35px;'>
+
+                                <span style='display:inline-block;background-color:#F8EDF2;color:#A36580;padding:7px 12px;border-radius:20px;font-size:11px;font-weight:bold;letter-spacing:0.5px;'>
+                                    {$badge}
+                                </span>
+
+                                <h2 style='margin:22px 0 12px;color:#29252D;font-size:25px;'>
+                                    Hello, {$workerName}!
+                                </h2>
+
+                                <p style='margin:0;color:#77717A;font-size:14px;line-height:1.8;'>
+                                    <strong style='color:#29252D;'>{$employerName}</strong>
+                                    {$intro}
+                                </p>
+
+                                <div style='margin-top:25px;padding:22px;background-color:#FCFAFB;border:1px solid #EFE8EC;border-radius:9px;'>
+
+                                    <p style='margin:0 0 9px;color:#A36580;font-size:11px;font-weight:bold;letter-spacing:1px;'>
+                                        POSITION
+                                    </p>
+
+                                    <h3 style='margin:0 0 18px;color:#302A33;font-size:19px;line-height:1.4;'>
+                                        {$jobTitle}
+                                    </h3>
+
+                                    <p style='margin:0 0 6px;color:#89818B;font-size:12px;'>HOURLY RATE</p>
+                                    <p style='margin:0 0 14px;color:#302A33;font-size:15px;font-weight:bold;'>{$hourlyRate}</p>
+
+                                    <p style='margin:0 0 6px;color:#89818B;font-size:12px;'>EMPLOYMENT TYPE</p>
+                                    <p style='margin:0 0 14px;color:#302A33;font-size:15px;font-weight:bold;'>{$employmentType}</p>
+
+                                    <p style='margin:0 0 6px;color:#89818B;font-size:12px;'>PROPOSED START DATE</p>
+                                    <p style='margin:0;color:#302A33;font-size:15px;font-weight:bold;'>{$formattedStart}</p>
+
+                                </div>
+
+                                {$messageSection}
+
+                                <div style='margin-top:28px;padding-top:23px;border-top:1px solid #F0ECF0;'>
+
+                                    <h3 style='margin:0 0 10px;color:#302A33;font-size:16px;'>
+                                        What's next?
+                                    </h3>
+
+                                    <p style='margin:0;color:#77717A;font-size:14px;line-height:1.8;'>
+                                        Log in to your WorkPulse account and open your
+                                        offers to accept, decline, or request changes.
+                                        Offers expire after 7 days.
+                                    </p>
+
+                                </div>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style='background-color:#FAF8F9;border-top:1px solid #F0ECF0;padding:24px 35px;'>
+
+                                <p style='margin:0;color:#B77F96;font-size:15px;font-weight:bold;'>
+                                    WorkPulse
+                                </p>
+
+                                <p style='margin:7px 0 0;color:#96909A;font-size:12px;line-height:1.7;'>
+                                    Connecting employers with skilled professionals.
+                                    <br>
+                                    This is an automated notification. Please do not
+                                    reply directly to this email.
+                                </p>
+
+                                <p style='margin:18px 0 0;color:#B1ABB3;font-size:11px;'>
+                                    &copy; " . date('Y') . " WorkPulse. All rights reserved.
+                                </p>
+
+                            </td>
+                        </tr>
+
+                    </table>
+
+                </td>
+            </tr>
+        </table>
+
+    </body>
+    </html>
+    ";
+}
