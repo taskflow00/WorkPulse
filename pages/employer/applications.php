@@ -11,12 +11,105 @@ $page_styles = ['/assets/css/employer-applications.css'];
 
 require_once '../../includes/auth.php';
 
+// Email notification files
+require_once '../../includes/send-email.php';
+require_once '../../includes/email-templates.php';
+
 $employer_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];
 
 $message = '';
 $message_type = 'info';
 
+// ==========================================
+// GET WORKER EMAIL FROM SUPABASE AUTH
+// ==========================================
+
+$get_worker_email = function ($worker_id) {
+
+    if (
+        !defined('SUPABASE_SERVICE_ROLE_KEY') ||
+        SUPABASE_SERVICE_ROLE_KEY === ''
+    ) {
+        error_log('Email notification: Supabase service role key is missing.');
+        return null;
+    }
+
+    $url = SUPABASE_URL .
+        '/auth/v1/admin/users/' . rawurlencode($worker_id);
+
+    $options = [
+        'http' => [
+            'method' => 'GET',
+            'header' =>
+            "apikey: " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+                "Authorization: Bearer " . SUPABASE_SERVICE_ROLE_KEY . "\r\n",
+            'ignore_errors' => true,
+            'timeout' => 15
+        ]
+    ];
+
+    $context = stream_context_create($options);
+    $response = @file_get_contents($url, false, $context);
+
+    if ($response === false) {
+        error_log('Email notification: Unable to retrieve worker from Supabase Auth.');
+        return null;
+    }
+
+    $user = json_decode($response, true);
+
+    $email = $user['email'] ?? null;
+
+    if (
+        !is_string($email) ||
+        !filter_var($email, FILTER_VALIDATE_EMAIL)
+    ) {
+        error_log('Email notification: Worker has no valid email address.');
+        return null;
+    }
+
+    return $email;
+};
+
+
+// ==========================================
+// GET WORKER PROFILE DETAILS
+// ==========================================
+
+$get_worker_profile = function ($worker_id) use ($access_token) {
+
+    $url = SUPABASE_URL .
+        '/rest/v1/profiles?select=full_name' .
+        '&id=eq.' . rawurlencode($worker_id) .
+        '&limit=1';
+
+    $options = [
+        'http' => [
+            'method' => 'GET',
+            'header' =>
+            "apikey: " . SUPABASE_KEY . "\r\n" .
+                "Authorization: Bearer " . $access_token . "\r\n",
+            'ignore_errors' => true,
+            'timeout' => 15
+        ]
+    ];
+
+    $context = stream_context_create($options);
+    $response = @file_get_contents($url, false, $context);
+
+    if ($response === false) {
+        return null;
+    }
+
+    $profiles = json_decode($response, true);
+
+    if (!is_array($profiles) || empty($profiles[0])) {
+        return null;
+    }
+
+    return $profiles[0];
+};
 
 // ==========================================
 // SEND INTERVIEW INVITATION
@@ -139,12 +232,86 @@ if (isset($_POST['send_interview_invitation'])) {
             ) {
 
                 if (!empty($result['already_exists'])) {
-                    $message = 'An active interview invitation already exists for this applicant.';
-                } else {
-                    $message = 'Interview invitation sent successfully!';
-                }
 
-                $message_type = 'success';
+                    $message = 'An active interview invitation already exists for this applicant.';
+                    $message_type = 'success';
+                } else {
+
+                    // Retrieve the application and its worker/job details.
+                    $application_url = SUPABASE_URL .
+                        '/rest/v1/applications?select=worker_id,jobs!inner(title)' .
+                        '&id=eq.' . rawurlencode($application_id) .
+                        '&jobs.employer_id=eq.' . rawurlencode($employer_id) .
+                        '&limit=1';
+
+                    $application_options = [
+                        'http' => [
+                            'method' => 'GET',
+                            'header' =>
+                            "apikey: " . SUPABASE_KEY . "\r\n" .
+                                "Authorization: Bearer " . $access_token . "\r\n",
+                            'ignore_errors' => true,
+                            'timeout' => 15
+                        ]
+                    ];
+
+                    $application_context = stream_context_create($application_options);
+
+                    $application_response = @file_get_contents(
+                        $application_url,
+                        false,
+                        $application_context
+                    );
+
+                    $email_sent = false;
+
+                    if ($application_response !== false) {
+
+                        $application_data = json_decode($application_response, true);
+
+                        if (!empty($application_data[0])) {
+
+                            $worker_id = $application_data[0]['worker_id'] ?? '';
+
+                            $job_title = $application_data[0]['jobs']['title']
+                                ?? 'the job position';
+
+                            $worker_email = $get_worker_email($worker_id);
+
+                            $worker_profile = $get_worker_profile($worker_id);
+
+                            $worker_name = $worker_profile['full_name'] ?? 'Worker';
+
+                            if ($worker_email !== null) {
+
+                                $email_body = interviewInvitationEmail(
+                                    $worker_name,
+                                    $job_title,
+                                    $interview_at,
+                                    $interview_type,
+                                    $meeting_details,
+                                    $interview_message
+                                );
+
+                                $email_sent = sendEmail(
+                                    $worker_email,
+                                    'Interview Invitation - WorkPulse',
+                                    $email_body
+                                );
+                            }
+                        }
+                    }
+
+                    if ($email_sent) {
+
+                        $message = 'Interview invitation successfully sent. The worker has also been notified by email.';
+                    } else {
+
+                        $message = 'Interview invitation successfully saved, but the email notification could not be sent.';
+                    }
+
+                    $message_type = 'success';
+                }
             } else {
 
                 $message = $result['message'] ?? 'Unable to send the interview invitation.';
@@ -217,11 +384,83 @@ if (isset($_POST['reject_application'])) {
             if (
                 $status_code >= 200 &&
                 $status_code < 300 &&
-                !empty($result)
+                !empty($result[0])
             ) {
 
-                $message = 'Application rejected successfully.';
-                $message_type = 'success';
+                // The application has already been updated in Supabase.
+                $updated_application = $result[0];
+
+                $worker_id = $updated_application['worker_id'] ?? '';
+                $job_id = $updated_application['job_id'] ?? '';
+
+                // Get the worker's email.
+                $worker_email = $get_worker_email($worker_id);
+
+                // Get the worker's name.
+                $worker_profile = $get_worker_profile($worker_id);
+
+                $worker_name = $worker_profile['full_name'] ?? 'Worker';
+
+                // Get the job title.
+                $job_title = 'the job position';
+
+                $job_url = SUPABASE_URL .
+                    '/rest/v1/jobs?select=title' .
+                    '&id=eq.' . rawurlencode($job_id) .
+                    '&employer_id=eq.' . rawurlencode($employer_id) .
+                    '&limit=1';
+
+                $job_options = [
+                    'http' => [
+                        'method' => 'GET',
+                        'header' =>
+                        "apikey: " . SUPABASE_KEY . "\r\n" .
+                            "Authorization: Bearer " . $access_token . "\r\n",
+                        'ignore_errors' => true,
+                        'timeout' => 15
+                    ]
+                ];
+
+                $job_context = stream_context_create($job_options);
+                $job_response = @file_get_contents($job_url, false, $job_context);
+
+                if ($job_response !== false) {
+
+                    $job_data = json_decode($job_response, true);
+
+                    if (!empty($job_data[0]['title'])) {
+                        $job_title = $job_data[0]['title'];
+                    }
+                }
+
+                // Send the application status email.
+                $email_sent = false;
+
+                if ($worker_email !== null) {
+
+                    $email_body = applicationStatusEmail(
+                        $worker_name,
+                        $job_title,
+                        'rejected'
+                    );
+
+                    $email_sent = sendEmail(
+                        $worker_email,
+                        'Application Status Update - WorkPulse',
+                        $email_body
+                    );
+                }
+
+                if ($email_sent) {
+
+                    $message = 'Application rejected successfully. The worker has been notified by email.';
+                    $message_type = 'success';
+                } else {
+
+                    // Rejection remains successful even if email delivery fails.
+                    $message = 'Application rejected successfully, but the email notification could not be sent.';
+                    $message_type = 'success';
+                }
             } else {
 
                 $message = 'Unable to reject the application.';

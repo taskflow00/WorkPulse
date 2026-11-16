@@ -11,6 +11,10 @@ $page_styles = ['/assets/css/find-freelancers.css'];
 
 require_once '../../includes/auth.php';
 
+// Email notification files
+require_once '../../includes/send-email.php';
+require_once '../../includes/email-templates.php';
+
 date_default_timezone_set('Asia/Manila');
 
 $token = $_SESSION['access_token'];
@@ -74,6 +78,67 @@ $supabase_request = function ($url, $method = 'GET', $data = null) use ($token) 
         'status' => $http_status,
         'data' => json_decode($response ?: '', true)
     ];
+};
+
+// ============================================
+// 3.1. GET WORKER EMAIL FROM SUPABASE AUTH
+// ============================================
+
+$get_worker_email = function ($worker_id) {
+
+    // Do not continue if the server-side key is missing.
+    if (
+        !defined('SUPABASE_SERVICE_ROLE_KEY') ||
+        SUPABASE_SERVICE_ROLE_KEY === ''
+    ) {
+        error_log('Worker email lookup failed: Service role key is not configured.');
+        return null;
+    }
+
+    $url = SUPABASE_URL .
+        '/auth/v1/admin/users/' . rawurlencode($worker_id);
+
+    $headers =
+        "apikey: " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+        "Authorization: Bearer " . SUPABASE_SERVICE_ROLE_KEY . "\r\n";
+
+    $options = [
+        'http' => [
+            'method' => 'GET',
+            'header' => $headers,
+            'ignore_errors' => true,
+            'timeout' => 15
+        ]
+    ];
+
+    $context = stream_context_create($options);
+
+    $response = @file_get_contents($url, false, $context);
+
+    if ($response === false) {
+        error_log('Worker email lookup failed: Unable to connect to Supabase Auth.');
+        return null;
+    }
+
+    $data = json_decode($response, true);
+
+    if (!is_array($data)) {
+        error_log('Worker email lookup failed: Invalid Supabase response.');
+        return null;
+    }
+
+    // Supabase normally returns the user object directly.
+    $email = $data['email'] ?? $data['user']['email'] ?? null;
+
+    if (
+        !is_string($email) ||
+        !filter_var($email, FILTER_VALIDATE_EMAIL)
+    ) {
+        error_log('Worker email lookup failed: No valid email was returned.');
+        return null;
+    }
+
+    return $email;
 };
 
 
@@ -170,10 +235,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
         } elseif ($http_status >= 200 && $http_status < 300) {
 
-            $set_flash(
-                'success',
-                'Invitation successfully sent! The worker can now review your invitation.'
+            // ============================================
+            // INVITATION SAVED SUCCESSFULLY
+            // ============================================
+
+            // Get the worker's email from Supabase Auth.
+            $worker_email = $get_worker_email($worker_id);
+
+            // Get the employer's name from their profile.
+            $employer_result = $supabase_request(
+                SUPABASE_URL .
+                    '/rest/v1/profiles?select=full_name' .
+                    '&id=eq.' . rawurlencode($employer_id) .
+                    '&limit=1'
             );
+
+            $employer_name = 'An employer';
+
+            if (
+                $employer_result['status'] >= 200 &&
+                $employer_result['status'] < 300 &&
+                is_array($employer_result['data']) &&
+                !empty($employer_result['data'][0]['full_name'])
+            ) {
+                $employer_name = $employer_result['data'][0]['full_name'];
+            }
+
+            // Get the job title.
+            $job_result = $supabase_request(
+                SUPABASE_URL .
+                    '/rest/v1/jobs?select=title' .
+                    '&id=eq.' . rawurlencode($job_id) .
+                    '&employer_id=eq.' . rawurlencode($employer_id) .
+                    '&limit=1'
+            );
+
+            $job_title = 'a job opportunity';
+
+            if (
+                $job_result['status'] >= 200 &&
+                $job_result['status'] < 300 &&
+                is_array($job_result['data']) &&
+                !empty($job_result['data'][0]['title'])
+            ) {
+                $job_title = $job_result['data'][0]['title'];
+            }
+
+            // ============================================
+            // SEND INVITATION EMAIL
+            // ============================================
+
+            if ($worker_email !== null) {
+
+                $email_message = invitationEmail(
+                    $employer_name,
+                    $job_title,
+                    $invitation_message
+                );
+
+                $email_sent = sendEmail(
+                    $worker_email,
+                    'You have received a job invitation on WorkPulse',
+                    $email_message
+                );
+
+                if ($email_sent) {
+
+                    $set_flash(
+                        'success',
+                        'Invitation successfully sent! An email notification has also been sent to the worker.'
+                    );
+                } else {
+
+                    // The invitation is still saved in Supabase.
+                    $set_flash(
+                        'warning',
+                        'Invitation successfully saved, but the email notification could not be sent.'
+                    );
+                }
+            } else {
+
+                // The invitation is still saved even if email lookup fails.
+                $set_flash(
+                    'warning',
+                    'Invitation successfully saved, but the worker email could not be retrieved. No email notification was sent.'
+                );
+            }
         } elseif (
             $http_status === 409 ||
             (
