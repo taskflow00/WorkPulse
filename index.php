@@ -1,6 +1,6 @@
 <?php
 
-session_start();
+require_once __DIR__ . '/includes/session.php';
 
 $is_logged_in = isset($_SESSION['user']['id']);
 $role = $_SESSION['role'] ?? '';
