@@ -56,7 +56,32 @@ $escape = function ($value) {
 };
 
 
-// Send an HTTP request to Supabase and return its response.
+$to_boolean = function ($value) {
+
+    if (is_bool($value)) {
+        return $value;
+    }
+
+    if (is_numeric($value)) {
+        return (bool) $value;
+    }
+
+    if (is_string($value)) {
+        return in_array(
+            strtolower(trim($value)),
+            ['true', '1', 'yes', 'on'],
+            true
+        );
+    }
+
+    return false;
+};
+
+
+// ==========================================
+// SUPABASE REQUEST HELPER
+// ==========================================
+
 $supabase_request = function (
     $url,
     $method = 'GET',
@@ -65,31 +90,271 @@ $supabase_request = function (
     $timeout = 20
 ) use ($get_status_code) {
 
+    $request_headers = $headers;
+
+    if ($payload !== null) {
+        $request_headers[] = 'Content-Type: application/json';
+    }
+
     $options = [
         'http' => [
             'method' => $method,
-            'header' => implode("\r\n", $headers),
+            'header' => implode("\r\n", $request_headers),
             'ignore_errors' => true,
             'timeout' => $timeout
         ]
     ];
 
     if ($payload !== null) {
-        $options['http']['content'] = json_encode($payload);
+
+        $json_payload = json_encode($payload);
+
+        if ($json_payload === false) {
+            return [
+                'success' => false,
+                'status' => 0,
+                'body' => false,
+                'data' => null
+            ];
+        }
+
+        $options['http']['content'] = $json_payload;
     }
 
     $context = stream_context_create($options);
 
-    $response = @file_get_contents($url, false, $context);
+    $response = @file_get_contents(
+        $url,
+        false,
+        $context
+    );
 
-    // Capture response headers immediately after the request.
+    // Capture response headers immediately.
     $response_headers = $http_response_header ?? [];
 
+    $status = $get_status_code($response_headers);
+
     return [
-        'status' => $get_status_code($response_headers),
+        'success' => (
+            $response !== false &&
+            $status >= 200 &&
+            $status < 300
+        ),
+        'status' => $status,
         'body' => $response,
-        'data' => json_decode($response ?: '', true)
+        'data' => $response !== false
+            ? json_decode($response, true)
+            : null
     ];
+};
+
+
+// ==========================================
+// SUPABASE HEADERS
+// ==========================================
+
+$worker_headers = [
+    'apikey: ' . SUPABASE_KEY,
+    'Authorization: Bearer ' . $access_token,
+    'Accept: application/json'
+];
+
+
+$service_headers = [];
+
+if (
+    defined('SUPABASE_SERVICE_ROLE_KEY') &&
+    !empty(SUPABASE_SERVICE_ROLE_KEY)
+) {
+
+    $service_headers = [
+        'apikey: ' . SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization: Bearer ' . SUPABASE_SERVICE_ROLE_KEY,
+        'Accept: application/json'
+    ];
+}
+
+
+// ==========================================
+// EMAIL NOTIFICATION HELPER
+// ==========================================
+
+$send_employer_notification = function (
+    $invitation_id,
+    $invitation_before,
+    $decision,
+    $invitation_type
+) use (
+    $supabase_request,
+    $service_headers,
+    $to_boolean
+) {
+
+    try {
+
+        if (empty($service_headers)) {
+            throw new Exception(
+                'Supabase service role key is not configured.'
+            );
+        }
+
+        if (!is_array($invitation_before)) {
+            throw new Exception(
+                'Invitation details were not available.'
+            );
+        }
+
+        $employer_id = $invitation_before['employer_id'] ?? '';
+
+        if (empty($employer_id)) {
+            throw new Exception('Employer ID is missing.');
+        }
+
+
+        // ======================================
+        // GET EMPLOYER EMAIL
+        // ======================================
+
+        $employer_url = SUPABASE_URL .
+            '/auth/v1/admin/users/' .
+            rawurlencode($employer_id);
+
+        $employer_result = $supabase_request(
+            $employer_url,
+            'GET',
+            $service_headers,
+            null,
+            20
+        );
+
+        if (!$employer_result['success']) {
+
+            throw new Exception(
+                'Unable to retrieve employer email. HTTP ' .
+                    $employer_result['status'] .
+                    '. Response: ' .
+                    substr((string) $employer_result['body'], 0, 1000)
+            );
+        }
+
+        $employer_email = $employer_result['data']['email'] ?? '';
+
+        if (
+            !is_string($employer_email) ||
+            !filter_var($employer_email, FILTER_VALIDATE_EMAIL)
+        ) {
+            throw new Exception(
+                'Employer email address is missing or invalid.'
+            );
+        }
+
+
+        // ======================================
+        // GET EMPLOYER NAME
+        // ======================================
+
+        $employer_name =
+            $invitation_before['profiles']['full_name']
+            ?? 'Employer';
+
+
+        // ======================================
+        // GET JOB TITLE
+        // ======================================
+
+        $job_title =
+            $invitation_before['jobs']['title']
+            ?? 'Job Opportunity';
+
+
+        // ======================================
+        // GET WORKER NAME
+        // ======================================
+
+        $worker_name =
+            $_SESSION['user']['user_metadata']['full_name']
+            ?? $_SESSION['user']['full_name']
+            ?? 'Worker';
+
+
+        // ======================================
+        // GET INTERVIEW DATE
+        // ======================================
+
+        $interview_at =
+            $invitation_before['interview_at'] ?? null;
+
+
+        // ======================================
+        // GENERATE EMAIL TEMPLATE
+        // ======================================
+
+        if (!function_exists('invitationResponseEmail')) {
+            throw new Exception(
+                'invitationResponseEmail() template is unavailable.'
+            );
+        }
+
+        $email_body = invitationResponseEmail(
+            $employer_name,
+            $worker_name,
+            $job_title,
+            $invitation_type,
+            $decision,
+            $interview_at
+        );
+
+
+        // ======================================
+        // SEND EMAIL
+        // ======================================
+
+        if (!isEmailConfigured()) {
+            throw new Exception(
+                'SMTP is not configured. Check your email configuration.'
+            );
+        }
+
+        $email_subject = (
+            $decision === 'accepted'
+            ? 'Invitation Accepted - WorkPulse'
+            : 'Invitation Declined - WorkPulse'
+        );
+
+        $email_sent = sendEmail(
+            $employer_email,
+            $email_subject,
+            $email_body
+        );
+
+        if (!$email_sent) {
+
+            $email_error = function_exists('getEmailError')
+                ? getEmailError()
+                : 'Unknown SMTP error.';
+
+            throw new Exception(
+                'SMTP failed to send the email: ' . $email_error
+            );
+        }
+
+        error_log(
+            'WorkPulse: Invitation response email sent successfully. ' .
+                'Invitation ID: ' . $invitation_id .
+                ' | Employer: ' . $employer_email
+        );
+
+        return true;
+    } catch (Throwable $exception) {
+
+        error_log(
+            'WorkPulse: Employer invitation notification failed. ' .
+                'Invitation ID: ' . $invitation_id .
+                ' | Error: ' . $exception->getMessage()
+        );
+
+        return false;
+    }
 };
 
 
@@ -121,7 +386,10 @@ if (
 
     if (
         empty($_POST['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
+        !hash_equals(
+            $_SESSION['csrf_token'],
+            $_POST['csrf_token']
+        )
     ) {
 
         $_SESSION['invitation_message'] =
@@ -168,49 +436,52 @@ if (
 
 
     // ======================================
-    // 3. GET INVITATION DETAILS
+    // 3. GET INVITATION DETAILS BEFORE RPC
     // ======================================
-
-    // Retrieve details before changing the invitation.
-    // These details are used for the employer notification.
 
     $invitation_before = null;
 
-    $invitation_lookup_url = SUPABASE_URL .
-        '/rest/v1/invitations?' .
-        'select=id,employer_id,worker_id,application_id,status,interview_at,' .
-        'jobs(title),' .
-        'profiles!invitations_employer_id_fkey(full_name)' .
-        '&id=eq.' . rawurlencode($invitation_id) .
-        '&worker_id=eq.' . rawurlencode($worker_id) .
-        '&limit=1';
-
-    $lookup = $supabase_request(
-        $invitation_lookup_url,
-        'GET',
-        [
-            'apikey: ' . SUPABASE_KEY,
-            'Authorization: Bearer ' . $access_token,
-            'Accept: application/json'
-        ]
-    );
-
-    if (
-        $lookup['status'] >= 200 &&
-        $lookup['status'] < 300 &&
-        is_array($lookup['data']) &&
-        !empty($lookup['data'][0])
-    ) {
-
-        $invitation_before = $lookup['data'][0];
-    } else {
+    if (empty($service_headers)) {
 
         error_log(
-            'WorkPulse invitation lookup failed. ' .
-                'Invitation ID: ' . $invitation_id .
-                ' | HTTP Status: ' . $lookup['status'] .
-                ' | Response: ' . substr((string) $lookup['body'], 0, 1000)
+            'WorkPulse: Cannot retrieve invitation notification details. ' .
+                'SUPABASE_SERVICE_ROLE_KEY is not configured.'
         );
+    } else {
+
+        $invitation_lookup_url = SUPABASE_URL .
+            '/rest/v1/invitations?' .
+            'select=id,employer_id,worker_id,application_id,status,' .
+            'interview_at,interview_type,meeting_details,meeting_link,' .
+            'jobs(title),' .
+            'profiles!invitations_employer_id_fkey(full_name)' .
+            '&id=eq.' . rawurlencode($invitation_id) .
+            '&worker_id=eq.' . rawurlencode($worker_id) .
+            '&limit=1';
+
+        $lookup = $supabase_request(
+            $invitation_lookup_url,
+            'GET',
+            $service_headers
+        );
+
+        if (
+            $lookup['success'] &&
+            is_array($lookup['data']) &&
+            !empty($lookup['data'][0])
+        ) {
+
+            $invitation_before = $lookup['data'][0];
+        } else {
+
+            error_log(
+                'WorkPulse: Invitation lookup failed. ' .
+                    'Invitation ID: ' . $invitation_id .
+                    ' | HTTP Status: ' . $lookup['status'] .
+                    ' | Response: ' .
+                    substr((string) $lookup['body'], 0, 1000)
+            );
+        }
     }
 
 
@@ -224,12 +495,7 @@ if (
     $rpc = $supabase_request(
         $rpc_url,
         'POST',
-        [
-            'apikey: ' . SUPABASE_KEY,
-            'Authorization: Bearer ' . $access_token,
-            'Content-Type: application/json',
-            'Accept: application/json'
-        ],
+        $worker_headers,
         [
             'p_invitation_id' => $invitation_id,
             'p_decision' => $decision
@@ -238,251 +504,160 @@ if (
     );
 
     $result = $rpc['data'];
-    $status_code = $rpc['status'];
 
 
     // ======================================
-    // 5. HANDLE RPC RESULT
+    // 5. HANDLE RPC RESPONSE
     // ======================================
+
+    // Support both JSON object and single-row array responses.
+
+    $rpc_data = $result;
 
     if (
-        $status_code >= 200 &&
-        $status_code < 300 &&
         is_array($result) &&
-        !empty($result['success'])
+        isset($result[0]) &&
+        is_array($result[0])
+    ) {
+        $rpc_data = $result[0];
+    }
+
+
+    $rpc_success = $rpc['success'];
+
+    if (
+        is_array($rpc_data) &&
+        array_key_exists('success', $rpc_data)
     ) {
 
-        $invitation_type = $result['invitation_type'] ?? '';
+        $rpc_success = (
+            $rpc_success &&
+            $to_boolean($rpc_data['success'])
+        );
+    }
+
+
+    if ($rpc_success) {
+
+        $invitation_type =
+            $rpc_data['invitation_type'] ?? 'job';
 
         $response_changed = (
-            isset($result['response_changed']) &&
-            $result['response_changed'] === true
-        );
+            is_array($rpc_data) &&
+            array_key_exists('response_changed', $rpc_data)
+        )
+            ? $to_boolean($rpc_data['response_changed'])
+            : false;
 
 
         // ==================================
-        // 6. SEND EMPLOYER NOTIFICATION
+        // 6. SEND EMPLOYER EMAIL
         // ==================================
 
-        // Only send when the database confirms
-        // that this request changed the invitation.
+        $email_notification_failed = false;
 
         if ($response_changed) {
 
-            try {
+            $email_sent = $send_employer_notification(
+                $invitation_id,
+                $invitation_before,
+                $decision,
+                $invitation_type
+            );
 
-                if (!is_array($invitation_before)) {
-                    throw new Exception(
-                        'Invitation details could not be retrieved.'
-                    );
-                }
-
-                $employer_id =
-                    $invitation_before['employer_id'] ?? '';
-
-                $employer_name =
-                    $invitation_before['profiles']['full_name']
-                    ?? 'Employer';
-
-                $job_title =
-                    $invitation_before['jobs']['title']
-                    ?? 'Job Opportunity';
-
-                $interview_at =
-                    $invitation_before['interview_at'] ?? null;
-
-
-                // Get worker name from the session.
-                $worker_name =
-                    $_SESSION['user']['user_metadata']['full_name']
-                    ?? $_SESSION['user']['full_name']
-                    ?? 'Worker';
-
-
-                // Validate employer ID.
-                if ($employer_id === '') {
-                    throw new Exception('Employer ID is missing.');
-                }
-
-
-                // ==================================
-                // RETRIEVE EMPLOYER EMAIL
-                // ==================================
-
-                if (
-                    !defined('SUPABASE_SERVICE_ROLE_KEY') ||
-                    SUPABASE_SERVICE_ROLE_KEY === ''
-                ) {
-                    throw new Exception(
-                        'Supabase service role key is not configured.'
-                    );
-                }
-
-                $employer_url = SUPABASE_URL .
-                    '/auth/v1/admin/users/' .
-                    rawurlencode($employer_id);
-
-                $employer = $supabase_request(
-                    $employer_url,
-                    'GET',
-                    [
-                        'apikey: ' . SUPABASE_SERVICE_ROLE_KEY,
-                        'Authorization: Bearer ' . SUPABASE_SERVICE_ROLE_KEY,
-                        'Accept: application/json'
-                    ]
-                );
-
-                $employer_data = $employer['data'];
-
-                if (
-                    $employer['status'] < 200 ||
-                    $employer['status'] >= 300 ||
-                    !is_array($employer_data) ||
-                    empty($employer_data['email']) ||
-                    !filter_var(
-                        $employer_data['email'],
-                        FILTER_VALIDATE_EMAIL
-                    )
-                ) {
-
-                    throw new Exception(
-                        'Unable to retrieve a valid employer email address. ' .
-                            'HTTP Status: ' . $employer['status']
-                    );
-                }
-
-
-                // ==================================
-                // GENERATE EMAIL TEMPLATE
-                // ==================================
-
-                if (!function_exists('invitationResponseEmail')) {
-                    throw new Exception(
-                        'Invitation response email template is unavailable.'
-                    );
-                }
-
-                $email_body = invitationResponseEmail(
-                    $employer_name,
-                    $worker_name,
-                    $job_title,
-                    $invitation_type,
-                    $decision,
-                    $interview_at
-                );
-
-
-                // ==================================
-                // SEND EMAIL
-                // ==================================
-
-                $email_sent = sendEmail(
-                    $employer_data['email'],
-                    'Invitation Response - WorkPulse',
-                    $email_body
-                );
-
-                if (!$email_sent) {
-
-                    $email_error = function_exists('getEmailError')
-                        ? getEmailError()
-                        : 'Unknown SMTP error.';
-
-                    error_log(
-                        'WorkPulse employer notification failed. ' .
-                            'Invitation ID: ' . $invitation_id .
-                            ' | Email Error: ' . $email_error
-                    );
-                }
-            } catch (Throwable $exception) {
-
-                // Email failure must not undo the database response.
-                error_log(
-                    'WorkPulse employer notification error. ' .
-                        'Invitation ID: ' . $invitation_id .
-                        ' | Error: ' . $exception->getMessage()
-                );
+            if (!$email_sent) {
+                $email_notification_failed = true;
             }
-        } elseif (!array_key_exists('response_changed', $result)) {
+        } else {
 
-            // This usually means the database is using an older RPC.
+            // No change means this request should not send
+            // another email notification.
+
             error_log(
-                'WorkPulse RPC did not return response_changed. ' .
-                    'Check whether the latest invitation migration is applied. ' .
+                'WorkPulse: Invitation response was not changed. ' .
+                    'Email notification skipped. ' .
                     'Invitation ID: ' . $invitation_id
             );
         }
 
 
-        // ======================================
-        // 7. WORKER FLASH MESSAGE
-        // ======================================
+        // ==================================
+        // 7. SUCCESS MESSAGE
+        // ==================================
 
         if (
             $invitation_type === 'job' &&
             $decision === 'accepted'
         ) {
 
-            $_SESSION['invitation_message'] =
+            $success_message =
                 'Job invitation accepted! Your application has been created or linked to this opportunity. You are not officially hired yet.';
         } elseif (
             $invitation_type === 'job' &&
             $decision === 'declined'
         ) {
 
-            $_SESSION['invitation_message'] =
+            $success_message =
                 'You declined the job invitation.';
         } elseif (
             $invitation_type === 'interview' &&
             $decision === 'accepted'
         ) {
 
-            $_SESSION['invitation_message'] =
+            $success_message =
                 'Interview confirmed! Please review your interview schedule and meeting details. This does not mean you have accepted a job offer.';
         } elseif (
             $invitation_type === 'interview' &&
             $decision === 'declined'
         ) {
 
-            $_SESSION['invitation_message'] =
+            $success_message =
                 'You declined the interview invitation. Your application remains available for the employer to review.';
         } else {
 
-            $_SESSION['invitation_message'] =
+            $success_message =
                 'Your invitation response was saved.';
         }
 
-        $_SESSION['invitation_message_type'] = 'success';
+
+        if ($email_notification_failed) {
+
+            $_SESSION['invitation_message'] =
+                $success_message .
+                ' However, the email notification could not be sent to the employer. Your response was still saved.';
+
+            $_SESSION['invitation_message_type'] = 'warning';
+        } else {
+
+            $_SESSION['invitation_message'] = $success_message;
+            $_SESSION['invitation_message_type'] = 'success';
+        }
     } else {
 
         // ==================================
-        // 8. HANDLE RPC ERROR
+        // 8. RPC ERROR
         // ==================================
 
         $error_message = 'Unknown Supabase error.';
 
-        if (is_array($result)) {
+        if (is_array($rpc_data)) {
 
             $error_message =
-                $result['message']
-                ?? $result['error']
-                ?? $result['details']
+                $rpc_data['message']
+                ?? $rpc_data['error']
+                ?? $rpc_data['details']
                 ?? $error_message;
         }
 
-        // Log the actual response for debugging.
-        // Never log access tokens or service role keys.
-
         error_log(
-            'WorkPulse invitation RPC failed. ' .
+            'WorkPulse: Invitation RPC failed. ' .
                 'Invitation ID: ' . $invitation_id .
-                ' | HTTP Status: ' . $status_code .
-                ' | Error: ' . $error_message .
-                ' | Response: ' . substr((string) $rpc['body'], 0, 1500)
+                ' | HTTP Status: ' . $rpc['status'] .
+                ' | Response: ' .
+                substr((string) $rpc['body'], 0, 1500)
         );
 
 
-        // Show a useful message to the worker.
         if (
             stripos($error_message, 'cancelled') !== false ||
             stripos($error_message, 'canceled') !== false ||
@@ -498,18 +673,17 @@ if (
 
             $_SESSION['invitation_message'] =
                 'You have already responded to this invitation. Please refresh the page.';
-        } elseif ($status_code === 401 || $status_code === 403) {
+        } elseif (
+            $rpc['status'] === 401 ||
+            $rpc['status'] === 403
+        ) {
 
             $_SESSION['invitation_message'] =
                 'Your session or account does not have permission to respond. Please log in again.';
-        } elseif ($status_code === 404 || $status_code === 400) {
-
-            $_SESSION['invitation_message'] =
-                'The invitation request could not be processed. Check the invitation status and database configuration.';
         } else {
 
             $_SESSION['invitation_message'] =
-                'Unable to process your response. Please try again. If the problem continues, check the PHP error log.';
+                'Unable to process your response. Please try again.';
         }
 
         $_SESSION['invitation_message_type'] = 'danger';
@@ -538,11 +712,7 @@ $url = SUPABASE_URL .
 $invitations_response = $supabase_request(
     $url,
     'GET',
-    [
-        'apikey: ' . SUPABASE_KEY,
-        'Authorization: Bearer ' . $access_token,
-        'Accept: application/json'
-    ],
+    $worker_headers,
     null,
     30
 );
@@ -556,8 +726,7 @@ $invitations = $invitations_response['data'];
 // ==========================================
 
 if (
-    $status_code < 200 ||
-    $status_code >= 300 ||
+    !$invitations_response['success'] ||
     !is_array($invitations)
 ) {
 
@@ -587,10 +756,20 @@ $accepted_count = 0;
 
 foreach ($invitations as $invitation) {
 
-    if (empty($invitation['application_id'])) {
-        $job_invitations[] = $invitation;
-    } else {
+    // Use interview-specific fields instead of application_id.
+    // A job invitation may acquire an application_id after acceptance.
+
+    $is_interview = (
+        !empty($invitation['interview_at']) ||
+        !empty($invitation['interview_type']) ||
+        !empty($invitation['meeting_details']) ||
+        !empty($invitation['meeting_link'])
+    );
+
+    if ($is_interview) {
         $interview_invitations[] = $invitation;
+    } else {
+        $job_invitations[] = $invitation;
     }
 
     if (($invitation['status'] ?? '') === 'pending') {
@@ -809,7 +988,7 @@ require_once '../../includes/header.php';
                                 ?? 'Job no longer available';
 
 
-                            // Invitation creation date.
+                            // INVITATION DATE
 
                             $created_at = 'Unknown date';
 
@@ -826,7 +1005,7 @@ require_once '../../includes/header.php';
                             }
 
 
-                            // Invitation status.
+                            // STATUS
 
                             $status_class = 'neutral';
                             $status_label = ucfirst($status);
@@ -853,7 +1032,7 @@ require_once '../../includes/header.php';
                             }
 
 
-                            // Interview type.
+                            // INTERVIEW TYPE
 
                             $interview_type = $invitation['interview_type'] ?? '';
 
@@ -869,7 +1048,7 @@ require_once '../../includes/header.php';
                                 ?? 'Not specified';
 
 
-                            // Interview schedule.
+                            // INTERVIEW SCHEDULE
 
                             $interview_date = 'Not scheduled';
 
@@ -886,7 +1065,7 @@ require_once '../../includes/header.php';
                             }
 
 
-                            // Validate demo meeting link.
+                            // MEETING LINK
 
                             $meeting_link = trim(
                                 $invitation['meeting_link'] ?? ''
@@ -900,6 +1079,7 @@ require_once '../../includes/header.php';
                                 );
 
                             ?>
+
 
                             <article class="wp-invitation-card">
 

@@ -51,7 +51,7 @@ $supabase_request = function (
 
         if (
             !defined('SUPABASE_SERVICE_ROLE_KEY') ||
-            SUPABASE_SERVICE_ROLE_KEY === ''
+            empty(SUPABASE_SERVICE_ROLE_KEY)
         ) {
             return [
                 'success' => false,
@@ -110,7 +110,6 @@ $supabase_request = function (
     );
 
     $response_headers = $http_response_header ?? [];
-
     $status_code = 0;
 
     foreach ($response_headers as $header) {
@@ -148,6 +147,41 @@ $is_valid_uuid = function ($value) {
 };
 
 
+// Convert Supabase boolean values safely.
+
+$to_boolean = function ($value, $default = false) {
+
+    if ($value === null) {
+        return $default;
+    }
+
+    if (is_bool($value)) {
+        return $value;
+    }
+
+    if (is_numeric($value)) {
+        return (bool) $value;
+    }
+
+    if (is_string($value)) {
+
+        $value = strtolower(trim($value));
+
+        if (in_array($value, ['true', '1', 'yes', 'on'], true)) {
+            return true;
+        }
+
+        if (in_array($value, ['false', '0', 'no', 'off', ''], true)) {
+            return false;
+        }
+    }
+
+    return $default;
+};
+
+
+// Retrieve a worker's email through Supabase Auth Admin.
+
 $get_worker_email = function ($worker_id) use ($supabase_request) {
 
     if (empty($worker_id)) {
@@ -166,7 +200,14 @@ $get_worker_email = function ($worker_id) use ($supabase_request) {
     );
 
     if (!$result['success'] || !is_array($result['data'])) {
-        error_log('WorkPulse: Unable to retrieve worker email.');
+
+        error_log(
+            'WorkPulse: Unable to retrieve worker email. HTTP status: ' .
+                ($result['status'] ?? 0) .
+                '. Response: ' .
+                json_encode($result['data'])
+        );
+
         return null;
     }
 
@@ -182,6 +223,8 @@ $get_worker_email = function ($worker_id) use ($supabase_request) {
     return $email;
 };
 
+
+// Retrieve a worker's profile.
 
 $get_worker_profile = function ($worker_id) use ($supabase_request) {
 
@@ -204,9 +247,8 @@ $get_worker_profile = function ($worker_id) use ($supabase_request) {
 };
 
 
-// Remembers why the last email failed.
-// '' = no problem, 'worker_email' = email address not found,
-// 'smtp' = the SMTP server did not accept the message.
+// Email error tracking.
+
 $email_problem = '';
 
 $notify_worker = function (
@@ -224,6 +266,12 @@ $notify_worker = function (
         return false;
     }
 
+    if (!isEmailConfigured()) {
+        $email_problem = 'smtp';
+        error_log('WorkPulse: SMTP is not configured.');
+        return false;
+    }
+
     $email_sent = sendEmail(
         $worker_email,
         $subject,
@@ -232,13 +280,19 @@ $notify_worker = function (
 
     if (!$email_sent) {
         $email_problem = 'smtp';
+
+        error_log(
+            'WorkPulse: Failed to send email to worker. ' .
+                getEmailError()
+        );
     }
 
     return $email_sent;
 };
 
 
-// Short sentence added to the page message after an email attempt.
+// Email feedback.
+
 $email_note = function ($email_sent) use (&$email_problem) {
 
     if ($email_sent) {
@@ -246,14 +300,14 @@ $email_note = function ($email_sent) use (&$email_problem) {
     }
 
     if ($email_problem === 'worker_email') {
-        return ' However, the worker email address could not be retrieved, so no email was sent. Check SUPABASE_SERVICE_ROLE_KEY.';
+        return ' However, the worker email address could not be retrieved. Check SUPABASE_SERVICE_ROLE_KEY.';
     }
 
-    return ' However, the email notification could not be sent. Please check the SMTP settings.';
+    return ' However, the email notification could not be sent. Please check your SMTP settings.';
 };
 
 
-// Only allow the generated WorkPulse demo meeting URL format.
+// Validate the WorkPulse demo meeting link format.
 
 $is_valid_demo_meeting_link = function ($url) {
 
@@ -290,7 +344,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message_type = 'error';
         } else {
 
-            // Verify that this application belongs to the employer.
+            // Verify application ownership.
 
             $application_url = SUPABASE_URL .
                 '/rest/v1/applications?select=id,worker_id,job_id,status,application_statement,jobs!inner(title,company_name,status,interview_required)' .
@@ -311,11 +365,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $application_data = $application_result['data'][0];
 
-                $worker_id = $application_data['worker_id'];
+                $worker_id = $application_data['worker_id'] ?? '';
                 $application_status = $application_data['status'] ?? '';
 
-                $job_title = $application_data['jobs']['title']
-                    ?? 'the job position';
+                $job = $application_data['jobs'] ?? [];
+
+                $job_title = $job['title'] ?? 'the job position';
 
                 $worker_profile = $get_worker_profile($worker_id);
 
@@ -358,9 +413,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         $message = 'This application is no longer eligible for an interview invitation.';
                         $message_type = 'error';
-                    } elseif (
-                        ($application_data['jobs']['status'] ?? 'open') !== 'open'
-                    ) {
+                    } elseif (($job['status'] ?? 'open') !== 'open') {
 
                         $message = 'This job is closed. Reopen the job before scheduling an interview.';
                         $message_type = 'error';
@@ -378,18 +431,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $message_type = 'error';
                     } else {
 
-                        $interview_at = null;
-
                         try {
+
+                            $timezone = new DateTimeZone('Asia/Manila');
 
                             $interview_date = new DateTimeImmutable(
                                 $interview_at_input,
-                                new DateTimeZone('Asia/Manila')
+                                $timezone
                             );
 
                             $current_time = new DateTimeImmutable(
                                 'now',
-                                new DateTimeZone('Asia/Manila')
+                                $timezone
                             );
 
                             if ($interview_date <= $current_time) {
@@ -401,17 +454,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $interview_at = $interview_date->format(
                                     'Y-m-d\TH:i:sP'
                                 );
-                            }
-                        } catch (Exception $exception) {
-
-                            $message = 'Invalid interview date and time.';
-                            $message_type = 'error';
-                        }
-
-
-                        if ($message === '' && $interview_at !== null) {
-
-                            try {
 
                                 // Generate a unique demo meeting link.
                                 // This does not create a real meeting room.
@@ -421,9 +463,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     bin2hex(random_bytes(2));
 
 
-                                // The database RPC validates the application
-                                // status and checks the latest interview.
-                                // It also prevents duplicate pending invitations.
+                                // Save the interview invitation first.
 
                                 $rpc_url = SUPABASE_URL .
                                     '/rest/v1/rpc/send_application_interview_invitation';
@@ -443,20 +483,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     $rpc_data
                                 );
 
+                                $rpc_response = $rpc_result['data'] ?? null;
+
+                                // Handle either an object or an array RPC response.
+
+                                $rpc_response_data = $rpc_response;
 
                                 if (
-                                    $rpc_result['success'] &&
-                                    !empty($rpc_result['data']['success'])
+                                    is_array($rpc_response) &&
+                                    isset($rpc_response[0]) &&
+                                    is_array($rpc_response[0])
                                 ) {
+                                    $rpc_response_data = $rpc_response[0];
+                                }
 
-                                    if (!empty($rpc_result['data']['already_exists'])) {
+                                $rpc_success = $rpc_result['success'];
+
+                                if (
+                                    is_array($rpc_response_data) &&
+                                    array_key_exists('success', $rpc_response_data)
+                                ) {
+                                    $rpc_success = $rpc_success &&
+                                        $to_boolean($rpc_response_data['success']);
+                                }
+
+                                if (!$rpc_success) {
+
+                                    $error_message = 'Unable to send the interview invitation.';
+
+                                    if (is_array($rpc_response_data)) {
+                                        $error_message =
+                                            $rpc_response_data['message']
+                                            ?? $error_message;
+                                    }
+
+                                    error_log(
+                                        'WorkPulse interview invitation RPC failed. HTTP status: ' .
+                                            ($rpc_result['status'] ?? 0) .
+                                            '. Response: ' .
+                                            json_encode($rpc_response)
+                                    );
+
+                                    $message = $error_message;
+                                    $message_type = 'error';
+                                } else {
+
+                                    $already_exists = (
+                                        is_array($rpc_response_data) &&
+                                        $to_boolean($rpc_response_data['already_exists'] ?? false)
+                                    );
+
+                                    if ($already_exists) {
 
                                         $message = 'An active interview invitation already exists for this applicant.';
-                                        $message_type = 'success';
+                                        $message_type = 'info';
                                     } else {
 
-                                        // Database action succeeded.
-                                        // Email failure does not undo the invitation.
+                                        // Database invitation succeeded.
+                                        // Send the email notification afterward.
 
                                         $email_body = interviewInvitationEmail(
                                             $worker_name,
@@ -479,27 +563,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                                         $message_type = 'success';
                                     }
-                                } else {
-
-                                    $message = is_array($rpc_result['data'])
-                                        ? (
-                                            $rpc_result['data']['message'] ??
-                                            'Unable to send the interview invitation.'
-                                        )
-                                        : 'Unable to send the interview invitation.';
-
-                                    $message_type = 'error';
                                 }
-                            } catch (Throwable $exception) {
-
-                                error_log(
-                                    'WorkPulse interview invitation error: ' .
-                                        $exception->getMessage()
-                                );
-
-                                $message = 'Unable to generate or send the interview invitation. Please try again.';
-                                $message_type = 'error';
                             }
+                        } catch (Throwable $exception) {
+
+                            error_log(
+                                'WorkPulse interview invitation error: ' .
+                                    $exception->getMessage()
+                            );
+
+                            $message = 'Unable to process the interview invitation. Please try again.';
+                            $message_type = 'error';
                         }
                     }
                 }
@@ -530,7 +604,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $message_type = 'error';
                     } else {
 
-                        // Check whether the worker accepted a formal offer.
+                        // Check whether the worker accepted an offer.
 
                         $accepted_offer_url = SUPABASE_URL .
                             '/rest/v1/employment_offers?select=id' .
@@ -568,12 +642,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $reject_result['success'] &&
                                 !empty($reject_result['data'][0])
                             ) {
-
-                                // The database trigger automatically cancels
-                                // pending interview invitations when the
-                                // application becomes rejected.
-                                //
-                                // Do not manually update invitation records here.
 
                                 $email_body = applicationStatusEmail(
                                     $worker_name,
@@ -658,9 +726,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // 5D. APPROVE APPLICATION FOR AN OFFER
                 // ==========================================
 
-                // Approving moves the application to "accepted".
-                // After that, the employer can send an employment offer.
-
                 elseif (isset($_POST['approve_application'])) {
 
                     $approvable_statuses = [
@@ -669,11 +734,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'interview'
                     ];
 
-                    // If the job does not say otherwise,
-                    // an interview is required.
-
-                    $interview_required =
-                        $application_data['jobs']['interview_required'] ?? true;
+                    $interview_required = $to_boolean(
+                        $job['interview_required'] ?? null,
+                        true
+                    );
 
                     if (
                         !in_array(
@@ -712,7 +776,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $latest_interview_result['data'][0]['status'] ?? null;
 
                             if (
-                                $interview_required !== false &&
+                                $interview_required &&
                                 $latest_interview_status !== 'accepted'
                             ) {
 
@@ -783,7 +847,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ==========================================
 
 $applications_url = SUPABASE_URL .
-    '/rest/v1/applications?select=id,worker_id,job_id,application_statement,status,applied_at,resume_path,source,invitation_id,jobs!inner(title,company_name,hourly_rate,employment_type,work_schedule)' .
+    '/rest/v1/applications?select=id,worker_id,job_id,application_statement,status,applied_at,resume_path,source,invitation_id,jobs!inner(title,company_name,hourly_rate,employment_type,work_schedule,interview_required)' .
     '&jobs.employer_id=eq.' . rawurlencode($employer_id) .
     '&order=applied_at.desc&limit=1000';
 
@@ -862,9 +926,6 @@ if (!$applications_result['success']) {
 
             $all_invitations = $invitation_result['data'];
 
-            // Keep interview invitations only.
-            // Direct job invitations are not interview history.
-
             $interview_invitations = array_values(
                 array_filter(
                     $all_invitations,
@@ -940,7 +1001,6 @@ foreach ($interview_invitations as $invitation) {
 
 
 // Map invitation IDs to application IDs.
-// This supports older invitation-linked employment offers.
 
 $invitation_application_map = [];
 
@@ -975,9 +1035,6 @@ foreach ($employment_details as $details) {
         $matched_application_id =
             $invitation_application_map[$details['invitation_id']] ?? null;
     }
-
-    // Offers are ordered newest first.
-    // Keep only the latest offer for each application.
 
     if (
         !empty($matched_application_id) &&
@@ -1183,7 +1240,6 @@ require_once '../../includes/header.php';
                     $application_invitations =
                         $invitation_map[$application['id']] ?? [];
 
-                    // Invitations are ordered newest first.
                     $latest_invitation =
                         $application_invitations[0] ?? null;
 
@@ -1204,17 +1260,7 @@ require_once '../../includes/header.php';
                         : 'Job Application';
 
 
-                    // ==========================================
                     // INTERVIEW PERMISSION
-                    // ==========================================
-
-                    // A new interview can only be scheduled when:
-                    // 1. The application is active.
-                    // 2. There is no previous interview invitation,
-                    //    OR the latest interview invitation was declined.
-                    //
-                    // Pending, accepted, and cancelled invitations
-                    // must not allow another interview invitation.
 
                     $latest_invitation_status =
                         $latest_invitation['status'] ?? null;
@@ -1232,9 +1278,7 @@ require_once '../../includes/header.php';
                     );
 
 
-                    // ==========================================
                     // REJECTION PERMISSION
-                    // ==========================================
 
                     $can_reject = (
                         in_array(
@@ -1246,15 +1290,12 @@ require_once '../../includes/header.php';
                     );
 
 
-                    // ==========================================
                     // SHORTLIST AND APPROVAL PERMISSION
-                    // ==========================================
 
-                    // Jobs require an interview unless the employer
-                    // turned that setting off.
-
-                    $job_requires_interview =
-                        ($job['interview_required'] ?? true) !== false;
+                    $job_requires_interview = $to_boolean(
+                        $job['interview_required'] ?? null,
+                        true
+                    );
 
                     $interview_confirmed =
                         ($latest_invitation_status === 'accepted');
@@ -1282,12 +1323,7 @@ require_once '../../includes/header.php';
                     );
 
 
-                    // ==========================================
                     // EMPLOYMENT OFFER PERMISSION
-                    // ==========================================
-
-                    // Application accepted = employer approved the candidate.
-                    // Offer accepted = worker accepted the employment terms.
 
                     $can_prepare_offer = (
                         $application_status === 'accepted' &&
@@ -1307,9 +1343,7 @@ require_once '../../includes/header.php';
                     );
 
 
-                    // ==========================================
                     // APPLICATION STATUS LABELS
-                    // ==========================================
 
                     $status_labels = [
                         'pending' => 'Pending Review',
