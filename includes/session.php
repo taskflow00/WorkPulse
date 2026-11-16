@@ -314,5 +314,3 @@ function workpulse_end_session(): void
         'samesite' => $cookie['samesite'] ?? 'Lax'
     ]);
 }
-
-?>
