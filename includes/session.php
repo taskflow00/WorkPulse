@@ -1,6 +1,17 @@
 <?php
+if (headers_sent($file, $line)) {
+    error_log("WORKPULSE SESSION: Output already started at {$file}:{$line}");
+} else {
+    error_log("WORKPULSE SESSION: No output before session.php");
+}
 
 require_once __DIR__ . '/../config/supabase.php';
+
+if (headers_sent($file, $line)) {
+    error_log("WORKPULSE SESSION: Output started after supabase.php at {$file}:{$line}");
+} else {
+    error_log("WORKPULSE SESSION: Still no output after supabase.php");
+}
 
 // Keep sessions for 30 days.
 define('WORKPULSE_SESSION_LIFETIME', 60 * 60 * 24 * 30);
