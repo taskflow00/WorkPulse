@@ -3,25 +3,32 @@
 
 require_once __DIR__ . '/includes/session.php';
 
-// Check whether a user is logged in.
-$is_logged_in = !empty($_SESSION['user']['id']);
+// Check login status.
+$user = $_SESSION['user'] ?? [];
+$is_logged_in = !empty($user['id']);
 
-// Read the role saved during login.
-$role = $_SESSION['role'] ?? '';
+// Get the user's role from the session.
+$role = strtolower(trim($_SESSION['role'] ?? ''));
 
-// Normalize the role to avoid case or whitespace mismatches.
-$role = strtolower(trim($role));
+// Set the dashboard URL based on the user's role.
+$dashboard_url = '';
 
-// Determine the correct dashboard.
-$dashboards = [
-    'worker' => 'pages/worker/dashboard.php',
-    'employer' => 'pages/employer/dashboard.php',
-    'admin' => 'pages/admin/dashboard.php'
-];
+switch ($role) {
+    case 'worker':
+        $dashboard_url = 'pages/worker/dashboard.php';
+        break;
 
-$dashboard_url = $dashboards[$role] ?? '';
+    case 'employer':
+        $dashboard_url = 'pages/employer/dashboard.php';
+        break;
+
+    case 'admin':
+        $dashboard_url = 'pages/admin/dashboard.php';
+        break;
+}
 
 ?>
+
 
 
 <!DOCTYPE html>
@@ -45,40 +52,48 @@ $dashboard_url = $dashboards[$role] ?? '';
     <div class="wp-landing">
 
         <!-- NAVIGATION -->
-        <nav class="wp-landing-nav">
+        
+<!-- NAVIGATION -->
+<nav class="wp-landing-nav">
 
-            <a href="index.php" class="wp-landing-brand">
-                <span class="landing-brand-icon">
-                    <i class="bi bi-activity"></i>
-                </span>
-                WorkPulse
+    <a href="index.php" class="wp-landing-brand">
+        <span class="landing-brand-icon">
+            <i class="bi bi-activity"></i>
+        </span>
+        WorkPulse
+    </a>
+
+    <div class="wp-landing-nav-links">
+
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="pages/jobs.php">Find Jobs</a>
+
+        <?php if ($is_logged_in): ?>
+
+            <?php if ($dashboard_url !== ''): ?>
+
+                <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>"
+                    class="wp-btn wp-btn-primary">
+                    My Dashboard <i class="bi bi-arrow-up-right"></i>
+                </a>
+
+            <?php endif; ?>
+
+        <?php else: ?>
+
+            <a href="login.php">Sign In</a>
+
+            <a href="register.php" class="wp-btn wp-btn-primary">
+                Get Started <i class="bi bi-arrow-right"></i>
             </a>
 
-            <div class="wp-landing-nav-links">
+        <?php endif; ?>
 
-                <a href="#features">Features</a>
-                <a href="#how-it-works">How It Works</a>
-                <a href="pages/jobs.php">Find Jobs</a>
+    </div>
 
-                <?php if ($is_logged_in && $dashboard_url !== ''): ?>
+</nav>
 
-                    <a href="<?= htmlspecialchars($dashboard_url) ?>" class="wp-btn wp-btn-primary">
-                        My Dashboard <i class="bi bi-arrow-up-right"></i>
-                    </a>
-
-                <?php elseif (!$is_logged_in): ?>
-
-                    <a href="login.php">Sign In</a>
-
-                    <a href="register.php" class="wp-btn wp-btn-primary">
-                        Get Started <i class="bi bi-arrow-right"></i>
-                    </a>
-
-                <?php endif; ?>
-
-            </div>
-
-        </nav>
 
 
         <!-- HERO -->
@@ -102,28 +117,31 @@ $dashboard_url = $dashboards[$role] ?? '';
                     Your next step starts here.
                 </p>
 
-                <div class="wp-hero-actions">
+                
+<div class="wp-hero-actions">
 
-                    <a href="pages/jobs.php" class="wp-btn wp-btn-primary">
-                        Explore Opportunities
-                        <i class="bi bi-arrow-right"></i>
-                    </a>
+    <a href="pages/jobs.php" class="wp-btn wp-btn-primary">
+        Explore Opportunities
+        <i class="bi bi-arrow-right"></i>
+    </a>
 
-                    <?php if (!$is_logged_in): ?>
+    <?php if ($is_logged_in && $dashboard_url !== ''): ?>
 
-                        <a href="register.php" class="wp-btn wp-btn-outline">
-                            Create an Account
-                        </a>
+        <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>"
+            class="wp-btn wp-btn-outline">
+            Go to Dashboard
+        </a>
 
-                    <?php else: ?>
+    <?php elseif (!$is_logged_in): ?>
 
-                        <a href="<?= htmlspecialchars($dashboard_url) ?>" class="wp-btn wp-btn-outline">
-                            Go to Dashboard
-                        </a>
+        <a href="register.php" class="wp-btn wp-btn-outline">
+            Create an Account
+        </a>
 
-                    <?php endif; ?>
+    <?php endif; ?>
 
-                </div>
+</div>
+
 
                 <div class="wp-hero-trust">
                     <span><i class="bi bi-check-circle-fill"></i> Discover opportunities</span>
