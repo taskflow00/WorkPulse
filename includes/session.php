@@ -1,4 +1,4 @@
-<?php
+<?phpadsad
 
 require_once __DIR__ . '/../config/supabase.php';
 
