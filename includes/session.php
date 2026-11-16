@@ -243,6 +243,12 @@ ini_set('session.use_trans_sid', '0');
 ini_set('session.gc_maxlifetime', (string) WORKPULSE_SESSION_LIFETIME);
 ini_set('session.cookie_lifetime', (string) WORKPULSE_SESSION_LIFETIME);
 
+if (headers_sent($file, $line)) {
+    error_log("HEADERS ALREADY SENT: $file:$line");
+} else {
+    error_log("HEADERS NOT SENT YET");
+}
+
 
 // Detect HTTPS, including when running behind a reverse proxy.
 $isSecure = (
