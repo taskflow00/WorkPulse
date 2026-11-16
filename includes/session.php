@@ -25,7 +25,8 @@ class WorkPulseSessionHandler implements
             'apikey: ' . SUPABASE_SERVICE_ROLE_KEY,
             'Authorization: Bearer ' . SUPABASE_SERVICE_ROLE_KEY,
             'Content-Type: application/json',
-            'Accept: application/json'
+            'Accept: application/json',
+            'Prefer: resolution=merge-duplicates'
         ];
 
         $options = [
