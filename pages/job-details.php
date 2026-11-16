@@ -1,4 +1,3 @@
-
 <?php
 
 // Use the shared Supabase-backed session.
