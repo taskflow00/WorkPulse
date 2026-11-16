@@ -38,7 +38,8 @@ $supabase_request = function ($url, $method = 'GET', $data = null) use ($token) 
 
     $headers =
         "apikey: " . SUPABASE_KEY . "\r\n" .
-        "Authorization: Bearer " . $token . "\r\n";
+        "Authorization: Bearer " . $token . "\r\n" .
+        "Accept: application/json\r\n";
 
     if ($data !== null) {
         $headers .= "Content-Type: application/json\r\n";
@@ -62,8 +63,8 @@ $supabase_request = function ($url, $method = 'GET', $data = null) use ($token) 
     $response = @file_get_contents($url, false, $context);
 
     // Read the HTTP status returned by Supabase.
-    $http_status = 0;
     $response_headers = $http_response_header ?? [];
+    $http_status = 0;
 
     foreach ($response_headers as $header) {
         if (preg_match('/^HTTP\/\S+\s+(\d{3})/i', $header, $matches)) {
@@ -74,7 +75,9 @@ $supabase_request = function ($url, $method = 'GET', $data = null) use ($token) 
     return [
         'response' => $response,
         'status' => $http_status,
-        'data' => json_decode($response ?: '', true)
+        'data' => $response !== false
+            ? json_decode($response, true)
+            : null
     ];
 };
 
@@ -183,7 +186,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $uuid_pattern = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
 
+
     // Validate the submitted CSRF token.
+
     if (
         !is_string($submitted_token) ||
         !hash_equals($csrf_token, $submitted_token)
@@ -264,8 +269,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
 
                 // --------------------------------------------
-                // Check whether the worker already has an
-                // application for this job.
+                // CHECK 1: EXISTING APPLICATION
+                //
+                // Do not filter by application status.
+                //
+                // Pending, shortlisted, interview, accepted,
+                // rejected, withdrawn, and hired applications
+                // all prevent another direct invitation.
                 // --------------------------------------------
 
                 $application_check = $supabase_request(
@@ -278,7 +288,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (
                     $application_check['status'] < 200 ||
-                    $application_check['status'] >= 300
+                    $application_check['status'] >= 300 ||
+                    !is_array($application_check['data'])
                 ) {
 
                     $set_flash(
@@ -287,14 +298,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     );
                 } elseif (!empty($application_check['data'])) {
 
-                    $set_flash(
-                        'warning',
-                        'This worker already has an application for this job. You can review the candidate in Employer Applications.'
-                    );
+                    $existing_status =
+                        $application_check['data'][0]['status'] ?? 'existing';
+
+                    if ($existing_status === 'rejected') {
+
+                        $set_flash(
+                            'warning',
+                            'This worker was previously rejected for this job. You cannot send another invitation.'
+                        );
+                    } else {
+
+                        $set_flash(
+                            'warning',
+                            'This worker already has a recruitment record for this job. You cannot send another invitation.'
+                        );
+                    }
                 } else {
 
                     // --------------------------------------------
-                    // Check for an existing active invitation.
+                    // CHECK 2: COMPLETE INVITATION HISTORY
+                    //
+                    // Do not filter by invitation status.
+                    //
+                    // Even if the old invitation was declined,
+                    // cancelled, or accepted, do not send another.
+                    //
+                    // This also protects against an application
+                    // that was deleted but whose invitation history
+                    // still exists.
                     // --------------------------------------------
 
                     $invitation_check = $supabase_request(
@@ -303,13 +335,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             '&job_id=eq.' . rawurlencode($job_id) .
                             '&worker_id=eq.' . rawurlencode($worker_id) .
                             '&employer_id=eq.' . rawurlencode($employer_id) .
-                            '&status=in.(pending,accepted)' .
                             '&limit=1'
                     );
 
                     if (
                         $invitation_check['status'] < 200 ||
-                        $invitation_check['status'] >= 300
+                        $invitation_check['status'] >= 300 ||
+                        !is_array($invitation_check['data'])
                     ) {
 
                         $set_flash(
@@ -318,14 +350,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         );
                     } elseif (!empty($invitation_check['data'])) {
 
-                        $set_flash(
-                            'warning',
-                            'An active invitation already exists for this worker and job.'
-                        );
+                        $previous_status =
+                            $invitation_check['data'][0]['status'] ?? 'previous';
+
+                        if ($previous_status === 'declined') {
+
+                            $set_flash(
+                                'warning',
+                                'This worker previously declined your invitation for this job. You cannot invite them again.'
+                            );
+                        } elseif ($previous_status === 'cancelled') {
+
+                            $set_flash(
+                                'warning',
+                                'A previous invitation for this worker and job was cancelled. You cannot send another invitation.'
+                            );
+                        } else {
+
+                            $set_flash(
+                                'warning',
+                                'An invitation has already been sent to this worker for this job. You cannot send another invitation.'
+                            );
+                        }
                     } else {
 
                         // --------------------------------------------
-                        // Save the direct job invitation.
+                        // SAVE THE DIRECT JOB INVITATION
+                        //
                         // This does not create employment or an offer.
                         // --------------------------------------------
 
@@ -357,7 +408,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ) {
 
                             // --------------------------------------------
-                            // Invitation saved. Send email notification.
+                            // INVITATION SAVED. SEND EMAIL NOTIFICATION.
                             // --------------------------------------------
 
                             $worker_email = $get_worker_email($worker_id);
@@ -377,7 +428,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 is_array($employer_result['data']) &&
                                 !empty($employer_result['data'][0]['full_name'])
                             ) {
-                                $employer_name = $employer_result['data'][0]['full_name'];
+                                $employer_name =
+                                    $employer_result['data'][0]['full_name'];
                             }
 
                             $job_title = $job_check['data'][0]['title']
@@ -427,7 +479,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             $set_flash(
                                 'warning',
-                                'An active invitation already exists for this worker and job.'
+                                'A previous invitation already exists for this worker and job.'
                             );
                         } else {
 
@@ -522,6 +574,9 @@ if (!empty($jobs)) {
             array_map('rawurlencode', $job_ids)
         );
 
+        // Retrieve all application statuses.
+        // Do not filter out rejected or closed applications.
+
         $url = SUPABASE_URL .
             '/rest/v1/applications?select=id,job_id,worker_id,status' .
             '&job_id=in.(' . $job_id_list . ')' .
@@ -549,7 +604,12 @@ if (!empty($jobs)) {
                     ':' .
                     $application['worker_id'];
 
-                $application_lookup[$key] = $application;
+                // Any application record blocks another invitation.
+                // Keep the first record found for this worker and job.
+
+                if (!isset($application_lookup[$key])) {
+                    $application_lookup[$key] = $application;
+                }
             }
         }
     }
@@ -591,13 +651,13 @@ if ($result['response'] === false) {
 
 
 // ============================================
-// 10. GET EMPLOYER'S INVITATION HISTORY
+// 10. GET EMPLOYER'S COMPLETE INVITATION HISTORY
 // ============================================
 
 $url = SUPABASE_URL .
     '/rest/v1/invitations?select=id,job_id,worker_id,status,created_at' .
     '&employer_id=eq.' . rawurlencode($employer_id) .
-    '&order=created_at.desc&limit=500';
+    '&order=created_at.desc&limit=5000';
 
 $result = $supabase_request($url);
 
@@ -636,6 +696,8 @@ foreach ($invitations as $invitation) {
         $invitation['worker_id'];
 
     // Invitations are ordered newest first.
+    // Keep the latest one for display purposes.
+
     if (!isset($latest_invitations[$key])) {
         $latest_invitations[$key] = $invitation;
     }
@@ -711,6 +773,7 @@ require_once '../../includes/header.php';
     <?php if ($message !== ''): ?>
 
         <?php
+
         $message_icon = 'bi-info-circle';
 
         if ($message_type === 'success') {
@@ -720,6 +783,7 @@ require_once '../../includes/header.php';
         } elseif ($message_type === 'danger') {
             $message_icon = 'bi-exclamation-circle-fill';
         }
+
         ?>
 
         <div class="find-workers-alert find-workers-alert-<?php echo htmlspecialchars($message_type, ENT_QUOTES, 'UTF-8'); ?>">
@@ -794,7 +858,10 @@ require_once '../../includes/header.php';
 
         <div class="find-workers-alert find-workers-alert-danger">
             <i class="bi bi-exclamation-circle"></i>
-            <span><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></span>
+
+            <span>
+                <?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?>
+            </span>
         </div>
 
     <?php endif; ?>
@@ -804,7 +871,10 @@ require_once '../../includes/header.php';
 
         <div class="find-workers-alert find-workers-alert-warning">
             <i class="bi bi-exclamation-triangle"></i>
-            <span><?php echo htmlspecialchars($jobs_error, ENT_QUOTES, 'UTF-8'); ?></span>
+
+            <span>
+                <?php echo htmlspecialchars($jobs_error, ENT_QUOTES, 'UTF-8'); ?>
+            </span>
         </div>
 
     <?php endif; ?>
@@ -814,7 +884,10 @@ require_once '../../includes/header.php';
 
         <div class="find-workers-alert find-workers-alert-warning">
             <i class="bi bi-clock-history"></i>
-            <span><?php echo htmlspecialchars($invitations_error, ENT_QUOTES, 'UTF-8'); ?></span>
+
+            <span>
+                <?php echo htmlspecialchars($invitations_error, ENT_QUOTES, 'UTF-8'); ?>
+            </span>
         </div>
 
     <?php endif; ?>
@@ -824,7 +897,10 @@ require_once '../../includes/header.php';
 
         <div class="find-workers-alert find-workers-alert-warning">
             <i class="bi bi-people"></i>
-            <span><?php echo htmlspecialchars($applications_error, ENT_QUOTES, 'UTF-8'); ?></span>
+
+            <span>
+                <?php echo htmlspecialchars($applications_error, ENT_QUOTES, 'UTF-8'); ?>
+            </span>
         </div>
 
     <?php endif; ?>
@@ -1112,10 +1188,13 @@ require_once '../../includes/header.php';
 
                                         <small>
                                             Sent
-                                            <?php echo date(
-                                                'M d, Y',
-                                                strtotime($previous_invitation['created_at'])
-                                            ); ?>
+                                            <?php echo !empty($previous_invitation['created_at'])
+                                                ? htmlspecialchars(
+                                                    date('M d, Y', strtotime($previous_invitation['created_at'])),
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                )
+                                                : 'date unavailable'; ?>
                                         </small>
 
                                         <?php if ($previous_invitation['status'] === 'accepted'): ?>
@@ -1133,7 +1212,13 @@ require_once '../../includes/header.php';
                                         <?php elseif ($previous_invitation['status'] === 'declined'): ?>
 
                                             <small>
-                                                The worker declined this invitation.
+                                                The worker declined this invitation. Another invitation cannot be sent for this job.
+                                            </small>
+
+                                        <?php elseif ($previous_invitation['status'] === 'cancelled'): ?>
+
+                                            <small>
+                                                This invitation was cancelled. Another invitation cannot be sent for this job.
                                             </small>
 
                                         <?php endif; ?>
@@ -1201,6 +1286,12 @@ require_once '../../includes/header.php';
                                     Existing recruitment records could not be checked. Please refresh the page before sending an invitation.
                                 </p>
 
+                            <?php elseif ($invitations_error !== ''): ?>
+
+                                <p class="find-worker-muted">
+                                    Invitation history could not be checked. Sending invitations is temporarily disabled to prevent duplicate invitations.
+                                </p>
+
                             <?php else: ?>
 
                                 <form
@@ -1247,20 +1338,17 @@ require_once '../../includes/header.php';
                                             $existing_application =
                                                 $application_lookup[$key] ?? null;
 
+                                            // Any existing application blocks another invitation.
                                             $already_in_recruitment =
                                                 $existing_application !== null;
 
-                                            $active_invitation =
-                                                $previous_invitation !== null &&
-                                                in_array(
-                                                    $previous_invitation['status'],
-                                                    ['pending', 'accepted'],
-                                                    true
-                                                );
+                                            // Any previous invitation blocks another invitation.
+                                            $has_previous_invitation =
+                                                $previous_invitation !== null;
 
                                             $option_disabled =
                                                 $already_in_recruitment ||
-                                                $active_invitation;
+                                                $has_previous_invitation;
 
                                             ?>
 
@@ -1281,15 +1369,31 @@ require_once '../../includes/header.php';
 
                                                 if ($already_in_recruitment) {
 
-                                                    echo ' (Already in Recruitment)';
+                                                    $existing_status =
+                                                        $existing_application['status'] ?? 'existing';
+
+                                                    if ($existing_status === 'rejected') {
+                                                        echo ' (Previously Rejected)';
+                                                    } elseif ($existing_status === 'hired') {
+                                                        echo ' (Already Hired)';
+                                                    } else {
+                                                        echo ' (Already in Recruitment)';
+                                                    }
                                                 } elseif ($previous_invitation !== null) {
 
-                                                    if ($previous_invitation['status'] === 'pending') {
+                                                    $previous_status =
+                                                        $previous_invitation['status'] ?? 'previous';
+
+                                                    if ($previous_status === 'pending') {
                                                         echo ' (Invitation Pending)';
-                                                    } elseif ($previous_invitation['status'] === 'accepted') {
+                                                    } elseif ($previous_status === 'accepted') {
                                                         echo ' (Invitation Accepted)';
-                                                    } elseif ($previous_invitation['status'] === 'declined') {
-                                                        echo ' (Previously Declined - Re-invite)';
+                                                    } elseif ($previous_status === 'declined') {
+                                                        echo ' (Previously Declined)';
+                                                    } elseif ($previous_status === 'cancelled') {
+                                                        echo ' (Invitation Cancelled)';
+                                                    } else {
+                                                        echo ' (Previously Invited)';
                                                     }
                                                 }
 

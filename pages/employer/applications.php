@@ -66,7 +66,8 @@ $supabase_request = function (
 
     $headers =
         "apikey: " . $api_key . "\r\n" .
-        "Authorization: Bearer " . $authorization . "\r\n";
+        "Authorization: Bearer " . $authorization . "\r\n" .
+        "Accept: application/json\r\n";
 
     if ($data !== null) {
         $headers .= "Content-Type: application/json\r\n";
@@ -101,9 +102,15 @@ $supabase_request = function (
     }
 
     $context = stream_context_create($options);
-    $response = @file_get_contents($url, false, $context);
+
+    $response = @file_get_contents(
+        $url,
+        false,
+        $context
+    );
 
     $response_headers = $http_response_header ?? [];
+
     $status_code = 0;
 
     foreach ($response_headers as $header) {
@@ -148,9 +155,15 @@ $get_worker_email = function ($worker_id) use ($supabase_request) {
     }
 
     $url = SUPABASE_URL .
-        '/auth/v1/admin/users/' . rawurlencode($worker_id);
+        '/auth/v1/admin/users/' .
+        rawurlencode($worker_id);
 
-    $result = $supabase_request($url, 'GET', null, true);
+    $result = $supabase_request(
+        $url,
+        'GET',
+        null,
+        true
+    );
 
     if (!$result['success'] || !is_array($result['data'])) {
         error_log('WorkPulse: Unable to retrieve worker email.');
@@ -212,6 +225,7 @@ $notify_worker = function (
 
 
 // Only allow the generated WorkPulse demo meeting URL format.
+
 $is_valid_demo_meeting_link = function ($url) {
 
     return is_string($url) &&
@@ -275,6 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ?? 'the job position';
 
                 $worker_profile = $get_worker_profile($worker_id);
+
                 $worker_name = $worker_profile['full_name'] ?? 'Worker';
 
 
@@ -305,7 +320,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ];
 
                     if (
-                        !in_array($application_status, $allowed_statuses, true)
+                        !in_array(
+                            $application_status,
+                            $allowed_statuses,
+                            true
+                        )
                     ) {
 
                         $message = 'This application is no longer eligible for an interview invitation.';
@@ -323,6 +342,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $message = 'Meeting notes cannot exceed 4,000 characters.';
                         $message_type = 'error';
                     } else {
+
+                        $interview_at = null;
 
                         try {
 
@@ -353,7 +374,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
 
 
-                        if ($message === '') {
+                        if ($message === '' && $interview_at !== null) {
 
                             try {
 
@@ -364,6 +385,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     bin2hex(random_bytes(2)) . '-' .
                                     bin2hex(random_bytes(2));
 
+
+                                // The database RPC validates the application
+                                // status and checks the latest interview.
+                                // It also prevents duplicate pending invitations.
 
                                 $rpc_url = SUPABASE_URL .
                                     '/rest/v1/rpc/send_application_interview_invitation';
@@ -395,7 +420,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         $message_type = 'success';
                                     } else {
 
-                                        // The database action succeeded.
+                                        // Database action succeeded.
                                         // Email failure does not undo the invitation.
 
                                         $email_body = interviewInvitationEmail(
@@ -513,6 +538,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $reject_result['success'] &&
                                 !empty($reject_result['data'][0])
                             ) {
+
+                                // The database trigger automatically cancels
+                                // pending interview invitations when the
+                                // application becomes rejected.
+                                //
+                                // Do not manually update invitation records here.
 
                                 $email_body = applicationStatusEmail(
                                     $worker_name,
@@ -644,8 +675,8 @@ if (!$applications_result['success']) {
 
             $all_invitations = $invitation_result['data'];
 
-            // Application-linked interview invitations are separate
-            // from direct job invitations.
+            // Keep interview invitations only.
+            // Direct job invitations are not interview history.
 
             $interview_invitations = array_values(
                 array_filter(
@@ -721,7 +752,7 @@ foreach ($interview_invitations as $invitation) {
 }
 
 
-// Map invitation IDs to their application IDs.
+// Map invitation IDs to application IDs.
 // This supports older invitation-linked employment offers.
 
 $invitation_application_map = [];
@@ -826,6 +857,7 @@ require_once '../../includes/header.php';
     <section class="employer-application-stats">
 
         <div class="employer-application-stat">
+
             <div class="employer-application-stat-icon stat-rose">
                 <i class="bi bi-people"></i>
             </div>
@@ -835,10 +867,12 @@ require_once '../../includes/header.php';
                 <h2><?= $total_applications ?></h2>
                 <small>All received applications</small>
             </div>
+
         </div>
 
 
         <div class="employer-application-stat">
+
             <div class="employer-application-stat-icon stat-yellow">
                 <i class="bi bi-hourglass-split"></i>
             </div>
@@ -848,10 +882,12 @@ require_once '../../includes/header.php';
                 <h2><?= $pending_count ?></h2>
                 <small>Awaiting evaluation</small>
             </div>
+
         </div>
 
 
         <div class="employer-application-stat">
+
             <div class="employer-application-stat-icon stat-blue">
                 <i class="bi bi-chat-square-text"></i>
             </div>
@@ -861,10 +897,12 @@ require_once '../../includes/header.php';
                 <h2><?= $shortlisted_count ?></h2>
                 <small>Potential candidates</small>
             </div>
+
         </div>
 
 
         <div class="employer-application-stat">
+
             <div class="employer-application-stat-icon stat-green">
                 <i class="bi bi-person-check"></i>
             </div>
@@ -874,6 +912,7 @@ require_once '../../includes/header.php';
                 <h2><?= $hired_count ?></h2>
                 <small>Successfully hired</small>
             </div>
+
         </div>
 
     </section>
@@ -978,7 +1017,20 @@ require_once '../../includes/header.php';
                         : 'Job Application';
 
 
+                    // ==========================================
                     // INTERVIEW PERMISSION
+                    // ==========================================
+
+                    // A new interview can only be scheduled when:
+                    // 1. The application is active.
+                    // 2. There is no previous interview invitation,
+                    //    OR the latest interview invitation was declined.
+                    //
+                    // Pending, accepted, and cancelled invitations
+                    // must not allow another interview invitation.
+
+                    $latest_invitation_status =
+                        $latest_invitation['status'] ?? null;
 
                     $can_invite = (
                         in_array(
@@ -988,16 +1040,14 @@ require_once '../../includes/header.php';
                         ) &&
                         (
                             $latest_invitation === null ||
-                            !in_array(
-                                $latest_invitation['status'] ?? '',
-                                ['pending', 'accepted'],
-                                true
-                            )
+                            $latest_invitation_status === 'declined'
                         )
                     );
 
 
+                    // ==========================================
                     // REJECTION PERMISSION
+                    // ==========================================
 
                     $can_reject = (
                         in_array(
@@ -1009,7 +1059,9 @@ require_once '../../includes/header.php';
                     );
 
 
+                    // ==========================================
                     // EMPLOYMENT OFFER PERMISSION
+                    // ==========================================
 
                     // Application accepted = employer approved the candidate.
                     // Offer accepted = worker accepted the employment terms.
@@ -1032,7 +1084,9 @@ require_once '../../includes/header.php';
                     );
 
 
+                    // ==========================================
                     // APPLICATION STATUS LABELS
+                    // ==========================================
 
                     $status_labels = [
                         'pending' => 'Pending Review',
@@ -1455,14 +1509,19 @@ require_once '../../includes/header.php';
                                         $invitation_labels = [
                                             'pending' => 'Awaiting Worker Response',
                                             'accepted' => 'Interview Accepted',
-                                            'declined' => 'Interview Declined'
+                                            'declined' => 'Interview Declined',
+                                            'cancelled' => 'Cancelled - Application Closed'
                                         ];
 
                                         $interview_labels = [
                                             'online' => 'Online Meeting'
                                         ];
 
-                                        $meeting_link = $invitation['meeting_link'] ?? '';
+                                        $invitation_status =
+                                            $invitation['status'] ?? 'unknown';
+
+                                        $meeting_link =
+                                            $invitation['meeting_link'] ?? '';
 
                                         $valid_meeting_link =
                                             $is_valid_demo_meeting_link($meeting_link);
@@ -1475,7 +1534,7 @@ require_once '../../includes/header.php';
 
                                                 <strong>
                                                     <?= htmlspecialchars(
-                                                        $invitation_labels[$invitation['status']] ?? ucfirst($invitation['status']),
+                                                        $invitation_labels[$invitation_status] ?? ucfirst($invitation_status),
                                                         ENT_QUOTES,
                                                         'UTF-8'
                                                     ) ?>
@@ -1492,6 +1551,16 @@ require_once '../../includes/header.php';
                                                 </span>
 
                                             </div>
+
+
+                                            <?php if ($invitation_status === 'cancelled'): ?>
+
+                                                <p>
+                                                    <i class="bi bi-info-circle"></i>
+                                                    This interview invitation was cancelled because the related application was closed.
+                                                </p>
+
+                                            <?php endif; ?>
 
 
                                             <?php if (!empty($invitation['interview_at'])): ?>

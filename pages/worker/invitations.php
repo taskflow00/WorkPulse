@@ -161,9 +161,10 @@ if (
         $lookup_context
     );
 
-    $lookup_status = $get_status_code(
-        $http_response_header ?? []
-    );
+    // Capture headers immediately after the request.
+    $lookup_headers = $http_response_header ?? [];
+
+    $lookup_status = $get_status_code($lookup_headers);
 
     $lookup_data = json_decode(
         $lookup_response ?: '[]',
@@ -185,11 +186,6 @@ if (
                 'Invitation ID: ' . $invitation_id
         );
     }
-
-    $was_pending = (
-        is_array($invitation_before) &&
-        ($invitation_before['status'] ?? '') === 'pending'
-    );
 
 
     // ======================================
@@ -229,9 +225,10 @@ if (
         $context
     );
 
-    $status_code = $get_status_code(
-        $http_response_header ?? []
-    );
+    // Capture headers immediately after the request.
+    $rpc_headers = $http_response_header ?? [];
+
+    $status_code = $get_status_code($rpc_headers);
 
     $result = json_decode($response ?: '[]', true);
 
@@ -249,15 +246,19 @@ if (
 
         $invitation_type = $result['invitation_type'] ?? '';
 
+        // This value must come from the updated Supabase RPC.
+        // It is true only when the database actually changed the response.
+        $response_changed = !empty($result['response_changed']);
+
 
         // ======================================
         // NOTIFY EMPLOYER BY EMAIL
         // ======================================
 
-        // Only send an email when the invitation was
-        // pending before this response was submitted.
+        // Send an email only when the database confirms
+        // that this request actually changed the invitation status.
 
-        if ($was_pending) {
+        if ($response_changed && is_array($invitation_before)) {
 
             try {
 
@@ -322,9 +323,10 @@ if (
                     $employer_context
                 );
 
-                $employer_status = $get_status_code(
-                    $http_response_header ?? []
-                );
+                // Capture headers immediately after the request.
+                $employer_headers = $http_response_header ?? [];
+
+                $employer_status = $get_status_code($employer_headers);
 
                 $employer_data = json_decode(
                     $employer_response ?: '[]',
@@ -506,8 +508,28 @@ if (
         $_SESSION['invitation_message_type'] = 'success';
     } else {
 
-        $_SESSION['invitation_message'] =
-            'Unable to process your response. The invitation may have already been answered, or the request may have failed. Please refresh the page and try again.';
+        // Display a more useful message for cancelled invitations.
+        $error_message = '';
+
+        if (is_array($result)) {
+
+            $error_message = $result['message']
+                ?? $result['error']
+                ?? '';
+        }
+
+        if (
+            stripos($error_message, 'cancelled') !== false ||
+            stripos($error_message, 'closed') !== false
+        ) {
+
+            $_SESSION['invitation_message'] =
+                'This invitation is no longer available because the related application has been closed.';
+        } else {
+
+            $_SESSION['invitation_message'] =
+                'Unable to process your response. The invitation may have already been answered, or the request may have failed. Please refresh the page and try again.';
+        }
 
         $_SESSION['invitation_message_type'] = 'danger';
     }
@@ -550,9 +572,10 @@ $context = stream_context_create($options);
 
 $response = @file_get_contents($url, false, $context);
 
-$status_code = $get_status_code(
-    $http_response_header ?? []
-);
+// Capture headers immediately after the request.
+$get_headers = $http_response_header ?? [];
+
+$status_code = $get_status_code($get_headers);
 
 $invitations = json_decode($response ?: '[]', true);
 
@@ -876,6 +899,7 @@ require_once '../../includes/header.php';
                             if ($status === 'pending') {
 
                                 $status_class = 'warning';
+                                $status_label = 'Pending';
                             } elseif ($status === 'accepted') {
 
                                 $status_class = 'success';
@@ -886,6 +910,11 @@ require_once '../../includes/header.php';
                             } elseif ($status === 'declined') {
 
                                 $status_class = 'danger';
+                                $status_label = 'Declined';
+                            } elseif ($status === 'cancelled') {
+
+                                $status_class = 'neutral';
+                                $status_label = 'Cancelled';
                             }
 
 
@@ -1269,6 +1298,26 @@ require_once '../../includes/header.php';
 
                                     </div>
 
+
+                                    <!-- CANCELLED INVITATION FEEDBACK -->
+                                <?php elseif ($status === 'cancelled'): ?>
+
+                                    <div class="wp-invitation-feedback neutral">
+
+                                        <i class="bi bi-x-circle-fill"></i>
+
+                                        <div>
+
+                                            <strong>Invitation Cancelled</strong>
+
+                                            <p>
+                                                This invitation is no longer available because the related application has been closed by the employer. You can no longer respond to it.
+                                            </p>
+
+                                        </div>
+
+                                    </div>
+
                                 <?php endif; ?>
 
                             </article>
@@ -1287,26 +1336,37 @@ require_once '../../includes/header.php';
 
 </div>
 
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+
         const tabs = document.querySelectorAll('[data-tab]');
         const panels = document.querySelectorAll('.wp-invitation-tab-panel');
 
         tabs.forEach(function(tab) {
+
             tab.addEventListener('click', function() {
+
                 const selectedTab = tab.dataset.tab;
 
                 tabs.forEach(function(item) {
+
                     const isActive = item.dataset.tab === selectedTab;
 
                     item.classList.toggle('active', isActive);
                     item.classList.toggle('wp-btn-primary', isActive);
                     item.classList.toggle('wp-btn-outline', !isActive);
-                    item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+
+                    item.setAttribute(
+                        'aria-selected',
+                        isActive ? 'true' : 'false'
+                    );
                 });
 
                 panels.forEach(function(panel) {
+
                     panel.hidden = panel.id !== selectedTab + '-panel';
+
                 });
             });
         });
