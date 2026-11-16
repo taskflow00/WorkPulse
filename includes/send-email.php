@@ -34,7 +34,6 @@ function sendEmail($recipient, $subject, $message)
 
     $config = require __DIR__ . '/../config/email.php';
 
-    // Stop early with a clear reason.
     if (!filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
         $GLOBALS['workpulse_email_error'] = 'Invalid recipient email address.';
         error_log('WorkPulse email error: invalid recipient.');
