@@ -1,0 +1,681 @@
+
+/* ==========================================
+   CREATE JOB PAGE
+========================================== */
+
+.create-job-page {
+    max-width: 1500px;
+    margin: 0 auto;
+}
+
+
+/* PAGE HEADING */
+
+.create-job-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-bottom: 25px;
+}
+
+.create-job-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 9px;
+    color: #b77c92;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 1.2px;
+}
+
+.create-job-heading .wp-page-title {
+    margin-bottom: 7px;
+    font-size: 27px;
+    font-weight: 750;
+    letter-spacing: -0.7px;
+}
+
+.create-job-heading .wp-page-description {
+    color: #89858d;
+    font-size: 13px;
+}
+
+.create-job-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+
+/* ALERT */
+
+.create-job-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    margin-bottom: 22px;
+    border: 1px solid;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 550;
+}
+
+.create-job-alert-success {
+    border-color: #d4e9dc;
+    background: #f0f9f3;
+    color: #287348;
+}
+
+.create-job-alert-error {
+    border-color: #f0d5d2;
+    background: #fff4f2;
+    color: #ae5147;
+}
+
+
+/* PAGE LAYOUT */
+
+.create-job-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    align-items: start;
+    gap: 20px;
+}
+
+.create-job-main {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+
+
+/* FORM SECTIONS */
+
+.create-job-section {
+    padding: 23px;
+    border: 1px solid #ece9eb;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(30, 20, 25, 0.025);
+}
+
+.create-job-section-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 19px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #f0edef;
+}
+
+.create-job-section-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    background: #f8edf2;
+    color: #b87991;
+    font-size: 18px;
+}
+
+.create-job-section-heading h2 {
+    margin: 0 0 5px;
+    color: #302c32;
+    font-size: 15px;
+    font-weight: 750;
+}
+
+.create-job-section-heading p {
+    margin: 0;
+    color: #96919a;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+
+/* FORM FIELDS */
+
+.create-job-fields {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 19px;
+}
+
+.create-job-fields-two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.create-job-field {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.create-job-field-full {
+    grid-column: 1 / -1;
+}
+
+.create-job-field > label {
+    margin-bottom: 8px;
+    color: #49434c;
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.create-job-field > label span {
+    color: #c56d78;
+}
+
+.create-job-field input,
+.create-job-field textarea,
+.create-job-field select {
+    width: 100%;
+    min-height: 42px;
+    padding: 10px 12px;
+    border: 1px solid #e8e4e7;
+    border-radius: 8px;
+    outline: none;
+    background: #fff;
+    color: #373239;
+    font-family: inherit;
+    font-size: 12px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.create-job-field textarea {
+    min-height: 115px;
+    resize: vertical;
+    line-height: 1.65;
+}
+
+.create-job-field input::placeholder,
+.create-job-field textarea::placeholder {
+    color: #aaa5ab;
+}
+
+.create-job-field input:focus,
+.create-job-field textarea:focus,
+.create-job-field select:focus {
+    border-color: #c18b9f;
+    box-shadow: 0 0 0 3px rgba(193, 139, 159, 0.12);
+}
+
+.create-job-field small {
+    margin-top: 7px;
+    color: #a09ba3;
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+
+/* HOURLY RATE PREFIX */
+
+.create-job-input-prefix {
+    position: relative;
+}
+
+.create-job-input-prefix > span {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    transform: translateY(-50%);
+    color: #8f8992;
+    font-size: 13px;
+    font-weight: 650;
+    pointer-events: none;
+}
+
+.create-job-input-prefix input {
+    padding-left: 29px;
+}
+
+
+
+/* ==========================================
+   SKILL SELECTOR
+========================================== */
+
+.create-job-skill-search {
+    position: relative;
+}
+
+.create-job-skill-search > i {
+    position: absolute;
+    top: 50%;
+    left: 14px;
+    transform: translateY(-50%);
+    color: #a5a0a6;
+    font-size: 14px;
+    pointer-events: none;
+}
+
+.create-job-skill-search input {
+    width: 100%;
+    height: 46px;
+    padding: 0 14px 0 40px;
+    border: 1px solid #e8e3e7;
+    border-radius: 9px;
+    background: #fff;
+    color: #373239;
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.create-job-skill-search input::placeholder {
+    color: #aaa3ab;
+}
+
+.create-job-skill-search input:focus {
+    border-color: #c18b9f;
+    box-shadow: 0 0 0 3px rgba(193, 139, 159, 0.12);
+}
+
+.skills-container {
+    position: relative;
+    width: 100%;
+}
+
+/* Suggestions dropdown */
+#skill-suggestions {
+    display: none;
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 7px);
+    left: 0;
+    right: 0;
+    max-height: 230px;
+    overflow-y: auto;
+    padding: 5px;
+    border: 1px solid #eee8ec;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(40, 25, 35, 0.10);
+}
+
+#skill-suggestions.is-open {
+    display: block;
+}
+
+#skill-suggestions button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 40px;
+    padding: 0 11px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #514a53;
+    text-align: left;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+#skill-suggestions button:hover {
+    background: #faf2f6;
+    color: #a66f85;
+}
+
+#skill-suggestions .skill-no-results {
+    padding: 13px 11px;
+    color: #99919a;
+    font-size: 11px;
+    text-align: center;
+}
+
+/* Selected skills */
+#selected-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 13px;
+}
+
+#selected-skills:empty {
+    display: none;
+}
+
+/* Skill chip */
+#selected-skills .skill-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 34px;
+    padding: 4px 7px 4px 11px;
+    border: 1px solid #ead9e0;
+    border-radius: 8px;
+    background: #faf3f6;
+    color: #95657a;
+    font-size: 11px;
+    font-weight: 650;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+#selected-skills .skill-tag:hover {
+    border-color: #d9b6c4;
+    background: #f7eaf0;
+}
+
+/* Remove button */
+#selected-skills .skill-tag button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: #b58a9b;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+#selected-skills .skill-tag button:hover {
+    background: #eedbe3;
+    color: #9d526d;
+}
+
+@media (max-width: 600px) {
+    #selected-skills {
+        gap: 7px;
+    }
+
+    #selected-skills .skill-tag {
+        min-height: 32px;
+        font-size: 10px;
+    }
+}
+
+
+/* INTERVIEW OPTION */
+
+.create-job-interview-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    margin-top: 22px;
+    border: 1px solid #eee8ec;
+    border-radius: 9px;
+    background: #fcfafb;
+}
+
+.create-job-interview-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    background: #f7eaf0;
+    color: #ae7790;
+    font-size: 16px;
+}
+
+.create-job-interview-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 4px;
+}
+
+.create-job-interview-text strong {
+    color: #49434c;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.create-job-interview-text span {
+    color: #96919a;
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+
+/* CUSTOM SWITCH */
+
+.create-job-switch {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    width: 39px;
+    height: 22px;
+    cursor: pointer;
+}
+
+.create-job-switch input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.create-job-switch > span {
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    background: #d8d4d8;
+    transition: background 0.2s ease;
+}
+
+.create-job-switch > span::before {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    content: "";
+    transition: transform 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.create-job-switch input:checked + span {
+    background: #c18b9f;
+}
+
+.create-job-switch input:checked + span::before {
+    transform: translateX(17px);
+}
+
+.create-job-switch input:focus-visible + span {
+    outline: 3px solid rgba(193, 139, 159, 0.25);
+    outline-offset: 2px;
+}
+
+
+/* SIDEBAR */
+
+.create-job-sidebar {
+    position: sticky;
+    top: 20px;
+    display: grid;
+    gap: 15px;
+}
+
+.create-job-publish-card,
+.create-job-tips-card {
+    padding: 20px;
+    border: 1px solid #ece9eb;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(30, 20, 25, 0.025);
+}
+
+.create-job-publish-card {
+    text-align: center;
+}
+
+.create-job-publish-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 47px;
+    height: 47px;
+    margin: 0 auto 13px;
+    border-radius: 13px;
+    background: #f8edf2;
+    color: #b87991;
+    font-size: 20px;
+}
+
+.create-job-publish-card h3 {
+    margin-bottom: 8px;
+    color: #373139;
+    font-size: 14px;
+    font-weight: 750;
+}
+
+.create-job-publish-card p {
+    margin-bottom: 17px;
+    color: #96919a;
+    font-size: 11px;
+    line-height: 1.65;
+}
+
+.create-job-submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 42px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.create-job-cancel {
+    display: inline-block;
+    margin-top: 13px;
+    color: #96919a;
+    font-size: 10px;
+    text-decoration: none;
+}
+
+.create-job-cancel:hover {
+    color: #a66f85;
+    text-decoration: underline;
+}
+
+
+/* TIPS */
+
+.create-job-tips-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    color: #49434c;
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.create-job-tips-card h3 i {
+    color: #c18b69;
+    font-size: 15px;
+}
+
+.create-job-tips-card ul {
+    display: grid;
+    gap: 13px;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.create-job-tips-card li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: #89848d;
+    font-size: 10px;
+    line-height: 1.6;
+}
+
+.create-job-tips-card li i {
+    margin-top: 1px;
+    color: #55a276;
+    font-size: 12px;
+}
+
+
+/* RESPONSIVE */
+
+@media (max-width: 1050px) {
+    .create-job-layout {
+        grid-template-columns: minmax(0, 1fr) 245px;
+        gap: 15px;
+    }
+
+    .create-job-section {
+        padding: 19px;
+    }
+}
+
+@media (max-width: 800px) {
+    .create-job-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .create-job-sidebar {
+        position: static;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .create-job-heading {
+        align-items: flex-start;
+    }
+
+    .create-job-heading .wp-page-title {
+        font-size: 23px;
+    }
+
+    .create-job-back {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .create-job-section {
+        padding: 16px;
+    }
+
+    .create-job-fields-two {
+        grid-template-columns: 1fr;
+    }
+
+    .create-job-sidebar {
+        grid-template-columns: 1fr;
+    }
+
+    .create-job-interview-option {
+        align-items: flex-start;
+    }
+
+    .create-job-switch {
+        margin-top: 2px;
+    }
+}

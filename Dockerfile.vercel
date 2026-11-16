@@ -1,0 +1,31 @@
+
+FROM dunglas/frankenphp:1-php8.5
+
+# Install PHP extensions required by WorkPulse.
+RUN install-php-extensions curl zip
+
+# Install Composer.
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+# Copy Composer files first.
+COPY composer.json composer.lock ./
+
+# Install production dependencies.
+RUN composer install \
+    --no-dev \
+    --prefer-dist \
+    --no-interaction \
+    --optimize-autoloader
+
+# Copy the WorkPulse application.
+COPY . .
+
+# Configure the web server.
+ENV SERVER_NAME=:80
+
+EXPOSE 80
+
+# Start FrankenPHP using our project's Caddyfile.
+CMD ["frankenphp", "run", "--config", "/app/Caddyfile", "--adapter", "caddyfile"]
