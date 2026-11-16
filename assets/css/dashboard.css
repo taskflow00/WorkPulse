@@ -3634,3 +3634,37 @@
 .wp-invitation-tab-panel[hidden] {
     display: none !important;
 }
+
+.wp-invitation-meeting-link {
+    margin-top: 16px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+}
+
+.wp-invitation-meeting-link p {
+    margin: 0 0 8px;
+    color: #334155;
+}
+
+.wp-meeting-url {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--wp-primary);
+    font-weight: 500;
+    text-decoration: underline;
+    overflow-wrap: anywhere;
+}
+
+.wp-meeting-url:hover {
+    text-decoration: none;
+}
+
+.wp-invitation-meeting-link small {
+    display: block;
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 12px;
+}

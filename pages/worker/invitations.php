@@ -1,6 +1,11 @@
 <?php
 
+// ==========================================
+// WORKER INVITATIONS
+// ==========================================
+
 $required_role = 'worker';
+
 require_once '../../includes/auth.php';
 
 date_default_timezone_set('Asia/Manila');
@@ -8,12 +13,20 @@ date_default_timezone_set('Asia/Manila');
 $worker_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];
 
-// Create CSRF token.
+
+// ==========================================
+// CSRF TOKEN
+// ==========================================
+
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// Get flash message.
+
+// ==========================================
+// FLASH MESSAGE
+// ==========================================
+
 $message = $_SESSION['invitation_message'] ?? '';
 $message_type = $_SESSION['invitation_message_type'] ?? 'danger';
 
@@ -33,14 +46,29 @@ $get_status_code = function ($response_headers) {
         return 0;
     }
 
+    $status_code = 0;
+
     foreach ($response_headers as $header) {
 
         if (preg_match('/HTTP\/\S+\s+(\d{3})/', $header, $matches)) {
-            return (int) $matches[1];
+            $status_code = (int) $matches[1];
         }
     }
 
-    return 0;
+    return $status_code;
+};
+
+
+// ==========================================
+// HELPER: ESCAPE OUTPUT
+// ==========================================
+
+$escape = function ($value) {
+    return htmlspecialchars(
+        (string) ($value ?? ''),
+        ENT_QUOTES,
+        'UTF-8'
+    );
 };
 
 
@@ -53,12 +81,15 @@ if (
     isset($_POST['respond_invitation'])
 ) {
 
-    // Check CSRF token.
+    // Validate CSRF token.
     if (
         empty($_POST['csrf_token']) ||
         !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
     ) {
-        $_SESSION['invitation_message'] = 'Invalid request. Please try again.';
+
+        $_SESSION['invitation_message'] =
+            'Invalid request. Please try again.';
+
         $_SESSION['invitation_message_type'] = 'danger';
 
         header('Location: invitations.php');
@@ -68,8 +99,9 @@ if (
     $invitation_id = trim($_POST['invitation_id'] ?? '');
     $decision = $_POST['respond_invitation'];
 
+
     // Validate invitation ID.
-    if (empty($invitation_id)) {
+    if ($invitation_id === '') {
 
         $_SESSION['invitation_message'] = 'Invalid invitation.';
         $_SESSION['invitation_message_type'] = 'danger';
@@ -78,10 +110,13 @@ if (
         exit;
     }
 
-    // Only allow accepted or declined.
+
+    // Only accept valid decisions.
     if (!in_array($decision, ['accepted', 'declined'], true)) {
 
-        $_SESSION['invitation_message'] = 'Invalid invitation decision.';
+        $_SESSION['invitation_message'] =
+            'Invalid invitation decision.';
+
         $_SESSION['invitation_message_type'] = 'danger';
 
         header('Location: invitations.php');
@@ -151,7 +186,7 @@ if (
         } elseif ($invitation_type === 'interview' && $decision === 'accepted') {
 
             $_SESSION['invitation_message'] =
-                'Interview confirmed! Please review the interview schedule and meeting details. This does not mean you have accepted a job offer.';
+                'Interview confirmed! Please review your interview schedule and meeting details. This does not mean you have accepted a job offer.';
         } elseif ($invitation_type === 'interview' && $decision === 'declined') {
 
             $_SESSION['invitation_message'] =
@@ -183,7 +218,7 @@ if (
 $url = SUPABASE_URL .
     '/rest/v1/invitations?' .
     'select=id,job_id,employer_id,application_id,message,status,created_at,' .
-    'interview_at,interview_type,meeting_details,' .
+    'interview_at,interview_type,meeting_details,meeting_link,' .
     'jobs(id,title,company_name,description,hourly_rate,employment_type,work_schedule),' .
     'profiles!invitations_employer_id_fkey(id,full_name,company_name,company_description)' .
     '&worker_id=eq.' . rawurlencode($worker_id) .
@@ -214,7 +249,7 @@ $status_code = $get_status_code($http_response_header ?? []);
 $invitations = json_decode($response ?: '[]', true);
 
 
-// Check if invitations loaded successfully.
+// Check whether invitations loaded successfully.
 if (
     $status_code < 200 ||
     $status_code >= 300 ||
@@ -240,12 +275,13 @@ $accepted_count = 0;
 
 foreach ($invitations as $invitation) {
 
-    // application_id is null for direct job invitations.
+    // Direct job invitations have no application_id.
     if (empty($invitation['application_id'])) {
 
         $job_invitations[] = $invitation;
     } else {
 
+        // Interview invitations are connected to applications.
         $interview_invitations[] = $invitation;
     }
 
@@ -260,10 +296,11 @@ foreach ($invitations as $invitation) {
 
 
 // ==========================================
-// GROUPS FOR THE TWO TABS
+// INVITATION GROUPS
 // ==========================================
 
 $invitation_groups = [
+
     'job' => [
         'title' => 'Job Invitations',
         'description' => 'Direct job opportunities sent to you by employers.',
@@ -271,6 +308,7 @@ $invitation_groups = [
         'empty_description' => 'When employers invite you to their job opportunities, they will appear here.',
         'invitations' => $job_invitations
     ],
+
     'interview' => [
         'title' => 'Interview Invitations',
         'description' => 'Interview requests connected to your job applications.',
@@ -280,13 +318,18 @@ $invitation_groups = [
     ]
 ];
 
+
+// ==========================================
+// PAGE HEADER
+// ==========================================
+
 require_once '../../includes/header.php';
 
 ?>
 
 <div class="wp-invitations-page">
 
-    <!-- Page heading -->
+    <!-- PAGE HEADING -->
     <div class="wp-dashboard-welcome">
 
         <div>
@@ -304,31 +347,33 @@ require_once '../../includes/header.php';
     </div>
 
 
-    <!-- Flash message -->
+    <!-- FLASH MESSAGE -->
     <?php if (!empty($message)): ?>
 
-        <div class="wp-alert wp-alert-<?= htmlspecialchars($message_type, ENT_QUOTES, 'UTF-8') ?>">
+        <div class="wp-alert wp-alert-<?= $escape($message_type) ?>">
 
             <i class="bi bi-info-circle me-2"></i>
 
-            <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
+            <?= $escape($message) ?>
 
         </div>
 
     <?php endif; ?>
 
 
-    <!-- Invitation statistics -->
+    <!-- INVITATION STATISTICS -->
     <div class="wp-dashboard-stats">
 
         <div class="wp-stat-card">
 
             <div class="wp-stat-top">
+
                 Total Invitations
 
                 <span class="wp-stat-icon rose">
                     <i class="bi bi-envelope"></i>
                 </span>
+
             </div>
 
             <h2><?= count($invitations) ?></h2>
@@ -341,11 +386,13 @@ require_once '../../includes/header.php';
         <div class="wp-stat-card">
 
             <div class="wp-stat-top">
+
                 Pending Invitations
 
                 <span class="wp-stat-icon yellow">
                     <i class="bi bi-clock-history"></i>
                 </span>
+
             </div>
 
             <h2><?= $pending_count ?></h2>
@@ -358,11 +405,13 @@ require_once '../../includes/header.php';
         <div class="wp-stat-card">
 
             <div class="wp-stat-top">
+
                 Accepted Invitations
 
                 <span class="wp-stat-icon green">
                     <i class="bi bi-check-circle"></i>
                 </span>
+
             </div>
 
             <h2><?= $accepted_count ?></h2>
@@ -374,7 +423,7 @@ require_once '../../includes/header.php';
     </div>
 
 
-    <!-- Invitation list -->
+    <!-- RECEIVED INVITATIONS -->
     <section class="wp-panel">
 
         <div class="wp-panel-header">
@@ -392,7 +441,7 @@ require_once '../../includes/header.php';
         </div>
 
 
-        <!-- Invitation tabs -->
+        <!-- INVITATION TABS -->
         <div class="wp-invitation-tabs" role="tablist">
 
             <button
@@ -405,6 +454,7 @@ require_once '../../includes/header.php';
                 data-tab="job">
 
                 <i class="bi bi-briefcase"></i>
+
                 Job Invitations
                 (<?= count($job_invitations) ?>)
 
@@ -421,6 +471,7 @@ require_once '../../includes/header.php';
                 data-tab="interview">
 
                 <i class="bi bi-calendar-event"></i>
+
                 Interview Invitations
                 (<?= count($interview_invitations) ?>)
 
@@ -429,7 +480,7 @@ require_once '../../includes/header.php';
         </div>
 
 
-        <!-- Invitation tab contents -->
+        <!-- INVITATION TAB CONTENT -->
         <?php foreach ($invitation_groups as $group_key => $group): ?>
 
             <div
@@ -448,11 +499,11 @@ require_once '../../includes/header.php';
                                             : 'bi-calendar-x' ?>"></i>
 
                         <h3>
-                            <?= htmlspecialchars($group['empty_title'], ENT_QUOTES, 'UTF-8') ?>
+                            <?= $escape($group['empty_title']) ?>
                         </h3>
 
                         <p>
-                            <?= htmlspecialchars($group['empty_description'], ENT_QUOTES, 'UTF-8') ?>
+                            <?= $escape($group['empty_description']) ?>
                         </p>
 
                         <?php if ($group_key === 'job'): ?>
@@ -460,6 +511,7 @@ require_once '../../includes/header.php';
                             <a href="jobs.php" class="wp-btn wp-btn-primary">
 
                                 <i class="bi bi-search"></i>
+
                                 Browse Jobs
 
                             </a>
@@ -492,7 +544,7 @@ require_once '../../includes/header.php';
                                 ?? 'Job no longer available';
 
 
-                            // Format invitation date.
+                            // Invitation creation date.
                             $created_at = 'Unknown date';
 
                             if (!empty($invitation['created_at'])) {
@@ -500,12 +552,16 @@ require_once '../../includes/header.php';
                                 $timestamp = strtotime($invitation['created_at']);
 
                                 if ($timestamp !== false) {
-                                    $created_at = date('M d, Y h:i A', $timestamp);
+
+                                    $created_at = date(
+                                        'M d, Y h:i A',
+                                        $timestamp
+                                    );
                                 }
                             }
 
 
-                            // Format invitation status.
+                            // Invitation status.
                             $status_class = 'neutral';
                             $status_label = ucfirst($status);
 
@@ -525,7 +581,7 @@ require_once '../../includes/header.php';
                             }
 
 
-                            // Format interview type.
+                            // Interview type.
                             $interview_type = $invitation['interview_type'] ?? '';
 
                             $interview_type_labels = [
@@ -540,7 +596,7 @@ require_once '../../includes/header.php';
                                 ?? 'Not specified';
 
 
-                            // Format interview schedule.
+                            // Interview schedule.
                             $interview_date = 'Not scheduled';
 
                             if (!empty($invitation['interview_at'])) {
@@ -548,6 +604,7 @@ require_once '../../includes/header.php';
                                 $timestamp = strtotime($invitation['interview_at']);
 
                                 if ($timestamp !== false) {
+
                                     $interview_date = date(
                                         'M d, Y h:i A',
                                         $timestamp
@@ -555,11 +612,24 @@ require_once '../../includes/header.php';
                                 }
                             }
 
+
+                            // Validate the demo meeting link before displaying it.
+                            $meeting_link = trim(
+                                $invitation['meeting_link'] ?? ''
+                            );
+
+                            $valid_meeting_link =
+                                $meeting_link !== '' &&
+                                preg_match(
+                                    '/^https:\/\/meet\.google\.com\/[A-Za-z0-9-]+$/',
+                                    $meeting_link
+                                );
+
                             ?>
 
                             <article class="wp-invitation-card">
 
-                                <!-- Invitation heading -->
+                                <!-- INVITATION HEADING -->
                                 <div class="wp-invitation-heading">
 
                                     <div class="wp-invitation-icon">
@@ -574,37 +644,37 @@ require_once '../../includes/header.php';
                                     <div class="wp-invitation-title">
 
                                         <h4>
-                                            <?= htmlspecialchars($job_title, ENT_QUOTES, 'UTF-8') ?>
+                                            <?= $escape($job_title) ?>
                                         </h4>
 
                                         <p>
 
                                             <i class="bi bi-building"></i>
 
-                                            <?= htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8') ?>
+                                            <?= $escape($company_name) ?>
 
                                         </p>
 
                                     </div>
 
 
-                                    <span class="wp-invitation-status <?= $status_class ?>">
+                                    <span class="wp-invitation-status <?= $escape($status_class) ?>">
 
-                                        <?= htmlspecialchars($status_label, ENT_QUOTES, 'UTF-8') ?>
+                                        <?= $escape($status_label) ?>
 
                                     </span>
 
                                 </div>
 
 
-                                <!-- Invitation details -->
+                                <!-- INVITATION DETAILS -->
                                 <div class="wp-invitation-details">
 
                                     <span>
 
                                         <i class="bi bi-person"></i>
 
-                                        <?= htmlspecialchars($employer_name, ENT_QUOTES, 'UTF-8') ?>
+                                        <?= $escape($employer_name) ?>
 
                                     </span>
 
@@ -613,7 +683,7 @@ require_once '../../includes/header.php';
 
                                         <i class="bi bi-calendar3"></i>
 
-                                        <?= htmlspecialchars($created_at, ENT_QUOTES, 'UTF-8') ?>
+                                        <?= $escape($created_at) ?>
 
                                     </span>
 
@@ -624,7 +694,10 @@ require_once '../../includes/header.php';
 
                                             <i class="bi bi-cash"></i>
 
-                                            $<?= number_format((float) $job['hourly_rate'], 2) ?>/hr
+                                            $<?= number_format(
+                                                    (float) $job['hourly_rate'],
+                                                    2
+                                                ) ?>/hr
 
                                         </span>
 
@@ -637,10 +710,14 @@ require_once '../../includes/header.php';
 
                                             <i class="bi bi-clock"></i>
 
-                                            <?= htmlspecialchars(
-                                                ucwords(str_replace('_', ' ', $job['employment_type'])),
-                                                ENT_QUOTES,
-                                                'UTF-8'
+                                            <?= $escape(
+                                                ucwords(
+                                                    str_replace(
+                                                        '_',
+                                                        ' ',
+                                                        $job['employment_type']
+                                                    )
+                                                )
                                             ) ?>
 
                                         </span>
@@ -650,7 +727,7 @@ require_once '../../includes/header.php';
                                 </div>
 
 
-                                <!-- Interview-specific details -->
+                                <!-- INTERVIEW DETAILS -->
                                 <?php if ($group_key === 'interview'): ?>
 
                                     <div class="wp-invitation-section">
@@ -659,25 +736,56 @@ require_once '../../includes/header.php';
 
                                         <p>
                                             <strong>Schedule:</strong>
-                                            <?= htmlspecialchars($interview_date, ENT_QUOTES, 'UTF-8') ?>
+                                            <?= $escape($interview_date) ?>
                                         </p>
 
                                         <p>
                                             <strong>Interview Type:</strong>
-                                            <?= htmlspecialchars($interview_type_label, ENT_QUOTES, 'UTF-8') ?>
+                                            <?= $escape($interview_type_label) ?>
                                         </p>
+
 
                                         <?php if (!empty($invitation['meeting_details'])): ?>
 
                                             <p>
-                                                <strong>Meeting Details:</strong>
-                                                <?= nl2br(htmlspecialchars(
-                                                    $invitation['meeting_details'],
-                                                    ENT_QUOTES,
-                                                    'UTF-8'
-                                                )) ?>
+                                                <strong>Additional Notes:</strong>
+
+                                                <?= nl2br(
+                                                    $escape($invitation['meeting_details'])
+                                                ) ?>
                                             </p>
 
+                                        <?php endif; ?>
+
+
+                                        <?php if ($valid_meeting_link): ?>
+
+                                            <?php if (!empty($meeting_link) && preg_match('/^https:\/\/meet\.google\.com\/wpx-[a-f0-9]{4}-[a-f0-9]{4}$/i', $meeting_link)): ?>
+
+                                                <div class="wp-invitation-meeting-link">
+                                                    <p>
+                                                        <strong>
+                                                            <i class="bi bi-camera-video"></i>
+                                                            Online Meeting
+                                                        </strong>
+                                                    </p>
+
+                                                    <a
+                                                        href="<?= $escape($meeting_link) ?>"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        class="wp-meeting-url">
+
+                                                        <?= $escape($meeting_link) ?>
+                                                        <i class="bi bi-box-arrow-up-right"></i>
+                                                    </a>
+
+                                                    <small>
+                                                        Demo link only. This does not open a real meeting room.
+                                                    </small>
+                                                </div>
+
+                                            <?php endif; ?>
                                         <?php endif; ?>
 
                                     </div>
@@ -685,7 +793,7 @@ require_once '../../includes/header.php';
                                 <?php endif; ?>
 
 
-                                <!-- Job description -->
+                                <!-- JOB DESCRIPTION -->
                                 <?php if (!empty($job['description'])): ?>
 
                                     <div class="wp-invitation-section">
@@ -693,30 +801,8 @@ require_once '../../includes/header.php';
                                         <h5>Job Description</h5>
 
                                         <p>
-                                            <?= nl2br(htmlspecialchars(
-                                                $job['description'],
-                                                ENT_QUOTES,
-                                                'UTF-8'
-                                            )) ?>
-                                        </p>
-
-                                    </div>
-
-                                <?php endif; ?>
-
-
-                                <!-- Work schedule -->
-                                <?php if (!empty($job['work_schedule'])): ?>
-
-                                    <div class="wp-invitation-section">
-
-                                        <h5>Work Schedule</h5>
-
-                                        <p>
-                                            <?= htmlspecialchars(
-                                                $job['work_schedule'],
-                                                ENT_QUOTES,
-                                                'UTF-8'
+                                            <?= nl2br(
+                                                $escape($job['description'])
                                             ) ?>
                                         </p>
 
@@ -725,7 +811,23 @@ require_once '../../includes/header.php';
                                 <?php endif; ?>
 
 
-                                <!-- Employer message -->
+                                <!-- WORK SCHEDULE -->
+                                <?php if (!empty($job['work_schedule'])): ?>
+
+                                    <div class="wp-invitation-section">
+
+                                        <h5>Work Schedule</h5>
+
+                                        <p>
+                                            <?= $escape($job['work_schedule']) ?>
+                                        </p>
+
+                                    </div>
+
+                                <?php endif; ?>
+
+
+                                <!-- EMPLOYER MESSAGE -->
                                 <div class="wp-invitation-message">
 
                                     <div class="wp-invitation-message-heading">
@@ -739,11 +841,7 @@ require_once '../../includes/header.php';
                                     <p>
 
                                         <?= !empty($invitation['message'])
-                                            ? nl2br(htmlspecialchars(
-                                                $invitation['message'],
-                                                ENT_QUOTES,
-                                                'UTF-8'
-                                            ))
+                                            ? nl2br($escape($invitation['message']))
                                             : 'No message provided.' ?>
 
                                     </p>
@@ -751,7 +849,7 @@ require_once '../../includes/header.php';
                                 </div>
 
 
-                                <!-- Pending invitation actions -->
+                                <!-- PENDING INVITATION ACTIONS -->
                                 <?php if ($status === 'pending'): ?>
 
                                     <div class="wp-invitation-actions">
@@ -761,20 +859,12 @@ require_once '../../includes/header.php';
                                             <input
                                                 type="hidden"
                                                 name="csrf_token"
-                                                value="<?= htmlspecialchars(
-                                                            $_SESSION['csrf_token'],
-                                                            ENT_QUOTES,
-                                                            'UTF-8'
-                                                        ) ?>">
+                                                value="<?= $escape($_SESSION['csrf_token']) ?>">
 
                                             <input
                                                 type="hidden"
                                                 name="invitation_id"
-                                                value="<?= htmlspecialchars(
-                                                            $invitation['id'],
-                                                            ENT_QUOTES,
-                                                            'UTF-8'
-                                                        ) ?>">
+                                                value="<?= $escape($invitation['id']) ?>">
 
 
                                             <button
@@ -782,7 +872,9 @@ require_once '../../includes/header.php';
                                                 name="respond_invitation"
                                                 value="declined"
                                                 class="wp-btn wp-btn-outline"
-                                                onclick="return confirm('Are you sure you want to decline this <?= $group_key === 'job' ? 'job invitation' : 'interview invitation' ?>?');">
+                                                onclick="return confirm('Are you sure you want to decline this <?= $group_key === 'job'
+                                                                                                                    ? 'job invitation'
+                                                                                                                    : 'interview invitation' ?>?');">
 
                                                 <i class="bi bi-x-lg"></i>
 
@@ -796,7 +888,9 @@ require_once '../../includes/header.php';
                                                 name="respond_invitation"
                                                 value="accepted"
                                                 class="wp-btn wp-btn-success"
-                                                onclick="return confirm('Are you sure you want to <?= $group_key === 'job' ? 'accept this job invitation' : 'confirm this interview' ?>?');">
+                                                onclick="return confirm('Are you sure you want to <?= $group_key === 'job'
+                                                                                                        ? 'accept this job invitation'
+                                                                                                        : 'confirm this interview' ?>?');">
 
                                                 <i class="bi bi-check-lg"></i>
 
@@ -811,7 +905,7 @@ require_once '../../includes/header.php';
                                     </div>
 
 
-                                    <!-- Accepted invitation feedback -->
+                                    <!-- ACCEPTED INVITATION FEEDBACK -->
                                 <?php elseif ($status === 'accepted'): ?>
 
                                     <div class="wp-invitation-feedback success">
@@ -839,7 +933,7 @@ require_once '../../includes/header.php';
                                     </div>
 
 
-                                    <!-- Declined invitation feedback -->
+                                    <!-- DECLINED INVITATION FEEDBACK -->
                                 <?php elseif ($status === 'declined'): ?>
 
                                     <div class="wp-invitation-feedback neutral">
@@ -884,45 +978,30 @@ require_once '../../includes/header.php';
 
 </div>
 
-
-<!-- Invitation tab switching -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-
         const tabs = document.querySelectorAll('[data-tab]');
         const panels = document.querySelectorAll('.wp-invitation-tab-panel');
 
         tabs.forEach(function(tab) {
-
             tab.addEventListener('click', function() {
-
-                const selectedTab = this.dataset.tab;
+                const selectedTab = tab.dataset.tab;
 
                 tabs.forEach(function(item) {
-
                     const isActive = item.dataset.tab === selectedTab;
 
                     item.classList.toggle('active', isActive);
                     item.classList.toggle('wp-btn-primary', isActive);
                     item.classList.toggle('wp-btn-outline', !isActive);
-
                     item.setAttribute('aria-selected', isActive ? 'true' : 'false');
-
                 });
-
 
                 panels.forEach(function(panel) {
-
                     panel.hidden = panel.id !== selectedTab + '-panel';
-
                 });
-
             });
-
         });
-
     });
 </script>
-
 
 <?php require_once '../../includes/footer.php'; ?>

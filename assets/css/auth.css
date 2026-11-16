@@ -477,3 +477,53 @@ body.auth-page {
         font-size: 26px;
     }
 }
+
+.auth-verification-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #1e40af;
+}
+
+.auth-verification-notice > i {
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.auth-verification-notice strong {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.auth-verification-notice p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.auth-resend-section {
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.auth-resend-heading {
+    margin-bottom: 15px;
+}
+
+.auth-resend-heading strong {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.auth-resend-heading p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+}
