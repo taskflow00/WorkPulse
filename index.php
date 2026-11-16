@@ -1,21 +1,28 @@
+
 <?php
 
 require_once __DIR__ . '/includes/session.php';
 
-$is_logged_in = isset($_SESSION['user']['id']);
-$role = $_SESSION['user']['role'] ?? '';
+// Check whether a user is logged in.
+$is_logged_in = !empty($_SESSION['user']['id']);
 
-$dashboard_url = '';
+// Read the role saved during login.
+$role = $_SESSION['role'] ?? '';
 
-if ($role === 'worker') {
-    $dashboard_url = 'pages/worker/dashboard.php';
-} elseif ($role === 'employer') {
-    $dashboard_url = 'pages/employer/dashboard.php';
-} elseif ($role === 'admin') {
-    $dashboard_url = 'pages/admin/dashboard.php';
-}
+// Normalize the role to avoid case or whitespace mismatches.
+$role = strtolower(trim($role));
+
+// Determine the correct dashboard.
+$dashboards = [
+    'worker' => 'pages/worker/dashboard.php',
+    'employer' => 'pages/employer/dashboard.php',
+    'admin' => 'pages/admin/dashboard.php'
+];
+
+$dashboard_url = $dashboards[$role] ?? '';
 
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
