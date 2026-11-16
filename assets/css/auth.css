@@ -557,3 +557,60 @@ body.auth-page {
     font-size: 13px;
     line-height: 1.6;
 }
+
+
+/* ==========================================
+   RESEND VERIFICATION BUTTON
+========================================== */
+
+.resend-submit {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 50px;
+    margin-top: 4px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: background 0.2s ease,
+                border-color 0.2s ease,
+                transform 0.2s ease,
+                opacity 0.2s ease;
+}
+
+.resend-submit:not(:disabled):hover {
+    transform: translateY(-1px);
+}
+
+.resend-submit:not(:disabled):active {
+    transform: translateY(0);
+}
+
+.resend-submit i {
+    font-size: 16px;
+}
+
+.resend-submit:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+    color: #64748b;
+}
+
+.resend-submit.is-counting i {
+    animation: resend-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes resend-pulse {
+    0%, 100% {
+        opacity: 0.5;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}

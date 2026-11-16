@@ -9,25 +9,8 @@ $message_type = '';
 
 $email = '';
 $full_name = '';
+$username = '';
 $role = 'worker';
-
-
-// ==========================================
-// HELPER: GET HTTP STATUS CODE
-// ==========================================
-
-function get_supabase_http_status($headers)
-{
-    $status = 0;
-
-    foreach ($headers as $header) {
-        if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $matches)) {
-            $status = (int) $matches[1];
-        }
-    }
-
-    return $status;
-}
 
 
 // ==========================================
@@ -37,17 +20,27 @@ function get_supabase_http_status($headers)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 
     $full_name = trim($_POST['full_name'] ?? '');
+    $username = strtolower(trim($_POST['username'] ?? ''));
     $email = strtolower(trim($_POST['email'] ?? ''));
     $password = $_POST['password'] ?? '';
     $role = $_POST['role'] ?? '';
 
-    if ($full_name === '' || $email === '' || $password === '') {
+    if (
+        $full_name === '' ||
+        $username === '' ||
+        $email === '' ||
+        $password === ''
+    ) {
 
         $message = 'Please complete all fields.';
         $message_type = 'danger';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 
         $message = 'Please enter a valid email address.';
+        $message_type = 'danger';
+    } elseif (!preg_match('/^[a-z0-9_]{3,30}$/', $username)) {
+
+        $message = 'Username must be 3–30 characters and contain only lowercase letters, numbers, and underscores.';
         $message_type = 'danger';
     } elseif (strlen($password) < 6) {
 
@@ -57,77 +50,269 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
 
         $message = 'Invalid account type.';
         $message_type = 'danger';
+    } elseif (SUPABASE_SERVICE_ROLE_KEY === '') {
+
+        $message = 'Registration service is not properly configured.';
+        $message_type = 'danger';
     } else {
 
-        $url = SUPABASE_URL . '/auth/v1/signup';
+        // ==========================================
+        // CHECK USERNAME AVAILABILITY
+        // ==========================================
 
-        $data = [
-            'email' => $email,
-            'password' => $password,
-            'data' => [
-                'full_name' => $full_name,
-                'role' => $role
-            ]
-        ];
+        $username_url = SUPABASE_URL .
+            '/rest/v1/profiles?select=id&username=eq.' .
+            rawurlencode($username) .
+            '&limit=1';
 
-        $options = [
+        $username_options = [
             'http' => [
-                'method' => 'POST',
+                'method' => 'GET',
                 'header' =>
-                "Content-Type: application/json\r\n" .
-                    "apikey: " . SUPABASE_KEY . "\r\n",
-                'content' => json_encode($data),
+                "apikey: " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+                    "Authorization: Bearer " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+                    "Accept: application/json\r\n",
                 'ignore_errors' => true,
                 'timeout' => 20
             ]
         ];
 
-        $context = stream_context_create($options);
+        $username_context = stream_context_create($username_options);
 
-        $response = file_get_contents($url, false, $context);
-        $headers = $http_response_header ?? [];
+        $username_response = file_get_contents(
+            $username_url,
+            false,
+            $username_context
+        );
 
-        if ($response === false) {
+        $username_headers = $http_response_header ?? [];
 
-            $message = 'Unable to connect to the registration service. Please try again.';
+        $username_status = 0;
+
+        foreach ($username_headers as $header) {
+            if (preg_match('/^HTTP\/\S+\s+(\d+)/i', $header, $matches)) {
+                $username_status = (int) $matches[1];
+            }
+        }
+
+        $username_result = json_decode($username_response ?: '', true);
+
+        if ($username_response === false || $username_status !== 200) {
+
+            error_log('USERNAME CHECK HTTP STATUS: ' . $username_status);
+            error_log('USERNAME CHECK RESPONSE: ' . ($username_response ?: 'file_get_contents returned false'));
+            error_log('USERNAME CHECK HEADERS: ' . print_r($username_headers, true));
+
+            $message = 'Unable to check username availability. Please try again.';
+            $message_type = 'danger';
+        } elseif (is_array($username_result) && !empty($username_result)) {
+
+            $message = 'That username is already taken. Please choose another one.';
             $message_type = 'danger';
         } else {
 
-            $result = json_decode($response, true);
-            $http_status = get_supabase_http_status($headers);
+            // ==========================================
+            // CHECK EXISTING EMAIL IN SUPABASE AUTH
+            // ==========================================
 
-            $user_id = $result['user']['id']
-                ?? $result['id']
-                ?? null;
+            $email_already_registered = false;
+            $email_check_failed = false;
 
-            if (
-                $http_status >= 200 &&
-                $http_status < 300 &&
-                !empty($user_id)
-            ) {
+            $page = 1;
+            $per_page = 1000;
 
-                // Store the email temporarily for the verification page.
-                $_SESSION['pending_verification_email'] = $email;
+            do {
 
-                // Redirect to the OTP verification page.
-                header('Location: /verify-email.php');
-                exit;
-            } else {
+                $users_url = SUPABASE_URL .
+                    '/auth/v1/admin/users?page=' . $page .
+                    '&per_page=' . $per_page;
 
-                $error_code = $result['code'] ?? '';
+                $users_options = [
+                    'http' => [
+                        'method' => 'GET',
+                        'header' =>
+                        "Content-Type: application/json\r\n" .
+                            "apikey: " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
+                            "Authorization: Bearer " . SUPABASE_SERVICE_ROLE_KEY . "\r\n",
+                        'ignore_errors' => true,
+                        'timeout' => 20
+                    ]
+                ];
 
-                if ($error_code === 'over_email_send_rate_limit') {
+                $users_context = stream_context_create($users_options);
 
-                    $message = 'Too many registration attempts. Please wait before trying again.';
-                } elseif ($error_code === 'weak_password') {
+                $users_response = file_get_contents(
+                    $users_url,
+                    false,
+                    $users_context
+                );
 
-                    $message = 'Your password is too weak. Please choose a stronger password.';
-                } else {
+                $users_headers = $http_response_header ?? [];
 
-                    $message = 'Unable to create your account with those details. Please check them and try again.';
+                $users_status = 0;
+
+                foreach ($users_headers as $header) {
+                    if (preg_match('/^HTTP\/\S+\s+(\d+)/i', $header, $matches)) {
+                        $users_status = (int) $matches[1];
+                    }
                 }
 
+                if ($users_response === false || $users_status !== 200) {
+
+                    $email_check_failed = true;
+                    break;
+                }
+
+                $users_result = json_decode($users_response, true);
+                $users = $users_result['users'] ?? null;
+
+                if (!is_array($users)) {
+
+                    $email_check_failed = true;
+                    break;
+                }
+
+                foreach ($users as $existing_user) {
+
+                    $existing_email = strtolower(
+                        trim($existing_user['email'] ?? '')
+                    );
+
+                    if ($existing_email === $email) {
+
+                        $email_already_registered = true;
+                        break;
+                    }
+                }
+
+                if ($email_already_registered || count($users) < $per_page) {
+                    break;
+                }
+
+                $page++;
+            } while (true);
+
+
+            if ($email_check_failed) {
+
+                $message = 'Unable to verify your email address right now. Please try again.';
                 $message_type = 'danger';
+            } elseif ($email_already_registered) {
+
+                $message = 'We could not create an account with those details. If you already have an account, please sign in or reset your password.';
+                $message_type = 'warning';
+            } else {
+
+                // ==========================================
+                // SEND SIGNUP REQUEST TO SUPABASE
+                // ==========================================
+
+                $signup_url = SUPABASE_URL . '/auth/v1/signup';
+
+                $signup_data = [
+                    'email' => $email,
+                    'password' => $password,
+                    'data' => [
+                        'full_name' => $full_name,
+                        'username' => $username,
+                        'role' => $role
+                    ]
+                ];
+
+                $signup_options = [
+                    'http' => [
+                        'method' => 'POST',
+                        'header' =>
+                        "Content-Type: application/json\r\n" .
+                            "apikey: " . SUPABASE_KEY . "\r\n",
+                        'content' => json_encode($signup_data),
+                        'ignore_errors' => true,
+                        'timeout' => 20
+                    ]
+                ];
+
+                $signup_context = stream_context_create($signup_options);
+
+                $signup_response = file_get_contents(
+                    $signup_url,
+                    false,
+                    $signup_context
+                );
+
+                $signup_headers = $http_response_header ?? [];
+
+                $signup_status = 0;
+
+                foreach ($signup_headers as $header) {
+                    if (preg_match('/^HTTP\/\S+\s+(\d+)/i', $header, $matches)) {
+                        $signup_status = (int) $matches[1];
+                    }
+                }
+
+                if ($signup_response === false) {
+
+                    $message = 'Unable to connect to the registration service. Please try again.';
+                    $message_type = 'danger';
+                } else {
+
+                    $signup_result = json_decode($signup_response, true);
+
+                    if (!is_array($signup_result)) {
+                        $signup_result = [];
+                    }
+
+                    $user = $signup_result['user'] ?? [];
+
+                    $user_id = $user['id']
+                        ?? $signup_result['id']
+                        ?? null;
+
+                    $identities = $user['identities'] ?? null;
+
+                    $email_already_registered = (
+                        is_array($identities) &&
+                        empty($identities)
+                    );
+
+                    if (
+                        $signup_status >= 200 &&
+                        $signup_status < 300 &&
+                        !empty($user_id) &&
+                        !$email_already_registered
+                    ) {
+
+                        // ==========================================
+                        // REGISTRATION SUCCESSFUL
+                        // ==========================================
+
+                        $_SESSION['pending_verification_email'] = $email;
+
+                        header('Location: /verify-email.php');
+                        exit;
+                    } elseif ($email_already_registered) {
+
+                        $message = 'We could not create an account with those details. If you already have an account, please sign in or reset your password.';
+                        $message_type = 'warning';
+                    } else {
+
+                        $error_code = $signup_result['error_code']
+                            ?? $signup_result['code']
+                            ?? '';
+
+                        if ($error_code === 'over_email_send_rate_limit') {
+
+                            $message = 'Too many registration attempts. Please wait before trying again.';
+                        } elseif ($error_code === 'weak_password') {
+
+                            $message = 'Your password is too weak. Please choose a stronger password.';
+                        } else {
+
+                            $message = 'Unable to create your account. Your username or email may already be in use. Please check your details and try again.';
+                        }
+
+                        $message_type = 'danger';
+                    }
+                }
             }
         }
     }
@@ -159,7 +344,10 @@ $alert_icon = $alert_icons[$message_type] ?? 'bi-info-circle-fill';
     <title>Create Account | WorkPulse</title>
 
     <link rel="stylesheet" href="/assets/css/auth.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 
 <body class="auth-page">
@@ -270,6 +458,33 @@ $alert_icon = $alert_icons[$message_type] ?? 'bi-info-circle-fill';
                                 required>
 
                         </div>
+
+                    </div>
+
+
+                    <div class="auth-field">
+
+                        <label for="username">Username</label>
+
+                        <div class="auth-input">
+
+                            <i class="bi bi-at"></i>
+
+                            <input
+                                type="text"
+                                id="username"
+                                name="username"
+                                placeholder="Choose a username"
+                                value="<?= htmlspecialchars($username, ENT_QUOTES, 'UTF-8') ?>"
+                                minlength="3"
+                                maxlength="30"
+                                pattern="[a-zA-Z0-9_]{3,30}"
+                                autocomplete="username"
+                                required>
+
+                        </div>
+
+                        <small>3–30 characters. Letters, numbers, and underscores only.</small>
 
                     </div>
 
@@ -420,4 +635,4 @@ $alert_icon = $alert_icons[$message_type] ?? 'bi-info-circle-fill';
 
 </body>
 
-</html>C:\php\php.exe -l register.php
+</html>

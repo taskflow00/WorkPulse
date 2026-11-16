@@ -5,12 +5,24 @@ require_once __DIR__ . '/includes/session.php';
 date_default_timezone_set('Asia/Manila');
 
 $message = '';
+$message_type = 'danger';
 
 $status = $_GET['status'] ?? '';
 
-if ($status === 'banned') {
+
+// ==========================================
+// PAGE MESSAGES
+// ==========================================
+
+if (isset($_GET['verified']) && $_GET['verified'] === '1') {
+
+    $message = 'Email verified successfully! You can now sign in.';
+    $message_type = 'success';
+} elseif ($status === 'banned') {
+
     $message = 'Your account has been banned. Please contact support.';
 } elseif ($status === 'suspended') {
+
     $message = 'Your account is temporarily suspended. Please try again later.';
 }
 
@@ -19,12 +31,11 @@ if ($status === 'banned') {
 // LOGIN
 // ==========================================
 
-if (isset($_POST['login'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 
-    $email = trim($_POST['email'] ?? '');
+    $email = strtolower(trim($_POST['email'] ?? ''));
     $password = $_POST['password'] ?? '';
 
-    // Validate inputs
     if ($email === '' || $password === '') {
 
         $message = 'Please enter your email and password.';
@@ -33,7 +44,10 @@ if (isset($_POST['login'])) {
         $message = 'Please enter a valid email address.';
     } else {
 
-        // Supabase login endpoint
+        // ==========================================
+        // SUPABASE AUTHENTICATION
+        // ==========================================
+
         $url = SUPABASE_URL . '/auth/v1/token?grant_type=password';
 
         $data = [
@@ -41,7 +55,6 @@ if (isset($_POST['login'])) {
             'password' => $password
         ];
 
-        // Authenticate the user using the public key
         $options = [
             'http' => [
                 'method' => 'POST',
@@ -60,27 +73,54 @@ if (isset($_POST['login'])) {
 
         if ($response === false) {
 
-            $message = 'Unable to connect to Supabase.';
+            $message = 'Unable to connect to Supabase. Please try again.';
         } else {
 
             $result = json_decode($response, true);
 
-            // Check authentication result
+            if (!is_array($result)) {
+                $result = [];
+            }
+
+
+            // ==========================================
+            // CHECK EMAIL VERIFICATION
+            // ==========================================
+
+            $auth_error_code = $result['code'] ?? '';
+
+            if ($auth_error_code === 'email_not_confirmed') {
+
+                // Keep the email in the session for the OTP page.
+                $_SESSION['pending_verification_email'] = $email;
+
+                header('Location: /verify-email.php');
+                exit;
+            }
+
+
+            // ==========================================
+            // CHECK AUTHENTICATION RESULT
+            // ==========================================
+
             if (
-                isset($result['access_token']) &&
-                isset($result['user']['id'])
+                !empty($result['access_token']) &&
+                !empty($result['user']['id'])
             ) {
 
                 $access_token = $result['access_token'];
                 $user_id = $result['user']['id'];
 
-                // Prepare authenticated user headers
                 $user_headers =
                     "apikey: " . SUPABASE_KEY . "\r\n" .
                     "Authorization: Bearer " . $access_token . "\r\n" .
                     "Accept: application/json\r\n";
 
-                // Retrieve the user's profile
+
+                // ==========================================
+                // RETRIEVE USER PROFILE
+                // ==========================================
+
                 $url = SUPABASE_URL .
                     '/rest/v1/profiles?select=role,account_status,restricted_until&id=eq.' .
                     urlencode($user_id);
@@ -98,18 +138,13 @@ if (isset($_POST['login'])) {
 
                 $profile_response = file_get_contents($url, false, $context);
 
-                // Capture the profile request headers immediately
                 $profile_headers = $http_response_header ?? [];
 
                 if ($profile_response === false) {
 
-                    $error = error_get_last();
-
-                    $message = 'Unable to connect to the profile service. ' .
-                        ($error['message'] ?? '');
+                    $message = 'Unable to connect to the profile service. Please try again.';
                 } else {
 
-                    // Get the HTTP status code
                     $profile_status = 0;
 
                     foreach ($profile_headers as $header) {
@@ -119,24 +154,22 @@ if (isset($_POST['login'])) {
                         }
                     }
 
-                    // Check Supabase response
-                    if ($profile_status != 200) {
+
+                    if ($profile_status !== 200) {
 
                         $message = 'Unable to retrieve your account profile. HTTP ' .
-                            $profile_status . '. Supabase response: ' .
-                            $profile_response;
+                            $profile_status . '.';
                     } else {
 
                         $profile = json_decode($profile_response, true);
 
-                        // Check if the profile exists
+
                         if (
                             !is_array($profile) ||
                             !isset($profile[0]['role'])
                         ) {
 
-                            $message = 'No usable account profile was returned. ' .
-                                'Please check your profiles table and RLS policies.';
+                            $message = 'No usable account profile was returned. Please contact support.';
                         } else {
 
                             $role = $profile[0]['role'];
@@ -159,7 +192,7 @@ if (isset($_POST['login'])) {
                                     ? strtotime($restricted_until)
                                     : false;
 
-                                // Suspension is still active
+
                                 if (
                                     $restriction_time === false ||
                                     $restriction_time > time()
@@ -170,13 +203,10 @@ if (isset($_POST['login'])) {
                                         $message = 'Your account is temporarily suspended, but no end time is currently available. Please contact support.';
                                     } else {
 
-                                        // Calculate remaining suspension time
                                         $remaining_seconds = $restriction_time - time();
 
                                         $days = intdiv($remaining_seconds, 86400);
-
                                         $hours = intdiv($remaining_seconds % 86400, 3600);
-
                                         $minutes = intdiv($remaining_seconds % 3600, 60);
 
                                         $remaining_time = [];
@@ -199,7 +229,6 @@ if (isset($_POST['login'])) {
 
                                         $formatted_remaining = implode(', ', $remaining_time);
 
-                                        // Format suspension end date
                                         $formatted_end = date('M j, Y g:i A', $restriction_time);
 
                                         $message = 'Your account is temporarily suspended. You can log in again in ' .
@@ -209,8 +238,9 @@ if (isset($_POST['login'])) {
                                     }
                                 } else {
 
-                                    // Suspension has expired.
-                                    // Restore the account using the service-role key.
+                                    // ==========================================
+                                    // RESTORE EXPIRED SUSPENSION
+                                    // ==========================================
 
                                     $service_role_key = defined('SUPABASE_SERVICE_ROLE_KEY')
                                         ? SUPABASE_SERVICE_ROLE_KEY
@@ -240,7 +270,6 @@ if (isset($_POST['login'])) {
                                                     "apikey: " . $service_role_key . "\r\n" .
                                                     "Authorization: Bearer " . $service_role_key . "\r\n" .
                                                     "Prefer: return=minimal\r\n",
-
                                                 'content' => json_encode($restore_data),
                                                 'ignore_errors' => true,
                                                 'timeout' => 15
@@ -251,10 +280,8 @@ if (isset($_POST['login'])) {
 
                                         $restore_response = file_get_contents($url, false, $context);
 
-                                        // Capture restoration headers immediately
                                         $restore_headers = $http_response_header ?? [];
 
-                                        // Check restoration HTTP status
                                         $restore_status = 0;
 
                                         foreach ($restore_headers as $header) {
@@ -289,10 +316,8 @@ if (isset($_POST['login'])) {
 
                             if ($message === '') {
 
-                                // Generate a new session ID after successful login.
                                 session_regenerate_id(true);
 
-                                // Store Supabase authentication tokens server-side.
                                 $_SESSION['access_token'] = $result['access_token'];
 
                                 $_SESSION['refresh_token'] = $result['refresh_token'] ?? '';
@@ -300,12 +325,15 @@ if (isset($_POST['login'])) {
                                 $_SESSION['token_expires_at'] = time() +
                                     (int) ($result['expires_in'] ?? 3600);
 
-                                // Store the authenticated user.
                                 $_SESSION['user'] = $result['user'];
 
                                 $_SESSION['role'] = $role;
 
-                                // Check if the user came from a job details page
+
+                                // ==========================================
+                                // ROLE-BASED REDIRECT
+                                // ==========================================
+
                                 $redirect = $_GET['redirect'] ?? '';
 
                                 if (
@@ -337,6 +365,15 @@ if (isset($_POST['login'])) {
                                     exit;
                                 } else {
 
+                                    // Do not keep an authenticated session for an unknown role.
+                                    unset(
+                                        $_SESSION['access_token'],
+                                        $_SESSION['refresh_token'],
+                                        $_SESSION['token_expires_at'],
+                                        $_SESSION['user'],
+                                        $_SESSION['role']
+                                    );
+
                                     $message = 'Your account role is not recognized.';
                                 }
                             }
@@ -345,11 +382,7 @@ if (isset($_POST['login'])) {
                 }
             } else {
 
-                $message = 'Login failed. ' .
-                    ($result['error_description'] ??
-                        $result['msg'] ??
-                        $result['message'] ??
-                        'Invalid email or password.');
+                $message = 'Login failed. Invalid email or password.';
             }
         }
     }
@@ -357,14 +390,15 @@ if (isset($_POST['login'])) {
 
 ?>
 
-
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Sign In | WorkPulse</title>
+
     <link rel="stylesheet" href="/assets/css/auth.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
@@ -376,7 +410,9 @@ if (isset($_POST['login'])) {
         <section class="auth-showcase">
 
             <a href="/index.php" class="auth-brand">
-                <span class="brand-icon"><i class="bi bi-briefcase-fill"></i></span>
+                <span class="brand-icon">
+                    <i class="bi bi-briefcase-fill"></i>
+                </span>
                 WorkPulse
             </a>
 
@@ -434,13 +470,18 @@ if (isset($_POST['login'])) {
                 </div>
 
 
+                <!-- ALERT MESSAGE -->
                 <?php if ($message !== ''): ?>
 
-                    <div class="auth-alert">
+                    <div class="auth-alert alert-<?= htmlspecialchars($message_type, ENT_QUOTES, 'UTF-8') ?>">
 
-                        <i class="bi bi-exclamation-circle"></i>
+                        <i class="bi <?= $message_type === 'success'
+                                            ? 'bi-check-circle-fill'
+                                            : 'bi-exclamation-circle' ?>"></i>
 
-                        <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
+                        <span>
+                            <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
+                        </span>
 
                     </div>
 
@@ -492,7 +533,9 @@ if (isset($_POST['login'])) {
                                 class="password-toggle"
                                 onclick="togglePassword('password', this)"
                                 aria-label="Show password">
+
                                 <i class="bi bi-eye"></i>
+
                             </button>
 
                         </div>
@@ -501,15 +544,21 @@ if (isset($_POST['login'])) {
 
 
                     <button type="submit" name="login" class="auth-submit">
-                        Sign In <i class="bi bi-arrow-right"></i>
+
+                        Sign In
+                        <i class="bi bi-arrow-right"></i>
+
                     </button>
 
                 </form>
 
 
                 <p class="auth-switch">
+
                     Don't have an account?
+
                     <a href="/register.php">Create an account</a>
+
                 </p>
 
             </div>

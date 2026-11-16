@@ -29,6 +29,20 @@ $csrf_token = $_SESSION['verification_csrf'];
 
 
 // ==========================================
+// RESEND COOLDOWN
+// ==========================================
+
+$resend_cooldown_seconds = 36;
+
+$last_resend_at = (int) ($_SESSION['verification_resend_at'] ?? 0);
+
+$resend_wait = max(
+    0,
+    $resend_cooldown_seconds - (time() - $last_resend_at)
+);
+
+
+// ==========================================
 // HELPER: GET HTTP STATUS CODE
 // ==========================================
 
@@ -37,7 +51,7 @@ function verify_email_http_status($headers)
     $status = 0;
 
     foreach ($headers as $header) {
-        if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $matches)) {
+        if (preg_match('/^HTTP\/\S+\s+(\d+)/i', $header, $matches)) {
             $status = (int) $matches[1];
         }
     }
@@ -47,19 +61,92 @@ function verify_email_http_status($headers)
 
 
 // ==========================================
+// HELPER: SUPABASE HTTP REQUEST
+// ==========================================
+
+function verify_email_supabase_request(
+    $endpoint,
+    $method = 'POST',
+    $data = null,
+    $access_token = null,
+    $use_service_role = false
+) {
+    $api_key = SUPABASE_KEY;
+    $authorization_token = $access_token;
+
+    if ($use_service_role) {
+        $api_key = SUPABASE_SERVICE_ROLE_KEY;
+        $authorization_token = SUPABASE_SERVICE_ROLE_KEY;
+    }
+
+    $headers = [
+        "Content-Type: application/json",
+        "apikey: " . $api_key
+    ];
+
+    if (!empty($authorization_token)) {
+        $headers[] = "Authorization: Bearer " . $authorization_token;
+    }
+
+    $options = [
+        'http' => [
+            'method' => $method,
+            'header' => implode("\r\n", $headers) . "\r\n",
+            'ignore_errors' => true,
+            'timeout' => 20
+        ]
+    ];
+
+    if ($data !== null) {
+        $options['http']['content'] = json_encode($data);
+    }
+
+    $context = stream_context_create($options);
+
+    $response = file_get_contents(
+        SUPABASE_URL . $endpoint,
+        false,
+        $context
+    );
+
+    $headers = $http_response_header ?? [];
+
+    if ($response === false) {
+        return [
+            'success' => false,
+            'status' => 0,
+            'result' => []
+        ];
+    }
+
+    $result = json_decode($response, true);
+
+    if (!is_array($result)) {
+        $result = [];
+    }
+
+    $http_status = verify_email_http_status($headers);
+
+    return [
+        'success' => $http_status >= 200 && $http_status < 300,
+        'status' => $http_status,
+        'result' => $result
+    ];
+}
+
+
+// ==========================================
 // HANDLE FORM SUBMISSIONS
 // ==========================================
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // Check CSRF token.
     $submitted_csrf = $_POST['csrf_token'] ?? '';
 
     if (
         !is_string($submitted_csrf) ||
         !hash_equals($csrf_token, $submitted_csrf)
     ) {
-
         $message = 'Your request could not be verified. Please refresh the page and try again.';
         $message_type = 'danger';
     } elseif (isset($_POST['verify_otp'])) {
@@ -76,79 +163,211 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message_type = 'danger';
         } else {
 
-            $url = SUPABASE_URL . '/auth/v1/verify';
-
-            $data = [
-                'type' => 'signup',
-                'email' => $email,
-                'token' => $otp
-            ];
-
-            $options = [
-                'http' => [
-                    'method' => 'POST',
-                    'header' =>
-                    "Content-Type: application/json\r\n" .
-                        "apikey: " . SUPABASE_KEY . "\r\n",
-                    'content' => json_encode($data),
-                    'ignore_errors' => true,
-                    'timeout' => 20
+            $response = verify_email_supabase_request(
+                '/auth/v1/verify',
+                'POST',
+                [
+                    'type' => 'signup',
+                    'email' => $email,
+                    'token' => $otp
                 ]
-            ];
+            );
 
-            $context = stream_context_create($options);
+            if (!$response['success']) {
 
-            $response = file_get_contents($url, false, $context);
-            $headers = $http_response_header ?? [];
+                $result = $response['result'];
 
-            if ($response === false) {
+                $error_code = $result['error_code']
+                    ?? $result['code']
+                    ?? '';
 
-                $message = 'Unable to contact the verification service. Please try again.';
+                if (
+                    in_array($error_code, [
+                        'otp_expired',
+                        'otp_expired_or_invalid',
+                        'token_expired'
+                    ], true)
+                ) {
+                    $message = 'This verification code has expired. Please request a new code.';
+                } elseif (
+                    in_array($error_code, [
+                        'token_already_used',
+                        'otp_disabled'
+                    ], true)
+                ) {
+                    $message = 'This verification code cannot be used. Please request a new code.';
+                } elseif ($response['status'] === 0) {
+
+                    $message = 'Unable to contact the verification service. Please try again.';
+                } else {
+
+                    $message = 'The verification code is incorrect or has expired. Please try again.';
+                }
+
                 $message_type = 'danger';
             } else {
 
-                $result = json_decode($response, true);
-                $http_status = verify_email_http_status($headers);
+                // ==========================================
+                // GET AUTHENTICATED USER SESSION
+                // ==========================================
+
+                $auth_result = $response['result'];
+
+                $auth_user = $auth_result['user'] ?? [];
+                $access_token = $auth_result['access_token'] ?? '';
+                $refresh_token = $auth_result['refresh_token'] ?? '';
+                $expires_in = (int) ($auth_result['expires_in'] ?? 3600);
 
                 if (
-                    $http_status >= 200 &&
-                    $http_status < 300 &&
-                    !empty($result['user']['id'])
+                    empty($auth_user['id']) ||
+                    empty($access_token)
                 ) {
+                    $message = 'Your email was verified, but automatic login could not be completed. Please log in manually.';
+                    $message_type = 'warning';
 
-                    // Verification succeeded.
                     unset($_SESSION['pending_verification_email']);
                     unset($_SESSION['verification_csrf']);
-
-                    header('Location: /login.php?verified=1');
-                    exit;
                 } else {
 
-                    $error_code = $result['code'] ?? '';
+                    // ==========================================
+                    // GET USER PROFILE AND ROLE
+                    // ==========================================
+
+                    $user_id = $auth_user['id'];
+
+                    $profile_response = verify_email_supabase_request(
+                        '/rest/v1/profiles?select=role,account_status,restricted_until&id=eq.' . urlencode($user_id),
+                        'GET',
+                        null,
+                        $access_token
+                    );
+
+                    $profile = $profile_response['result'][0] ?? null;
 
                     if (
-                        in_array($error_code, [
-                            'otp_expired',
-                            'otp_expired_or_invalid',
-                            'token_expired'
-                        ], true)
+                        !$profile_response['success'] ||
+                        !is_array($profile)
                     ) {
+                        unset($_SESSION['pending_verification_email']);
+                        unset($_SESSION['verification_csrf']);
 
-                        $message = 'This verification code has expired. Please request a new code.';
-                    } elseif (
-                        in_array($error_code, [
-                            'token_already_used',
-                            'otp_disabled'
-                        ], true)
-                    ) {
-
-                        $message = 'This verification code cannot be used. Please request a new code.';
-                    } else {
-
-                        $message = 'The verification code is incorrect or has expired. Please try again.';
+                        header('Location: /login.php?verified=1&auto_login=failed');
+                        exit;
                     }
 
-                    $message_type = 'danger';
+                    $role = $profile['role'] ?? '';
+                    $account_status = $profile['account_status'] ?? 'active';
+                    $restricted_until = $profile['restricted_until'] ?? null;
+
+                    // ==========================================
+                    // CHECK ACCOUNT RESTRICTIONS
+                    // ==========================================
+
+                    if ($account_status === 'banned') {
+
+                        unset($_SESSION['pending_verification_email']);
+                        unset($_SESSION['verification_csrf']);
+
+                        header('Location: /login.php?status=banned');
+                        exit;
+                    }
+
+                    if ($account_status === 'suspended') {
+
+                        $restriction_timestamp = !empty($restricted_until)
+                            ? strtotime($restricted_until)
+                            : false;
+
+                        if (
+                            $restriction_timestamp === false ||
+                            $restriction_timestamp > time()
+                        ) {
+                            unset($_SESSION['pending_verification_email']);
+                            unset($_SESSION['verification_csrf']);
+
+                            header('Location: /login.php?status=suspended');
+                            exit;
+                        }
+
+                        // Suspension has expired.
+                        // Restore the account using the service role key.
+
+                        $restore_response = verify_email_supabase_request(
+                            '/rest/v1/profiles?id=eq.' . urlencode($user_id),
+                            'PATCH',
+                            [
+                                'account_status' => 'active',
+                                'restriction_reason' => null,
+                                'restricted_until' => null,
+                                'restricted_by' => null
+                            ],
+                            null,
+                            true
+                        );
+
+                        if (!$restore_response['success']) {
+
+                            unset($_SESSION['pending_verification_email']);
+                            unset($_SESSION['verification_csrf']);
+
+                            header('Location: /login.php?verified=1&auto_login=failed');
+                            exit;
+                        }
+                    }
+
+                    // ==========================================
+                    // CHECK USER ROLE
+                    // ==========================================
+
+                    $allowed_roles = [
+                        'worker',
+                        'employer',
+                        'admin'
+                    ];
+
+                    if (!in_array($role, $allowed_roles, true)) {
+
+                        unset($_SESSION['pending_verification_email']);
+                        unset($_SESSION['verification_csrf']);
+
+                        header('Location: /login.php?verified=1&auto_login=failed');
+                        exit;
+                    }
+
+                    // ==========================================
+                    // CREATE WORKPULSE LOGIN SESSION
+                    // ==========================================
+
+                    session_regenerate_id(true);
+
+                    $_SESSION['access_token'] = $access_token;
+                    $_SESSION['refresh_token'] = $refresh_token;
+                    $_SESSION['token_expires_at'] = time() + $expires_in;
+
+                    $_SESSION['user'] = $auth_user;
+                    $_SESSION['role'] = $role;
+
+                    // Remove verification-only session values.
+                    unset($_SESSION['pending_verification_email']);
+                    unset($_SESSION['verification_csrf']);
+                    unset($_SESSION['verification_resend_at']);
+
+                    // ==========================================
+                    // REDIRECT TO ROLE DASHBOARD
+                    // ==========================================
+
+                    if ($role === 'worker') {
+
+                        header('Location: /pages/worker/dashboard.php');
+                    } elseif ($role === 'employer') {
+
+                        header('Location: /pages/employer/dashboard.php');
+                    } elseif ($role === 'admin') {
+
+                        header('Location: /pages/admin/dashboard.php');
+                    }
+
+                    exit;
                 }
             }
         }
@@ -158,50 +377,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // RESEND OTP
         // ==========================================
 
-        $url = SUPABASE_URL . '/auth/v1/resend';
+        $last_resend_at = (int) ($_SESSION['verification_resend_at'] ?? 0);
 
-        $data = [
-            'type' => 'signup',
-            'email' => $email
-        ];
+        $resend_wait = max(
+            0,
+            36 - (time() - $last_resend_at)
+        );
 
-        $options = [
-            'http' => [
-                'method' => 'POST',
-                'header' =>
-                "Content-Type: application/json\r\n" .
-                    "apikey: " . SUPABASE_KEY . "\r\n",
-                'content' => json_encode($data),
-                'ignore_errors' => true,
-                'timeout' => 20
-            ]
-        ];
+        if ($resend_wait > 0) {
 
-        $context = stream_context_create($options);
-
-        $response = file_get_contents($url, false, $context);
-        $headers = $http_response_header ?? [];
-
-        if ($response === false) {
-
-            $message = 'Unable to contact the verification service. Please try again later.';
-            $message_type = 'danger';
+            $message = "Please wait {$resend_wait} seconds before requesting another verification code.";
+            $message_type = 'warning';
         } else {
 
-            $http_status = verify_email_http_status($headers);
-            $result = json_decode($response, true);
+            $_SESSION['verification_resend_at'] = time();
 
-            if ($http_status >= 200 && $http_status < 300) {
+            $response = verify_email_supabase_request(
+                '/auth/v1/resend',
+                'POST',
+                [
+                    'type' => 'signup',
+                    'email' => $email
+                ]
+            );
 
-                $message = 'If this account is still waiting for verification, a new code will be sent. Please check your inbox and spam folder.';
+            if ($response['success']) {
+
+                $message = 'A new verification code has been requested. Please check your inbox and spam folder.';
                 $message_type = 'success';
+            } elseif ($response['status'] === 0) {
+
+                $message = 'Unable to contact the verification service. Please try again later.';
+                $message_type = 'danger';
             } else {
 
-                $error_code = $result['code'] ?? '';
+                $result = $response['result'];
+
+                $error_code = $result['error_code']
+                    ?? $result['code']
+                    ?? '';
 
                 if ($error_code === 'over_email_send_rate_limit') {
 
-                    $message = 'Too many verification requests. Please wait before requesting another code.';
+                    $message = $result['msg']
+                        ?? 'Too many requests. Please wait before trying again.';
                 } else {
 
                     $message = 'Unable to resend the verification code. Please try again later.';
@@ -212,6 +431,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+
+// ==========================================
+// UPDATE COOLDOWN BEFORE DISPLAY
+// ==========================================
+
+$last_resend_at = (int) ($_SESSION['verification_resend_at'] ?? 0);
+
+$resend_wait = max(
+    0,
+    36 - (time() - $last_resend_at)
+);
 
 
 // ==========================================
@@ -239,7 +470,10 @@ $alert_icon = $alert_icons[$message_type] ?? 'bi-info-circle-fill';
     <title>Verify Email | WorkPulse</title>
 
     <link rel="stylesheet" href="/assets/css/auth.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 
 <body class="auth-page">
@@ -404,10 +638,18 @@ $alert_icon = $alert_icons[$message_type] ?? 'bi-info-circle-fill';
                         <button
                             type="submit"
                             name="resend_otp"
-                            class="auth-submit">
+                            id="resend-otp-button"
+                            class="auth-submit resend-submit"
+                            data-remaining="<?= $resend_wait ?>"
+                            <?= $resend_wait > 0 ? 'disabled' : '' ?>>
 
-                            <i class="bi bi-arrow-clockwise"></i>
-                            Resend Verification Code
+                            <i class="bi bi-arrow-clockwise" id="resend-otp-icon"></i>
+
+                            <span id="resend-otp-label">
+                                <?= $resend_wait > 0
+                                    ? "Resend in {$resend_wait}s"
+                                    : "Resend Verification Code" ?>
+                            </span>
 
                         </button>
 
@@ -429,6 +671,57 @@ $alert_icon = $alert_icons[$message_type] ?? 'bi-info-circle-fill';
         </main>
 
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+
+            const button = document.getElementById('resend-otp-button');
+            const label = document.getElementById('resend-otp-label');
+            const icon = document.getElementById('resend-otp-icon');
+
+            if (!button || !label || !icon) {
+                return;
+            }
+
+            let remaining = parseInt(button.dataset.remaining, 10) || 0;
+
+            function updateButton() {
+
+                if (remaining > 0) {
+
+                    button.disabled = true;
+                    button.classList.add('is-counting');
+
+                    label.textContent = `Resend in ${remaining}s`;
+
+                } else {
+
+                    button.disabled = false;
+                    button.classList.remove('is-counting');
+
+                    label.textContent = 'Resend Verification Code';
+                }
+            }
+
+            updateButton();
+
+            if (remaining > 0) {
+
+                const countdown = setInterval(function() {
+
+                    remaining--;
+
+                    updateButton();
+
+                    if (remaining <= 0) {
+                        clearInterval(countdown);
+                    }
+
+                }, 1000);
+            }
+
+        });
+    </script>
 
 </body>
 
