@@ -48,6 +48,7 @@ class WorkPulseSessionHandler implements
         $body = curl_exec($curl);
         $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
 
+
         if ($body === false) {
             return false;
         }
@@ -242,6 +243,12 @@ ini_set('session.use_strict_mode', '1');
 ini_set('session.use_trans_sid', '0');
 ini_set('session.gc_maxlifetime', (string) WORKPULSE_SESSION_LIFETIME);
 ini_set('session.cookie_lifetime', (string) WORKPULSE_SESSION_LIFETIME);
+
+if (headers_sent($file, $line)) {
+    error_log("HEADERS ALREADY SENT: $file:$line");
+} else {
+    error_log("HEADERS NOT SENT YET");
+}
 
 
 // Detect HTTPS, including when running behind a reverse proxy.

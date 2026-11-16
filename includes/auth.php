@@ -33,7 +33,6 @@ if (
     exit;
 }
 
-
 // Refresh the Supabase access token before it expires.
 if (
     empty($_SESSION['refresh_token']) ||
@@ -51,8 +50,9 @@ if (
         'http' => [
             'method' => 'POST',
             'header' =>
-                "Content-Type: application/json\r\n" .
+            "Content-Type: application/json\r\n" .
                 "apikey: " . SUPABASE_KEY . "\r\n",
+
             'content' => json_encode($refresh_data),
             'ignore_errors' => true,
             'timeout' => 15
@@ -67,15 +67,14 @@ if (
         $refresh_context
     );
 
-    // Capture headers immediately after this request.
-    $refresh_headers = $http_response_header ?? [];
-
     // Keep the session if the refresh service is temporarily unavailable.
     if ($refresh_response === false) {
         die('Unable to refresh your session. Please try again.');
     }
 
     $refresh_result = json_decode($refresh_response, true);
+
+    $refresh_headers = http_get_last_response_headers();
 
     $refresh_status = 0;
 
@@ -100,6 +99,7 @@ if (
 
     // Save the new tokens.
     $_SESSION['access_token'] = $refresh_result['access_token'];
+
     $_SESSION['refresh_token'] = $refresh_result['refresh_token'];
 
     $_SESSION['token_expires_at'] = time() +
@@ -119,8 +119,9 @@ $options = [
     'http' => [
         'method' => 'GET',
         'header' =>
-            "apikey: " . SUPABASE_KEY . "\r\n" .
+        "apikey: " . SUPABASE_KEY . "\r\n" .
             "Authorization: Bearer " . $_SESSION['access_token'] . "\r\n",
+
         'ignore_errors' => true
     ]
 ];
@@ -149,7 +150,9 @@ if (!isset($profile[0]['role'])) {
 
 // Get the latest account information.
 $database_role = $profile[0]['role'];
+
 $account_status = $profile[0]['account_status'] ?? 'active';
+
 $restricted_until = $profile[0]['restricted_until'] ?? null;
 
 
@@ -160,7 +163,6 @@ if ($account_status === 'banned') {
 
     header('Location: ' . $login_url . '?status=banned');
     exit;
-
 } elseif ($account_status === 'suspended') {
 
     $restriction_time = !empty($restricted_until)
@@ -183,6 +185,7 @@ if ($account_status === 'banned') {
 
     // Suspension has expired.
     // Restore the account using the service-role key.
+
     if (SUPABASE_SERVICE_ROLE_KEY === '') {
         die('Unable to restore your account. Please contact support.');
     }
@@ -204,10 +207,11 @@ if ($account_status === 'banned') {
         'http' => [
             'method' => 'PATCH',
             'header' =>
-                "Content-Type: application/json\r\n" .
+            "Content-Type: application/json\r\n" .
                 "apikey: " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
                 "Authorization: Bearer " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
                 "Prefer: return=minimal\r\n",
+
             'content' => json_encode($restore_data),
             'ignore_errors' => true
         ]
@@ -217,12 +221,11 @@ if ($account_status === 'banned') {
 
     $restore_response = file_get_contents($url, false, $context);
 
-    // Capture headers immediately after this request.
-    $restore_headers = $http_response_header ?? [];
-
 
     // Check the restoration response.
     $restore_status = 0;
+
+    $restore_headers = http_get_last_response_headers();
 
     if (
         !empty($restore_headers[0]) &&
