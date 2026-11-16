@@ -26,6 +26,74 @@ if (empty($_SESSION['csrf_token'])) {
 
 
 // ==========================================
+// HELPER FUNCTIONS
+// ==========================================
+
+$get_status_code = function ($headers) {
+
+    $status_code = 0;
+
+    if (!is_array($headers)) {
+        return $status_code;
+    }
+
+    foreach ($headers as $header) {
+        if (preg_match('/HTTP\/\S+\s+(\d{3})/', $header, $matches)) {
+            $status_code = (int) $matches[1];
+        }
+    }
+
+    return $status_code;
+};
+
+
+$escape = function ($value) {
+    return htmlspecialchars(
+        (string) ($value ?? ''),
+        ENT_QUOTES,
+        'UTF-8'
+    );
+};
+
+
+// Send an HTTP request to Supabase and return its response.
+$supabase_request = function (
+    $url,
+    $method = 'GET',
+    $headers = [],
+    $payload = null,
+    $timeout = 20
+) use ($get_status_code) {
+
+    $options = [
+        'http' => [
+            'method' => $method,
+            'header' => implode("\r\n", $headers),
+            'ignore_errors' => true,
+            'timeout' => $timeout
+        ]
+    ];
+
+    if ($payload !== null) {
+        $options['http']['content'] = json_encode($payload);
+    }
+
+    $context = stream_context_create($options);
+
+    $response = @file_get_contents($url, false, $context);
+
+    // Capture response headers immediately after the request.
+    $response_headers = $http_response_header ?? [];
+
+    return [
+        'status' => $get_status_code($response_headers),
+        'body' => $response,
+        'data' => json_decode($response ?: '', true)
+    ];
+};
+
+
+// ==========================================
 // FLASH MESSAGE
 // ==========================================
 
@@ -39,42 +107,6 @@ unset(
 
 
 // ==========================================
-// HELPER: GET HTTP STATUS CODE
-// ==========================================
-
-$get_status_code = function ($response_headers) {
-
-    if (!is_array($response_headers)) {
-        return 0;
-    }
-
-    $status_code = 0;
-
-    foreach ($response_headers as $header) {
-
-        if (preg_match('/HTTP\/\S+\s+(\d{3})/', $header, $matches)) {
-            $status_code = (int) $matches[1];
-        }
-    }
-
-    return $status_code;
-};
-
-
-// ==========================================
-// HELPER: ESCAPE OUTPUT
-// ==========================================
-
-$escape = function ($value) {
-    return htmlspecialchars(
-        (string) ($value ?? ''),
-        ENT_QUOTES,
-        'UTF-8'
-    );
-};
-
-
-// ==========================================
 // ACCEPT OR DECLINE INVITATION
 // ==========================================
 
@@ -83,14 +115,17 @@ if (
     isset($_POST['respond_invitation'])
 ) {
 
-    // Validate CSRF token.
+    // ======================================
+    // 1. VALIDATE CSRF
+    // ======================================
+
     if (
         empty($_POST['csrf_token']) ||
         !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
     ) {
 
         $_SESSION['invitation_message'] =
-            'Invalid request. Please try again.';
+            'Invalid request. Please refresh the page and try again.';
 
         $_SESSION['invitation_message_type'] = 'danger';
 
@@ -98,12 +133,20 @@ if (
         exit;
     }
 
+
+    // ======================================
+    // 2. VALIDATE INPUT
+    // ======================================
+
     $invitation_id = trim($_POST['invitation_id'] ?? '');
     $decision = $_POST['respond_invitation'];
 
-
-    // Validate invitation ID.
-    if ($invitation_id === '') {
+    if (
+        !preg_match(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',
+            $invitation_id
+        )
+    ) {
 
         $_SESSION['invitation_message'] = 'Invalid invitation.';
         $_SESSION['invitation_message_type'] = 'danger';
@@ -112,8 +155,6 @@ if (
         exit;
     }
 
-
-    // Only accept valid decisions.
     if (!in_array($decision, ['accepted', 'declined'], true)) {
 
         $_SESSION['invitation_message'] =
@@ -127,8 +168,11 @@ if (
 
 
     // ======================================
-    // GET INVITATION DETAILS BEFORE RESPONSE
+    // 3. GET INVITATION DETAILS
     // ======================================
+
+    // Retrieve details before changing the invitation.
+    // These details are used for the employer notification.
 
     $invitation_before = null;
 
@@ -141,100 +185,64 @@ if (
         '&worker_id=eq.' . rawurlencode($worker_id) .
         '&limit=1';
 
-    $lookup_options = [
-        'http' => [
-            'method' => 'GET',
-            'header' =>
-            "apikey: " . SUPABASE_KEY . "\r\n" .
-                "Authorization: Bearer " . $access_token . "\r\n" .
-                "Accept: application/json\r\n",
-            'ignore_errors' => true,
-            'timeout' => 20
-        ]
-    ];
-
-    $lookup_context = stream_context_create($lookup_options);
-
-    $lookup_response = @file_get_contents(
+    $lookup = $supabase_request(
         $invitation_lookup_url,
-        false,
-        $lookup_context
-    );
-
-    // Capture headers immediately after the request.
-    $lookup_headers = $http_response_header ?? [];
-
-    $lookup_status = $get_status_code($lookup_headers);
-
-    $lookup_data = json_decode(
-        $lookup_response ?: '[]',
-        true
+        'GET',
+        [
+            'apikey: ' . SUPABASE_KEY,
+            'Authorization: Bearer ' . $access_token,
+            'Accept: application/json'
+        ]
     );
 
     if (
-        $lookup_status >= 200 &&
-        $lookup_status < 300 &&
-        is_array($lookup_data) &&
-        !empty($lookup_data[0])
+        $lookup['status'] >= 200 &&
+        $lookup['status'] < 300 &&
+        is_array($lookup['data']) &&
+        !empty($lookup['data'][0])
     ) {
 
-        $invitation_before = $lookup_data[0];
+        $invitation_before = $lookup['data'][0];
     } else {
 
         error_log(
-            'WorkPulse: Could not retrieve invitation before worker response. ' .
-                'Invitation ID: ' . $invitation_id
+            'WorkPulse invitation lookup failed. ' .
+                'Invitation ID: ' . $invitation_id .
+                ' | HTTP Status: ' . $lookup['status'] .
+                ' | Response: ' . substr((string) $lookup['body'], 0, 1000)
         );
     }
 
 
     // ======================================
-    // CALL SUPABASE RPC
+    // 4. CALL SUPABASE RPC
     // ======================================
 
     $rpc_url = SUPABASE_URL .
         '/rest/v1/rpc/respond_to_worker_invitation';
 
-    $headers = [
-        'apikey: ' . SUPABASE_KEY,
-        'Authorization: Bearer ' . $access_token,
-        'Content-Type: application/json',
-        'Accept: application/json'
-    ];
-
-    $payload = [
-        'p_invitation_id' => $invitation_id,
-        'p_decision' => $decision
-    ];
-
-    $options = [
-        'http' => [
-            'method' => 'POST',
-            'header' => implode("\r\n", $headers),
-            'content' => json_encode($payload),
-            'ignore_errors' => true,
-            'timeout' => 30
-        ]
-    ];
-
-    $context = stream_context_create($options);
-
-    $response = @file_get_contents(
+    $rpc = $supabase_request(
         $rpc_url,
-        false,
-        $context
+        'POST',
+        [
+            'apikey: ' . SUPABASE_KEY,
+            'Authorization: Bearer ' . $access_token,
+            'Content-Type: application/json',
+            'Accept: application/json'
+        ],
+        [
+            'p_invitation_id' => $invitation_id,
+            'p_decision' => $decision
+        ],
+        30
     );
 
-    // Capture headers immediately after the request.
-    $rpc_headers = $http_response_header ?? [];
-
-    $status_code = $get_status_code($rpc_headers);
-
-    $result = json_decode($response ?: '[]', true);
+    $result = $rpc['data'];
+    $status_code = $rpc['status'];
 
 
     // ======================================
-    // HANDLE RPC RESULT
+    // 5. HANDLE RPC RESULT
     // ======================================
 
     if (
@@ -246,21 +254,28 @@ if (
 
         $invitation_type = $result['invitation_type'] ?? '';
 
-        // This value must come from the updated Supabase RPC.
-        // It is true only when the database actually changed the response.
-        $response_changed = !empty($result['response_changed']);
+        $response_changed = (
+            isset($result['response_changed']) &&
+            $result['response_changed'] === true
+        );
 
 
-        // ======================================
-        // NOTIFY EMPLOYER BY EMAIL
-        // ======================================
+        // ==================================
+        // 6. SEND EMPLOYER NOTIFICATION
+        // ==================================
 
-        // Send an email only when the database confirms
-        // that this request actually changed the invitation status.
+        // Only send when the database confirms
+        // that this request changed the invitation.
 
-        if ($response_changed && is_array($invitation_before)) {
+        if ($response_changed) {
 
             try {
+
+                if (!is_array($invitation_before)) {
+                    throw new Exception(
+                        'Invitation details could not be retrieved.'
+                    );
+                }
 
                 $employer_id =
                     $invitation_before['employer_id'] ?? '';
@@ -277,172 +292,90 @@ if (
                     $invitation_before['interview_at'] ?? null;
 
 
-                // Get worker's name.
+                // Get worker name from the session.
                 $worker_name =
                     $_SESSION['user']['user_metadata']['full_name']
+                    ?? $_SESSION['user']['full_name']
                     ?? 'Worker';
 
 
-                // Retrieve employer email using Supabase Auth Admin API.
+                // Validate employer ID.
+                if ($employer_id === '') {
+                    throw new Exception('Employer ID is missing.');
+                }
+
+
+                // ==================================
+                // RETRIEVE EMPLOYER EMAIL
+                // ==================================
+
                 if (
                     !defined('SUPABASE_SERVICE_ROLE_KEY') ||
                     SUPABASE_SERVICE_ROLE_KEY === ''
                 ) {
                     throw new Exception(
-                        'Supabase service role key is unavailable.'
+                        'Supabase service role key is not configured.'
                     );
-                }
-
-                if ($employer_id === '') {
-                    throw new Exception('Employer ID is missing.');
                 }
 
                 $employer_url = SUPABASE_URL .
                     '/auth/v1/admin/users/' .
                     rawurlencode($employer_id);
 
-                $employer_options = [
-                    'http' => [
-                        'method' => 'GET',
-                        'header' =>
-                        "apikey: " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
-                            "Authorization: Bearer " . SUPABASE_SERVICE_ROLE_KEY . "\r\n" .
-                            "Accept: application/json\r\n",
-                        'ignore_errors' => true,
-                        'timeout' => 20
-                    ]
-                ];
-
-                $employer_context = stream_context_create(
-                    $employer_options
-                );
-
-                $employer_response = @file_get_contents(
+                $employer = $supabase_request(
                     $employer_url,
-                    false,
-                    $employer_context
+                    'GET',
+                    [
+                        'apikey: ' . SUPABASE_SERVICE_ROLE_KEY,
+                        'Authorization: Bearer ' . SUPABASE_SERVICE_ROLE_KEY,
+                        'Accept: application/json'
+                    ]
                 );
 
-                // Capture headers immediately after the request.
-                $employer_headers = $http_response_header ?? [];
-
-                $employer_status = $get_status_code($employer_headers);
-
-                $employer_data = json_decode(
-                    $employer_response ?: '[]',
-                    true
-                );
+                $employer_data = $employer['data'];
 
                 if (
-                    $employer_status < 200 ||
-                    $employer_status >= 300 ||
+                    $employer['status'] < 200 ||
+                    $employer['status'] >= 300 ||
+                    !is_array($employer_data) ||
                     empty($employer_data['email']) ||
                     !filter_var(
                         $employer_data['email'],
                         FILTER_VALIDATE_EMAIL
                     )
                 ) {
+
                     throw new Exception(
-                        'Unable to retrieve the employer email address.'
+                        'Unable to retrieve a valid employer email address. ' .
+                            'HTTP Status: ' . $employer['status']
                     );
                 }
 
 
-                // Generate the notification email.
-                if (function_exists('invitationResponseEmail')) {
+                // ==================================
+                // GENERATE EMAIL TEMPLATE
+                // ==================================
 
-                    $email_body = invitationResponseEmail(
-                        $employer_name,
-                        $worker_name,
-                        $job_title,
-                        $invitation_type,
-                        $decision,
-                        $interview_at
+                if (!function_exists('invitationResponseEmail')) {
+                    throw new Exception(
+                        'Invitation response email template is unavailable.'
                     );
-                } else {
-
-                    // Fallback email if the template function is unavailable.
-
-                    $safe_employer = $escape($employer_name);
-                    $safe_worker = $escape($worker_name);
-                    $safe_job = $escape($job_title);
-
-                    $response_label = $decision === 'accepted'
-                        ? 'Accepted'
-                        : 'Declined';
-
-                    $type_label = $invitation_type === 'job'
-                        ? 'Job Invitation'
-                        : 'Interview Invitation';
-
-                    $extra_message = '';
-
-                    if (
-                        $invitation_type === 'job' &&
-                        $decision === 'accepted'
-                    ) {
-
-                        $extra_message =
-                            '<p>The worker has accepted your direct invitation. ' .
-                            'An application has been created or linked, and the ' .
-                            'worker will enter your normal recruitment process. ' .
-                            'This does not mean the worker has been hired.</p>';
-                    } elseif ($invitation_type === 'interview') {
-
-                        $extra_message =
-                            '<p>' .
-                            (
-                                $decision === 'accepted'
-                                ? 'The worker confirmed the interview.'
-                                : 'The worker declined the interview invitation.'
-                            ) .
-                            '</p>';
-                    }
-
-                    $schedule_message = '';
-
-                    if (
-                        $invitation_type === 'interview' &&
-                        !empty($interview_at)
-                    ) {
-
-                        $schedule = new DateTime($interview_at);
-
-                        $schedule->setTimezone(
-                            new DateTimeZone('Asia/Manila')
-                        );
-
-                        $schedule_message =
-                            '<p><strong>Interview Schedule:</strong> ' .
-                            $escape($schedule->format('M d, Y - h:i A')) .
-                            ' (Asia/Manila)</p>';
-                    }
-
-                    $email_body = '
-                        <div style="font-family:Arial,sans-serif;line-height:1.6;">
-                            <h2>WorkPulse Notification</h2>
-
-                            <p>Hello ' . $safe_employer . ',</p>
-
-                            <p><strong>' . $safe_worker . '</strong> has
-                            <strong>' . $response_label . '</strong> your
-                            ' . $type_label . ' for
-                            <strong>' . $safe_job . '</strong>.</p>
-
-                            ' . $extra_message . '
-
-                            ' . $schedule_message . '
-
-                            <p>Please log in to WorkPulse to review the latest
-                            recruitment status.</p>
-
-                            <p>Regards,<br>WorkPulse Team</p>
-                        </div>
-                    ';
                 }
 
+                $email_body = invitationResponseEmail(
+                    $employer_name,
+                    $worker_name,
+                    $job_title,
+                    $invitation_type,
+                    $decision,
+                    $interview_at
+                );
 
-                // Send email.
+
+                // ==================================
+                // SEND EMAIL
+                // ==================================
+
                 $email_sent = sendEmail(
                     $employer_data['email'],
                     'Invitation Response - WorkPulse',
@@ -451,24 +384,38 @@ if (
 
                 if (!$email_sent) {
 
+                    $email_error = function_exists('getEmailError')
+                        ? getEmailError()
+                        : 'Unknown SMTP error.';
+
                     error_log(
-                        'WorkPulse: Employer notification email was not sent. ' .
-                            'Invitation ID: ' . $invitation_id
+                        'WorkPulse employer notification failed. ' .
+                            'Invitation ID: ' . $invitation_id .
+                            ' | Email Error: ' . $email_error
                     );
                 }
             } catch (Throwable $exception) {
 
-                // Email failure must not undo the successful database response.
+                // Email failure must not undo the database response.
                 error_log(
-                    'WorkPulse employer notification error: ' .
-                        $exception->getMessage()
+                    'WorkPulse employer notification error. ' .
+                        'Invitation ID: ' . $invitation_id .
+                        ' | Error: ' . $exception->getMessage()
                 );
             }
+        } elseif (!array_key_exists('response_changed', $result)) {
+
+            // This usually means the database is using an older RPC.
+            error_log(
+                'WorkPulse RPC did not return response_changed. ' .
+                    'Check whether the latest invitation migration is applied. ' .
+                    'Invitation ID: ' . $invitation_id
+            );
         }
 
 
         // ======================================
-        // WORKER FLASH MESSAGES
+        // 7. WORKER FLASH MESSAGE
         // ======================================
 
         if (
@@ -508,31 +455,66 @@ if (
         $_SESSION['invitation_message_type'] = 'success';
     } else {
 
-        // Display a more useful message for cancelled invitations.
-        $error_message = '';
+        // ==================================
+        // 8. HANDLE RPC ERROR
+        // ==================================
+
+        $error_message = 'Unknown Supabase error.';
 
         if (is_array($result)) {
 
-            $error_message = $result['message']
+            $error_message =
+                $result['message']
                 ?? $result['error']
-                ?? '';
+                ?? $result['details']
+                ?? $error_message;
         }
 
+        // Log the actual response for debugging.
+        // Never log access tokens or service role keys.
+
+        error_log(
+            'WorkPulse invitation RPC failed. ' .
+                'Invitation ID: ' . $invitation_id .
+                ' | HTTP Status: ' . $status_code .
+                ' | Error: ' . $error_message .
+                ' | Response: ' . substr((string) $rpc['body'], 0, 1500)
+        );
+
+
+        // Show a useful message to the worker.
         if (
             stripos($error_message, 'cancelled') !== false ||
-            stripos($error_message, 'closed') !== false
+            stripos($error_message, 'canceled') !== false ||
+            stripos($error_message, 'no longer active') !== false ||
+            stripos($error_message, 'no longer in the recruitment process') !== false
         ) {
 
             $_SESSION['invitation_message'] =
                 'This invitation is no longer available because the related application has been closed.';
+        } elseif (
+            stripos($error_message, 'already been responded') !== false
+        ) {
+
+            $_SESSION['invitation_message'] =
+                'You have already responded to this invitation. Please refresh the page.';
+        } elseif ($status_code === 401 || $status_code === 403) {
+
+            $_SESSION['invitation_message'] =
+                'Your session or account does not have permission to respond. Please log in again.';
+        } elseif ($status_code === 404 || $status_code === 400) {
+
+            $_SESSION['invitation_message'] =
+                'The invitation request could not be processed. Check the invitation status and database configuration.';
         } else {
 
             $_SESSION['invitation_message'] =
-                'Unable to process your response. The invitation may have already been answered, or the request may have failed. Please refresh the page and try again.';
+                'Unable to process your response. Please try again. If the problem continues, check the PHP error log.';
         }
 
         $_SESSION['invitation_message_type'] = 'danger';
     }
+
 
     header('Location: invitations.php');
     exit;
@@ -553,39 +535,38 @@ $url = SUPABASE_URL .
     '&order=created_at.desc' .
     '&limit=200';
 
-$headers = [
-    'apikey: ' . SUPABASE_KEY,
-    'Authorization: Bearer ' . $access_token,
-    'Accept: application/json'
-];
+$invitations_response = $supabase_request(
+    $url,
+    'GET',
+    [
+        'apikey: ' . SUPABASE_KEY,
+        'Authorization: Bearer ' . $access_token,
+        'Accept: application/json'
+    ],
+    null,
+    30
+);
 
-$options = [
-    'http' => [
-        'method' => 'GET',
-        'header' => implode("\r\n", $headers),
-        'ignore_errors' => true,
-        'timeout' => 30
-    ]
-];
-
-$context = stream_context_create($options);
-
-$response = @file_get_contents($url, false, $context);
-
-// Capture headers immediately after the request.
-$get_headers = $http_response_header ?? [];
-
-$status_code = $get_status_code($get_headers);
-
-$invitations = json_decode($response ?: '[]', true);
+$status_code = $invitations_response['status'];
+$invitations = $invitations_response['data'];
 
 
-// Check whether invitations loaded successfully.
+// ==========================================
+// CHECK INVITATION RESPONSE
+// ==========================================
+
 if (
     $status_code < 200 ||
     $status_code >= 300 ||
     !is_array($invitations)
 ) {
+
+    error_log(
+        'WorkPulse: Unable to load worker invitations. ' .
+            'HTTP Status: ' . $status_code .
+            ' | Response: ' .
+            substr((string) $invitations_response['body'], 0, 1000)
+    );
 
     $invitations = [];
 
@@ -606,13 +587,9 @@ $accepted_count = 0;
 
 foreach ($invitations as $invitation) {
 
-    // Direct job invitations have no application_id.
     if (empty($invitation['application_id'])) {
-
         $job_invitations[] = $invitation;
     } else {
-
-        // Interview invitations are connected to applications.
         $interview_invitations[] = $invitation;
     }
 
@@ -660,119 +637,85 @@ require_once '../../includes/header.php';
 
 <div class="wp-invitations-page">
 
-    <!-- PAGE HEADING -->
     <div class="wp-dashboard-welcome">
-
         <div>
-
             <span class="wp-dashboard-eyebrow">RECRUITMENT</span>
-
             <h1 class="wp-page-title">My Invitations</h1>
-
             <p class="wp-page-description">
                 Review job opportunities and interview requests from employers.
             </p>
-
         </div>
-
     </div>
 
 
     <!-- FLASH MESSAGE -->
+
     <?php if (!empty($message)): ?>
 
         <div class="wp-alert wp-alert-<?= $escape($message_type) ?>">
-
             <i class="bi bi-info-circle me-2"></i>
-
             <?= $escape($message) ?>
-
         </div>
 
     <?php endif; ?>
 
 
     <!-- INVITATION STATISTICS -->
+
     <div class="wp-dashboard-stats">
 
         <div class="wp-stat-card">
-
             <div class="wp-stat-top">
-
                 Total Invitations
-
                 <span class="wp-stat-icon rose">
                     <i class="bi bi-envelope"></i>
                 </span>
-
             </div>
-
             <h2><?= count($invitations) ?></h2>
-
             <small>All invitations received</small>
-
         </div>
 
-
         <div class="wp-stat-card">
-
             <div class="wp-stat-top">
-
                 Pending Invitations
-
                 <span class="wp-stat-icon yellow">
                     <i class="bi bi-clock-history"></i>
                 </span>
-
             </div>
-
             <h2><?= $pending_count ?></h2>
-
             <small>Waiting for your response</small>
-
         </div>
 
-
         <div class="wp-stat-card">
-
             <div class="wp-stat-top">
-
                 Accepted Invitations
-
                 <span class="wp-stat-icon green">
                     <i class="bi bi-check-circle"></i>
                 </span>
-
             </div>
-
             <h2><?= $accepted_count ?></h2>
-
             <small>Invitations you've accepted</small>
-
         </div>
 
     </div>
 
 
     <!-- RECEIVED INVITATIONS -->
+
     <section class="wp-panel">
 
         <div class="wp-panel-header">
-
             <div>
-
                 <h3 class="wp-panel-title">Received Invitations</h3>
-
                 <p class="wp-panel-description">
                     Manage your job invitations and interview requests in one place.
                 </p>
-
             </div>
-
         </div>
 
 
         <!-- INVITATION TABS -->
+
         <div class="wp-invitation-tabs" role="tablist">
 
             <button
@@ -785,12 +728,10 @@ require_once '../../includes/header.php';
                 data-tab="job">
 
                 <i class="bi bi-briefcase"></i>
-
                 Job Invitations
                 (<?= count($job_invitations) ?>)
 
             </button>
-
 
             <button
                 type="button"
@@ -802,7 +743,6 @@ require_once '../../includes/header.php';
                 data-tab="interview">
 
                 <i class="bi bi-calendar-event"></i>
-
                 Interview Invitations
                 (<?= count($interview_invitations) ?>)
 
@@ -812,6 +752,7 @@ require_once '../../includes/header.php';
 
 
         <!-- INVITATION TAB CONTENT -->
+
         <?php foreach ($invitation_groups as $group_key => $group): ?>
 
             <div
@@ -829,22 +770,15 @@ require_once '../../includes/header.php';
                                             ? 'bi-envelope-open'
                                             : 'bi-calendar-x' ?>"></i>
 
-                        <h3>
-                            <?= $escape($group['empty_title']) ?>
-                        </h3>
+                        <h3><?= $escape($group['empty_title']) ?></h3>
 
-                        <p>
-                            <?= $escape($group['empty_description']) ?>
-                        </p>
+                        <p><?= $escape($group['empty_description']) ?></p>
 
                         <?php if ($group_key === 'job'): ?>
 
                             <a href="jobs.php" class="wp-btn wp-btn-primary">
-
                                 <i class="bi bi-search"></i>
-
                                 Browse Jobs
-
                             </a>
 
                         <?php endif; ?>
@@ -876,6 +810,7 @@ require_once '../../includes/header.php';
 
 
                             // Invitation creation date.
+
                             $created_at = 'Unknown date';
 
                             if (!empty($invitation['created_at'])) {
@@ -883,7 +818,6 @@ require_once '../../includes/header.php';
                                 $timestamp = strtotime($invitation['created_at']);
 
                                 if ($timestamp !== false) {
-
                                     $created_at = date(
                                         'M d, Y h:i A',
                                         $timestamp
@@ -893,6 +827,7 @@ require_once '../../includes/header.php';
 
 
                             // Invitation status.
+
                             $status_class = 'neutral';
                             $status_label = ucfirst($status);
 
@@ -919,6 +854,7 @@ require_once '../../includes/header.php';
 
 
                             // Interview type.
+
                             $interview_type = $invitation['interview_type'] ?? '';
 
                             $interview_type_labels = [
@@ -934,6 +870,7 @@ require_once '../../includes/header.php';
 
 
                             // Interview schedule.
+
                             $interview_date = 'Not scheduled';
 
                             if (!empty($invitation['interview_at'])) {
@@ -941,7 +878,6 @@ require_once '../../includes/header.php';
                                 $timestamp = strtotime($invitation['interview_at']);
 
                                 if ($timestamp !== false) {
-
                                     $interview_date = date(
                                         'M d, Y h:i A',
                                         $timestamp
@@ -950,7 +886,8 @@ require_once '../../includes/header.php';
                             }
 
 
-                            // Validate the demo meeting link.
+                            // Validate demo meeting link.
+
                             $meeting_link = trim(
                                 $invitation['meeting_link'] ?? ''
                             );
@@ -966,87 +903,65 @@ require_once '../../includes/header.php';
 
                             <article class="wp-invitation-card">
 
+
                                 <!-- INVITATION HEADING -->
+
                                 <div class="wp-invitation-heading">
 
                                     <div class="wp-invitation-icon">
-
                                         <i class="bi <?= $group_key === 'job'
                                                             ? 'bi-briefcase'
                                                             : 'bi-calendar-event' ?>"></i>
-
                                     </div>
-
 
                                     <div class="wp-invitation-title">
 
-                                        <h4>
-                                            <?= $escape($job_title) ?>
-                                        </h4>
+                                        <h4><?= $escape($job_title) ?></h4>
 
                                         <p>
-
                                             <i class="bi bi-building"></i>
-
                                             <?= $escape($company_name) ?>
-
                                         </p>
 
                                     </div>
 
-
                                     <span class="wp-invitation-status <?= $escape($status_class) ?>">
-
                                         <?= $escape($status_label) ?>
-
                                     </span>
 
                                 </div>
 
 
                                 <!-- INVITATION DETAILS -->
+
                                 <div class="wp-invitation-details">
 
                                     <span>
-
                                         <i class="bi bi-person"></i>
-
                                         <?= $escape($employer_name) ?>
-
                                     </span>
-
 
                                     <span>
-
                                         <i class="bi bi-calendar3"></i>
-
                                         <?= $escape($created_at) ?>
-
                                     </span>
-
 
                                     <?php if (isset($job['hourly_rate'])): ?>
 
                                         <span>
-
                                             <i class="bi bi-cash"></i>
-
                                             $<?= number_format(
                                                     (float) $job['hourly_rate'],
                                                     2
                                                 ) ?>/hr
-
                                         </span>
 
                                     <?php endif; ?>
 
-
                                     <?php if (!empty($job['employment_type'])): ?>
 
                                         <span>
-
                                             <i class="bi bi-clock"></i>
-
                                             <?= $escape(
                                                 ucwords(
                                                     str_replace(
@@ -1056,7 +971,6 @@ require_once '../../includes/header.php';
                                                     )
                                                 )
                                             ) ?>
-
                                         </span>
 
                                     <?php endif; ?>
@@ -1065,6 +979,7 @@ require_once '../../includes/header.php';
 
 
                                 <!-- INTERVIEW DETAILS -->
+
                                 <?php if ($group_key === 'interview'): ?>
 
                                     <div class="wp-invitation-section">
@@ -1081,19 +996,16 @@ require_once '../../includes/header.php';
                                             <?= $escape($interview_type_label) ?>
                                         </p>
 
-
                                         <?php if (!empty($invitation['meeting_details'])): ?>
 
                                             <p>
                                                 <strong>Additional Notes:</strong>
-
                                                 <?= nl2br(
                                                     $escape($invitation['meeting_details'])
                                                 ) ?>
                                             </p>
 
                                         <?php endif; ?>
-
 
                                         <?php if ($valid_meeting_link): ?>
 
@@ -1132,6 +1044,7 @@ require_once '../../includes/header.php';
 
 
                                 <!-- JOB DESCRIPTION -->
+
                                 <?php if (!empty($job['description'])): ?>
 
                                     <div class="wp-invitation-section">
@@ -1150,6 +1063,7 @@ require_once '../../includes/header.php';
 
 
                                 <!-- WORK SCHEDULE -->
+
                                 <?php if (!empty($job['work_schedule'])): ?>
 
                                     <div class="wp-invitation-section">
@@ -1166,28 +1080,25 @@ require_once '../../includes/header.php';
 
 
                                 <!-- EMPLOYER MESSAGE -->
+
                                 <div class="wp-invitation-message">
 
                                     <div class="wp-invitation-message-heading">
-
                                         <i class="bi bi-chat-left-text"></i>
-
                                         Employer's Message
-
                                     </div>
 
                                     <p>
-
                                         <?= !empty($invitation['message'])
                                             ? nl2br($escape($invitation['message']))
                                             : 'No message provided.' ?>
-
                                     </p>
 
                                 </div>
 
 
                                 <!-- PENDING INVITATION ACTIONS -->
+
                                 <?php if ($status === 'pending'): ?>
 
                                     <div class="wp-invitation-actions">
@@ -1204,7 +1115,6 @@ require_once '../../includes/header.php';
                                                 name="invitation_id"
                                                 value="<?= $escape($invitation['id']) ?>">
 
-
                                             <button
                                                 type="submit"
                                                 name="respond_invitation"
@@ -1215,11 +1125,9 @@ require_once '../../includes/header.php';
                                                                                                                     : 'interview invitation' ?>?');">
 
                                                 <i class="bi bi-x-lg"></i>
-
                                                 Decline
 
                                             </button>
-
 
                                             <button
                                                 type="submit"
@@ -1243,7 +1151,8 @@ require_once '../../includes/header.php';
                                     </div>
 
 
-                                    <!-- ACCEPTED INVITATION FEEDBACK -->
+                                    <!-- ACCEPTED INVITATION -->
+
                                 <?php elseif ($status === 'accepted'): ?>
 
                                     <div class="wp-invitation-feedback success">
@@ -1259,11 +1168,9 @@ require_once '../../includes/header.php';
                                             </strong>
 
                                             <p>
-
                                                 <?= $group_key === 'job'
                                                     ? 'Your application has been created or linked to this job. The employer can now review your application. You are not officially hired yet.'
                                                     : 'You confirmed your attendance. This does not mean you have accepted a job offer.' ?>
-
                                             </p>
 
                                         </div>
@@ -1271,7 +1178,8 @@ require_once '../../includes/header.php';
                                     </div>
 
 
-                                    <!-- DECLINED INVITATION FEEDBACK -->
+                                    <!-- DECLINED INVITATION -->
+
                                 <?php elseif ($status === 'declined'): ?>
 
                                     <div class="wp-invitation-feedback neutral">
@@ -1287,11 +1195,9 @@ require_once '../../includes/header.php';
                                             </strong>
 
                                             <p>
-
                                                 <?= $group_key === 'job'
                                                     ? 'You declined this job opportunity.'
                                                     : 'You declined the interview request. Your application status is not automatically rejected.' ?>
-
                                             </p>
 
                                         </div>
@@ -1299,7 +1205,8 @@ require_once '../../includes/header.php';
                                     </div>
 
 
-                                    <!-- CANCELLED INVITATION FEEDBACK -->
+                                    <!-- CANCELLED INVITATION -->
+
                                 <?php elseif ($status === 'cancelled'): ?>
 
                                     <div class="wp-invitation-feedback neutral">
@@ -1337,6 +1244,10 @@ require_once '../../includes/header.php';
 </div>
 
 
+<!-- ==========================================
+     INVITATION TAB SCRIPT
+========================================== -->
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
 
@@ -1361,15 +1272,17 @@ require_once '../../includes/header.php';
                         'aria-selected',
                         isActive ? 'true' : 'false'
                     );
+
                 });
 
                 panels.forEach(function(panel) {
-
                     panel.hidden = panel.id !== selectedTab + '-panel';
-
                 });
+
             });
+
         });
+
     });
 </script>
 
