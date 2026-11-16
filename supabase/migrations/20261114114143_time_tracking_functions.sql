@@ -1,4 +1,3 @@
-
 -- ==========================================
 -- 1. START TRACKING
 -- ==========================================
@@ -72,8 +71,6 @@ BEGIN
     );
 END;
 $$;
-
-
 -- ==========================================
 -- 2. PAUSE TRACKING
 -- ==========================================
@@ -129,8 +126,6 @@ BEGIN
     );
 END;
 $$;
-
-
 -- ==========================================
 -- 3. RESUME TRACKING
 -- ==========================================
@@ -173,8 +168,6 @@ BEGIN
     );
 END;
 $$;
-
-
 -- ==========================================
 -- 4. STOP TRACKING
 -- ==========================================
@@ -234,35 +227,25 @@ BEGIN
     );
 END;
 $$;
-
-
 -- ==========================================
 -- PERMISSIONS
 -- ==========================================
 
 REVOKE ALL ON FUNCTION public.start_time_tracking(UUID, UUID)
 FROM PUBLIC;
-
 REVOKE ALL ON FUNCTION public.pause_time_tracking()
 FROM PUBLIC;
-
 REVOKE ALL ON FUNCTION public.resume_time_tracking()
 FROM PUBLIC;
-
 REVOKE ALL ON FUNCTION public.stop_time_tracking()
 FROM PUBLIC;
-
 GRANT EXECUTE ON FUNCTION public.start_time_tracking(UUID, UUID)
 TO authenticated;
-
 GRANT EXECUTE ON FUNCTION public.pause_time_tracking()
 TO authenticated;
-
 GRANT EXECUTE ON FUNCTION public.resume_time_tracking()
 TO authenticated;
-
 GRANT EXECUTE ON FUNCTION public.stop_time_tracking()
 TO authenticated;
-
 -- Refresh the Supabase REST API schema.
 NOTIFY pgrst, 'reload schema';

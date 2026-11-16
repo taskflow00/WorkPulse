@@ -8,22 +8,23 @@ $employer_id = $_SESSION['user']['id'];
 $access_token = $_SESSION['access_token'];
 
 $page_title = 'Send Employment Offer';
-$active_page = 'find-freelancers';
+$active_page = 'applications';
 $page_styles = ['/assets/css/send-offer.css'];
 
 $message = '';
 $message_type = '';
 
-$existing_offer = null;
 $application = null;
-$invitation = null;
 $job = [];
-
 $worker_name = 'Worker';
-$source_type = '';
+$latest_offer = null;
+$offer_mode = 'create';
 
 $application_id = $_GET['id'] ?? '';
-$invitation_id = $_GET['invitation_id'] ?? '';
+
+if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $application_id)) {
+    exit('Invalid application ID.');
+}
 
 // CSRF token.
 if (empty($_SESSION['csrf_token'])) {
@@ -32,119 +33,147 @@ if (empty($_SESSION['csrf_token'])) {
 
 $csrf_token = $_SESSION['csrf_token'];
 
-// Common authenticated GET options.
-$get_options = [
-    'http' => [
-        'method' => 'GET',
-        'header' =>
+// Simple Supabase REST request helper.
+$supabase_request = function ($method, $url, $data = null) use ($access_token) {
+
+    $headers =
         "apikey: " . SUPABASE_KEY . "\r\n" .
-            "Authorization: Bearer " . $access_token . "\r\n",
-        'ignore_errors' => true,
-        'timeout' => 15
-    ]
-];
+        "Authorization: Bearer " . $access_token . "\r\n";
 
-// Validate IDs.
-if (
-    ($application_id !== '' && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $application_id)) ||
-    ($invitation_id !== '' && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $invitation_id))
-) {
-    exit('Invalid ID format.');
-}
+    if ($data !== null) {
+        $headers .= "Content-Type: application/json\r\n";
+    }
 
-// Determine the offer source.
-if ($application_id !== '' && $invitation_id === '') {
+    if ($method === 'POST') {
+        $headers .= "Prefer: return=representation\r\n";
+    } elseif ($method === 'PATCH') {
+        $headers .= "Prefer: return=representation\r\n";
+    }
 
-    $source_type = 'application';
+    $options = [
+        'http' => [
+            'method' => $method,
+            'header' => $headers,
+            'ignore_errors' => true,
+            'timeout' => 15
+        ]
+    ];
 
-    $url = SUPABASE_URL .
-        '/rest/v1/applications?select=id,worker_id,job_id,status,jobs(title,company_name,hourly_rate,employment_type,work_schedule,employer_id)' .
-        '&id=eq.' . urlencode($application_id);
+    if ($data !== null) {
+        $options['http']['content'] = json_encode($data);
+    }
 
-    $context = stream_context_create($get_options);
+    $context = stream_context_create($options);
     $response = @file_get_contents($url, false, $context);
-    $applications = json_decode($response ?: '', true);
 
-    if (!is_array($applications) || !isset($applications[0])) {
-        exit('Application not found or you do not have permission to access it.');
+    // Read the response headers immediately after file_get_contents().
+    $response_headers = $http_response_header ?? [];
+
+    $status_code = 0;
+
+    foreach ($response_headers as $header) {
+        if (preg_match('/^HTTP\/\S+\s+(\d{3})/', $header, $matches)) {
+            $status_code = (int)$matches[1];
+        }
     }
 
-    $application = $applications[0];
-    $job = $application['jobs'] ?? [];
+    return [
+        'status' => $status_code,
+        'body' => $response ?: '',
+        'data' => json_decode($response ?: '', true)
+    ];
+};
 
-    if (($job['employer_id'] ?? '') !== $employer_id) {
-        exit('You do not have permission to send an offer for this application.');
-    }
+// --------------------------------------------------
+// 1. LOAD APPLICATION
+// --------------------------------------------------
 
-    if (($application['status'] ?? '') !== 'accepted') {
-        exit('This application must be accepted before sending an offer.');
-    }
-} elseif ($invitation_id !== '' && $application_id === '') {
-
-    $source_type = 'invitation';
-
-    $url = SUPABASE_URL .
-        '/rest/v1/invitations?select=id,worker_id,job_id,employer_id,status,jobs(title,company_name,hourly_rate,employment_type,work_schedule,employer_id)' .
-        '&id=eq.' . urlencode($invitation_id);
-
-    $context = stream_context_create($get_options);
-    $response = @file_get_contents($url, false, $context);
-    $invitations = json_decode($response ?: '', true);
-
-    if (!is_array($invitations) || !isset($invitations[0])) {
-        exit('Invitation not found or you do not have permission to access it.');
-    }
-
-    $invitation = $invitations[0];
-    $job = $invitation['jobs'] ?? [];
-
-    if (
-        ($invitation['employer_id'] ?? '') !== $employer_id ||
-        ($job['employer_id'] ?? '') !== $employer_id
-    ) {
-        exit('You do not have permission to send an offer for this invitation.');
-    }
-
-    if (($invitation['status'] ?? '') !== 'accepted') {
-        exit('The worker must accept the invitation before receiving an offer.');
-    }
-} else {
-    exit('Invalid request. Provide either an application ID or invitation ID, not both.');
-}
-
-// Get worker ID.
-$worker_id = $source_type === 'application'
-    ? $application['worker_id']
-    : $invitation['worker_id'];
-
-// Get worker name.
-$worker_url = SUPABASE_URL .
-    '/rest/v1/profiles?select=full_name&id=eq.' .
-    urlencode($worker_id);
-
-$context = stream_context_create($get_options);
-$worker_response = @file_get_contents($worker_url, false, $context);
-$workers = json_decode($worker_response ?: '', true);
-
-$worker_name = $workers[0]['full_name'] ?? 'Worker';
-
-// Check existing offer.
-$offer_filter = $source_type === 'application'
-    ? 'application_id=eq.' . urlencode($application_id)
-    : 'invitation_id=eq.' . urlencode($invitation_id);
-
-$offer_url = SUPABASE_URL .
-    '/rest/v1/employment_offers?select=id,status&' .
-    $offer_filter .
+$application_url = SUPABASE_URL .
+    '/rest/v1/applications?select=id,worker_id,job_id,status,source,jobs(title,company_name,hourly_rate,employment_type,work_schedule,employer_id)' .
+    '&id=eq.' . urlencode($application_id) .
     '&limit=1';
 
-$context = stream_context_create($get_options);
-$offer_response = @file_get_contents($offer_url, false, $context);
-$offers = json_decode($offer_response ?: '', true);
+$application_result = $supabase_request('GET', $application_url);
 
-$existing_offer = $offers[0] ?? null;
+if (
+    $application_result['status'] < 200 ||
+    $application_result['status'] >= 300 ||
+    !isset($application_result['data'][0])
+) {
+    exit('Application not found or you do not have permission to access it.');
+}
 
-// Process offer submission.
+$application = $application_result['data'][0];
+$job = $application['jobs'] ?? [];
+
+if (($job['employer_id'] ?? '') !== $employer_id) {
+    exit('You do not have permission to send an offer for this application.');
+}
+
+if (($application['status'] ?? '') !== 'accepted') {
+    exit('This application must be accepted before sending an employment offer.');
+}
+
+$worker_id = $application['worker_id'];
+
+// --------------------------------------------------
+// 2. LOAD WORKER NAME
+// --------------------------------------------------
+
+$worker_url = SUPABASE_URL .
+    '/rest/v1/profiles?select=full_name&id=eq.' .
+    urlencode($worker_id) .
+    '&limit=1';
+
+$worker_result = $supabase_request('GET', $worker_url);
+
+if (isset($worker_result['data'][0]['full_name'])) {
+    $worker_name = $worker_result['data'][0]['full_name'];
+}
+
+// --------------------------------------------------
+// 3. LOAD OFFER HISTORY
+// --------------------------------------------------
+
+$offers_url = SUPABASE_URL .
+    '/rest/v1/employment_offers?select=id,status,hourly_rate,employment_type,work_schedule,start_date,offer_message,expires_at,created_at' .
+    '&application_id=eq.' . urlencode($application_id) .
+    '&employer_id=eq.' . urlencode($employer_id) .
+    '&order=created_at.desc' .
+    '&limit=100';
+
+$offers_result = $supabase_request('GET', $offers_url);
+
+if (
+    $offers_result['status'] < 200 ||
+    $offers_result['status'] >= 300
+) {
+    exit('Unable to load employment offer history. Please try again.');
+}
+
+$offer_history = $offers_result['data'] ?? [];
+$latest_offer = $offer_history[0] ?? null;
+
+// Determine whether to create, revise, or wait.
+if ($latest_offer) {
+
+    $latest_status = $latest_offer['status'] ?? '';
+
+    if ($latest_status === 'revision_requested') {
+        $offer_mode = 'revise';
+    } elseif (in_array($latest_status, ['pending', 'accepted'], true)) {
+        $offer_mode = 'blocked';
+    } elseif (in_array($latest_status, ['declined', 'withdrawn'], true)) {
+        // A declined or withdrawn offer remains in history.
+        // A new offer will receive a new ID.
+        $offer_mode = 'create';
+    }
+}
+
+// --------------------------------------------------
+// 4. PROCESS FORM SUBMISSION
+// --------------------------------------------------
+
 if (isset($_POST['send_offer'])) {
 
     $submitted_token = $_POST['csrf_token'] ?? '';
@@ -153,12 +182,11 @@ if (isset($_POST['send_offer'])) {
         !is_string($submitted_token) ||
         !hash_equals($csrf_token, $submitted_token)
     ) {
-
         $message = 'Invalid form submission. Refresh the page and try again.';
         $message_type = 'error';
-    } elseif ($existing_offer) {
+    } elseif ($offer_mode === 'blocked') {
 
-        $message = 'An employment offer already exists for this worker.';
+        $message = 'An active or accepted employment offer already exists.';
         $message_type = 'error';
     } else {
 
@@ -209,22 +237,7 @@ if (isset($_POST['send_offer'])) {
                 $message_type = 'error';
             } else {
 
-                // Prepare employment offer.
-                $data = [
-                    'application_id' => $source_type === 'application'
-                        ? $application['id']
-                        : null,
-
-                    'invitation_id' => $source_type === 'invitation'
-                        ? $invitation['id']
-                        : null,
-
-                    'job_id' => $source_type === 'application'
-                        ? $application['job_id']
-                        : $invitation['job_id'],
-
-                    'employer_id' => $employer_id,
-                    'worker_id' => $worker_id,
+                $offer_data = [
                     'hourly_rate' => round((float)$hourly_rate, 2),
                     'employment_type' => $employment_type,
                     'work_schedule' => $work_schedule,
@@ -232,53 +245,117 @@ if (isset($_POST['send_offer'])) {
                     'offer_message' => $offer_message
                 ];
 
-                $insert_url = SUPABASE_URL . '/rest/v1/employment_offers';
+                // Revision: update the existing offer.
+                if ($offer_mode === 'revise') {
 
-                $post_options = [
-                    'http' => [
-                        'method' => 'POST',
-                        'header' =>
-                        "Content-Type: application/json\r\n" .
-                            "apikey: " . SUPABASE_KEY . "\r\n" .
-                            "Authorization: Bearer " . $access_token . "\r\n" .
-                            "Prefer: return=representation\r\n",
-                        'content' => json_encode($data),
-                        'ignore_errors' => true,
-                        'timeout' => 15
-                    ]
-                ];
+                    $update_url = SUPABASE_URL .
+                        '/rest/v1/employment_offers?id=eq.' .
+                        urlencode($latest_offer['id']) .
+                        '&application_id=eq.' . urlencode($application_id) .
+                        '&employer_id=eq.' . urlencode($employer_id) .
+                        '&status=eq.revision_requested';
 
-                $context = stream_context_create($post_options);
-                $insert_response = @file_get_contents($insert_url, false, $context);
+                    // Return the offer to pending after revision.
+                    $offer_data['status'] = 'pending';
 
-                // Get HTTP response status.
-                $status_code = 0;
-                $response_headers = http_get_last_response_headers();
+                    $save_result = $supabase_request(
+                        'PATCH',
+                        $update_url,
+                        $offer_data
+                    );
 
-                if (is_array($response_headers) && isset($response_headers[0])) {
-                    preg_match('/\s(\d{3})\s/', $response_headers[0], $matches);
-                    $status_code = isset($matches[1]) ? (int)$matches[1] : 0;
-                }
+                    if (
+                        $save_result['status'] >= 200 &&
+                        $save_result['status'] < 300 &&
+                        isset($save_result['data'][0])
+                    ) {
 
-                $result = json_decode($insert_response ?: '', true);
+                        $latest_offer = $save_result['data'][0];
+                        $offer_mode = 'blocked';
 
-                if ($status_code >= 200 && $status_code < 300 && isset($result[0])) {
+                        $message = 'Employment offer revised and sent successfully!';
+                        $message_type = 'success';
+                    } else {
 
-                    $message = 'Employment offer sent successfully!';
-                    $message_type = 'success';
-                    $existing_offer = $result[0];
+                        $message = $save_result['data']['message'] ??
+                            'Unable to revise the employment offer. Please try again.';
+
+                        $message_type = 'error';
+                    }
                 } else {
 
-                    $message = is_array($result)
-                        ? ($result['message'] ?? $result['details'] ?? 'Unable to send employment offer.')
-                        : 'Unable to connect to the offer service. Please try again.';
+                    // New offer: preserve previous declined/withdrawn records.
+                    $offer_data['application_id'] = $application_id;
+                    $offer_data['invitation_id'] = null;
+                    $offer_data['job_id'] = $application['job_id'];
+                    $offer_data['employer_id'] = $employer_id;
+                    $offer_data['worker_id'] = $worker_id;
+                    $offer_data['status'] = 'pending';
 
-                    $message_type = 'error';
+                    $insert_url = SUPABASE_URL . '/rest/v1/employment_offers';
+
+                    $save_result = $supabase_request(
+                        'POST',
+                        $insert_url,
+                        $offer_data
+                    );
+
+                    if (
+                        $save_result['status'] >= 200 &&
+                        $save_result['status'] < 300 &&
+                        isset($save_result['data'][0])
+                    ) {
+
+                        $latest_offer = $save_result['data'][0];
+                        $offer_mode = 'blocked';
+
+                        $message = 'Employment offer sent successfully!';
+                        $message_type = 'success';
+                    } else {
+
+                        $message = $save_result['data']['message'] ??
+                            'Unable to send employment offer. Please try again.';
+
+                        $message_type = 'error';
+                    }
                 }
             }
         }
     }
 }
+
+// --------------------------------------------------
+// 5. FORM DEFAULT VALUES
+// --------------------------------------------------
+
+$form_rate = $_POST['hourly_rate']
+    ?? ($offer_mode === 'revise'
+        ? ($latest_offer['hourly_rate'] ?? '')
+        : ($job['hourly_rate'] ?? ''));
+
+$form_type = $_POST['employment_type']
+    ?? ($offer_mode === 'revise'
+        ? ($latest_offer['employment_type'] ?? 'full_time')
+        : ($job['employment_type'] ?? 'full_time'));
+
+$form_schedule = $_POST['work_schedule']
+    ?? ($offer_mode === 'revise'
+        ? ($latest_offer['work_schedule'] ?? '')
+        : ($job['work_schedule'] ?? ''));
+
+$form_start_date = $_POST['start_date']
+    ?? ($offer_mode === 'revise'
+        ? ($latest_offer['start_date'] ?? '')
+        : '');
+
+$form_message = $_POST['offer_message']
+    ?? ($offer_mode === 'revise'
+        ? ($latest_offer['offer_message'] ?? '')
+        : '');
+
+$escape = function ($value) {
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+};
 
 require_once '../../includes/header.php';
 ?>
@@ -301,9 +378,9 @@ require_once '../../includes/header.php';
     </div>
 
     <?php if ($message !== ''): ?>
-        <div class="offer-alert offer-alert-<?php echo htmlspecialchars($message_type, ENT_QUOTES, 'UTF-8'); ?>">
+        <div class="offer-alert offer-alert-<?php echo $escape($message_type); ?>">
             <i class="bi bi-<?php echo $message_type === 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
-            <?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?>
+            <?php echo $escape($message); ?>
         </div>
     <?php endif; ?>
 
@@ -331,12 +408,16 @@ require_once '../../includes/header.php';
                     </div>
 
                     <div>
-                        <h3><?php echo htmlspecialchars($worker_name, ENT_QUOTES, 'UTF-8'); ?></h3>
-                        <p><?php echo htmlspecialchars($job['title'] ?? 'Job position', ENT_QUOTES, 'UTF-8'); ?></p>
+                        <h3><?php echo $escape($worker_name); ?></h3>
+                        <p><?php echo $escape($job['title'] ?? 'Job position'); ?></p>
                     </div>
 
                     <span class="offer-source-badge">
-                        <?php echo $source_type === 'application' ? 'Application' : 'Invitation'; ?>
+                        <?php
+                        echo ($application['source'] ?? 'job_application') === 'direct_invitation'
+                            ? 'Direct Invitation'
+                            : 'Job Application';
+                        ?>
                     </span>
 
                 </div>
@@ -345,13 +426,17 @@ require_once '../../includes/header.php';
 
                     <div>
                         <span>Company</span>
-                        <strong><?php echo htmlspecialchars($job['company_name'] ?? 'Your Company', ENT_QUOTES, 'UTF-8'); ?></strong>
+                        <strong><?php echo $escape($job['company_name'] ?? 'Your Company'); ?></strong>
                     </div>
 
                     <div>
                         <span>Job Rate</span>
                         <strong>
-                            <?php echo isset($job['hourly_rate']) ? '$' . number_format((float)$job['hourly_rate'], 2) . '/hr' : 'Not specified'; ?>
+                            <?php
+                            echo isset($job['hourly_rate'])
+                                ? '$' . number_format((float)$job['hourly_rate'], 2) . '/hr'
+                                : 'Not specified';
+                            ?>
                         </strong>
                     </div>
 
@@ -359,7 +444,7 @@ require_once '../../includes/header.php';
 
             </section>
 
-            <?php if ($existing_offer): ?>
+            <?php if ($offer_mode === 'blocked'): ?>
 
                 <section class="offer-card offer-existing-card">
 
@@ -367,12 +452,27 @@ require_once '../../includes/header.php';
                         <i class="bi bi-send-check"></i>
                     </div>
 
-                    <h2>Offer Already Exists</h2>
-                    <p>An employment offer has already been created for this worker.</p>
+                    <?php if (($latest_offer['status'] ?? '') === 'accepted'): ?>
+
+                        <h2>Offer Accepted</h2>
+                        <p>The worker has accepted this employment offer.</p>
+
+                    <?php else: ?>
+
+                        <h2>Offer Awaiting Response</h2>
+                        <p>The worker has not responded to the current employment offer yet.</p>
+
+                    <?php endif; ?>
 
                     <div class="offer-existing-status">
                         Status:
-                        <strong><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $existing_offer['status'] ?? 'pending')), ENT_QUOTES, 'UTF-8'); ?></strong>
+                        <strong>
+                            <?php
+                            echo $escape(
+                                ucwords(str_replace('_', ' ', $latest_offer['status'] ?? 'pending'))
+                            );
+                            ?>
+                        </strong>
                     </div>
 
                 </section>
@@ -387,15 +487,26 @@ require_once '../../includes/header.php';
                         </div>
 
                         <div>
-                            <h2>Offer Details</h2>
-                            <p>Complete the terms of employment.</p>
+                            <h2>
+                                <?php echo $offer_mode === 'revise' ? 'Revise Employment Offer' : 'Offer Details'; ?>
+                            </h2>
+
+                            <p>
+                                <?php
+                                echo $offer_mode === 'revise'
+                                    ? 'Update the terms requested by the worker.'
+                                    : 'Complete the terms of employment.';
+                                ?>
+                            </p>
                         </div>
                     </div>
 
                     <form method="POST" class="offer-form">
 
-                        <input type="hidden" name="csrf_token"
-                            value="<?php echo htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8'); ?>">
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="<?php echo $escape($csrf_token); ?>">
 
                         <div class="offer-form-grid">
 
@@ -404,6 +515,7 @@ require_once '../../includes/header.php';
 
                                 <div class="offer-input-wrapper">
                                     <span class="offer-input-prefix">$</span>
+
                                     <input
                                         type="number"
                                         id="hourly_rate"
@@ -411,7 +523,7 @@ require_once '../../includes/header.php';
                                         min="0.01"
                                         step="0.01"
                                         placeholder="0.00"
-                                        value="<?php echo htmlspecialchars($_POST['hourly_rate'] ?? $job['hourly_rate'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                                        value="<?php echo $escape($form_rate); ?>"
                                         required>
                                 </div>
                             </div>
@@ -421,12 +533,12 @@ require_once '../../includes/header.php';
 
                                 <select id="employment_type" name="employment_type" required>
                                     <option value="full_time"
-                                        <?php echo ($_POST['employment_type'] ?? $job['employment_type'] ?? '') === 'full_time' ? 'selected' : ''; ?>>
+                                        <?php echo $form_type === 'full_time' ? 'selected' : ''; ?>>
                                         Full-time
                                     </option>
 
                                     <option value="part_time"
-                                        <?php echo ($_POST['employment_type'] ?? $job['employment_type'] ?? '') === 'part_time' ? 'selected' : ''; ?>>
+                                        <?php echo $form_type === 'part_time' ? 'selected' : ''; ?>>
                                         Part-time
                                     </option>
                                 </select>
@@ -441,7 +553,7 @@ require_once '../../includes/header.php';
                                     name="work_schedule"
                                     maxlength="255"
                                     placeholder="Example: Monday-Friday, 8 AM-5 PM"
-                                    value="<?php echo htmlspecialchars($_POST['work_schedule'] ?? $job['work_schedule'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                                    value="<?php echo $escape($form_schedule); ?>"
                                     required>
                             </div>
 
@@ -453,7 +565,7 @@ require_once '../../includes/header.php';
                                     id="start_date"
                                     name="start_date"
                                     min="<?php echo date('Y-m-d'); ?>"
-                                    value="<?php echo htmlspecialchars($_POST['start_date'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                                    value="<?php echo $escape($form_start_date); ?>"
                                     required>
                             </div>
 
@@ -465,7 +577,7 @@ require_once '../../includes/header.php';
                                     name="offer_message"
                                     maxlength="5000"
                                     rows="5"
-                                    placeholder="Add any additional information or welcome message..."><?php echo htmlspecialchars($_POST['offer_message'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
+                                    placeholder="Add any additional information or welcome message..."><?php echo $escape($form_message); ?></textarea>
 
                                 <small>Optional · Maximum 5,000 characters</small>
                             </div>
@@ -473,11 +585,19 @@ require_once '../../includes/header.php';
                         </div>
 
                         <div class="offer-form-footer">
-                            <span><i class="bi bi-shield-check"></i> Review the terms before sending.</span>
+                            <span>
+                                <i class="bi bi-shield-check"></i>
+                                Review the terms before sending.
+                            </span>
 
                             <button type="submit" name="send_offer" class="offer-submit-button">
                                 <i class="bi bi-send"></i>
-                                Send Employment Offer
+
+                                <?php
+                                echo $offer_mode === 'revise'
+                                    ? 'Send Revised Offer'
+                                    : 'Send Employment Offer';
+                                ?>
                             </button>
                         </div>
 
@@ -507,9 +627,10 @@ require_once '../../includes/header.php';
 
             <section class="offer-info-card">
                 <i class="bi bi-info-circle"></i>
+
                 <div>
                     <strong>What happens next?</strong>
-                    <p>The worker can review your offer and decide whether to accept or decline it.</p>
+                    <p>The worker can review your offer and decide whether to accept, decline, or request changes.</p>
                 </div>
             </section>
 

@@ -1,6 +1,4 @@
-
 BEGIN;
-
 -- =========================================
 -- 1. FIX SENDING INTERVIEW INVITATIONS
 -- =========================================
@@ -134,8 +132,6 @@ BEGIN
     );
 END;
 $function$;
-
-
 -- =========================================
 -- 2. SYNC APPLICATION WHEN WORKER RESPONDS
 -- =========================================
@@ -170,26 +166,18 @@ BEGIN
     RETURN NEW;
 END;
 $function$;
-
-
 -- Run the synchronization automatically whenever
 -- a worker accepts or declines an interview invitation.
 
 DROP TRIGGER IF EXISTS invitations_sync_application_status
 ON public.invitations;
-
 CREATE TRIGGER invitations_sync_application_status
 AFTER UPDATE OF status ON public.invitations
 FOR EACH ROW
 WHEN (OLD.status IS DISTINCT FROM NEW.status)
 EXECUTE FUNCTION public.sync_application_status_from_invitation();
-
-
 -- The trigger is the only intended caller of this function.
 REVOKE ALL ON FUNCTION public.sync_application_status_from_invitation()
 FROM PUBLIC, anon, authenticated;
-
-
 NOTIFY pgrst, 'reload schema';
-
 COMMIT;

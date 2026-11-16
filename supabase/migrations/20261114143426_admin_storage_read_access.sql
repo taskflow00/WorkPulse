@@ -7,8 +7,6 @@ USING (
     bucket_id = 'resumes'
     AND public.current_user_role() = 'admin'
 );
-
-
 -- Admins can view all daily time proof screenshots.
 CREATE POLICY "Admins can view all daily time proofs"
 ON storage.objects

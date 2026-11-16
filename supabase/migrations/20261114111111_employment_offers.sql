@@ -1,4 +1,3 @@
-
 -- Stores employment offers sent by employers to accepted applicants.
 
 CREATE TABLE public.employment_offers (
@@ -35,10 +34,8 @@ CREATE TABLE public.employment_offers (
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 -- Enable Row Level Security.
 ALTER TABLE public.employment_offers ENABLE ROW LEVEL SECURITY;
-
 -- Employers and workers can only view offers involving their accounts.
 CREATE POLICY "Users can view their employment offers"
 ON public.employment_offers
@@ -49,7 +46,6 @@ USING (
     OR worker_id = (SELECT auth.uid())
     OR (SELECT public.current_user_role()) = 'admin'
 );
-
 -- Employers can only send offers for accepted applications
 -- belonging to their own job listings.
 CREATE POLICY "Employers can send offers"
@@ -70,10 +66,8 @@ WITH CHECK (
           AND j.employer_id = (SELECT auth.uid())
     )
 );
-
 -- Useful lookup indexes.
 CREATE INDEX employment_offers_worker_idx
 ON public.employment_offers(worker_id);
-
 CREATE INDEX employment_offers_employer_idx
 ON public.employment_offers(employer_id);

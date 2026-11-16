@@ -1,4 +1,3 @@
-
 -- =============================================
 -- 1. CREATE TIME TRACKING SETTINGS
 -- =============================================
@@ -8,7 +7,6 @@ CREATE TABLE public.time_tracking_settings (
     idle_timeout_seconds INTEGER NOT NULL DEFAULT 300
         CHECK (idle_timeout_seconds BETWEEN 1 AND 3600)
 );
-
 -- Default timeout: 300 seconds (5 minutes).
 INSERT INTO public.time_tracking_settings (
     id,
@@ -16,12 +14,9 @@ INSERT INTO public.time_tracking_settings (
 )
 VALUES (1, 300)
 ON CONFLICT (id) DO NOTHING;
-
 -- Workers can read the setting.
 ALTER TABLE public.time_tracking_settings ENABLE ROW LEVEL SECURITY;
-
 GRANT SELECT ON public.time_tracking_settings TO authenticated;
-
 CREATE POLICY "Workers can read time tracking settings"
 ON public.time_tracking_settings
 FOR SELECT
@@ -30,8 +25,6 @@ USING (
     public.current_user_role() = 'worker'
     AND public.is_active_user()
 );
-
-
 -- =============================================
 -- 2. UPDATE MARK IDLE FUNCTION
 -- =============================================
@@ -125,8 +118,6 @@ BEGIN
     );
 END;
 $function$;
-
-
 -- =============================================
 -- 3. UPDATE DAILY ROLLOVER FUNCTION
 -- =============================================

@@ -1,4 +1,3 @@
-
 -- ==========================================
 -- WORKPULSE: INITIAL DATABASE STRUCTURE
 -- ==========================================
@@ -26,8 +25,6 @@ CREATE TABLE public.profiles (
 
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
-
 -- 2. JOB LISTINGS
 -- Employers publish remote job opportunities.
 
@@ -53,8 +50,6 @@ CREATE TABLE public.jobs (
 
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
-
 -- 3. JOB APPLICATIONS
 -- Workers apply for available jobs.
 
@@ -74,8 +69,6 @@ CREATE TABLE public.applications (
 
     UNIQUE (job_id, worker_id)
 );
-
-
 -- 4. EMPLOYER INVITATIONS
 -- Employers can invite workers to apply for a job.
 
@@ -93,8 +86,6 @@ CREATE TABLE public.invitations (
 
     UNIQUE (job_id, worker_id)
 );
-
-
 -- ==========================================
 -- AUTOMATIC PROFILE CREATION
 -- ==========================================
@@ -124,13 +115,10 @@ BEGIN
     RETURN NEW;
 END;
 $$;
-
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_user();
-
-
 -- ==========================================
 -- USER ROLE HELPER
 -- ==========================================
@@ -149,11 +137,8 @@ AS $$
     FROM public.profiles
     WHERE id = auth.uid();
 $$;
-
 REVOKE ALL ON FUNCTION public.current_user_role() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.current_user_role() TO authenticated;
-
-
 -- Prevent users from changing their own role.
 
 CREATE OR REPLACE FUNCTION public.prevent_profile_role_change()
@@ -171,13 +156,10 @@ BEGIN
     RETURN NEW;
 END;
 $$;
-
 CREATE TRIGGER protect_profile_role
 BEFORE UPDATE ON public.profiles
 FOR EACH ROW
 EXECUTE FUNCTION public.prevent_profile_role_change();
-
-
 -- ==========================================
 -- ENABLE ROW LEVEL SECURITY
 -- ==========================================
@@ -186,8 +168,6 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invitations ENABLE ROW LEVEL SECURITY;
-
-
 -- ==========================================
 -- PROFILE POLICIES
 -- ==========================================
@@ -208,7 +188,6 @@ USING (
     )
     OR public.current_user_role() = 'admin'
 );
-
 -- Users can update their own profile.
 -- Admins can update any profile.
 
@@ -224,8 +203,6 @@ WITH CHECK (
     id = auth.uid()
     OR public.current_user_role() = 'admin'
 );
-
-
 -- ==========================================
 -- JOB POLICIES
 -- ==========================================
@@ -243,7 +220,6 @@ USING (
     OR employer_id = auth.uid()
     OR public.current_user_role() = 'admin'
 );
-
 -- Only employers can publish their own jobs.
 
 CREATE POLICY "Employers create jobs"
@@ -254,7 +230,6 @@ WITH CHECK (
     employer_id = auth.uid()
     AND public.current_user_role() = 'employer'
 );
-
 -- Employers manage their own listings.
 -- Admins can manage all listings.
 
@@ -270,7 +245,6 @@ WITH CHECK (
     employer_id = auth.uid()
     OR public.current_user_role() = 'admin'
 );
-
 CREATE POLICY "Employers delete jobs"
 ON public.jobs
 FOR DELETE
@@ -279,8 +253,6 @@ USING (
     employer_id = auth.uid()
     OR public.current_user_role() = 'admin'
 );
-
-
 -- ==========================================
 -- APPLICATION POLICIES
 -- ==========================================
@@ -303,7 +275,6 @@ USING (
     )
     OR public.current_user_role() = 'admin'
 );
-
 -- Only workers can apply for jobs.
 
 CREATE POLICY "Workers submit applications"
@@ -314,7 +285,6 @@ WITH CHECK (
     worker_id = auth.uid()
     AND public.current_user_role() = 'worker'
 );
-
 -- Employers can update applications for their jobs.
 -- Admins can update all applications.
 
@@ -340,8 +310,6 @@ WITH CHECK (
     )
     OR public.current_user_role() = 'admin'
 );
-
-
 -- ==========================================
 -- INVITATION POLICIES
 -- ==========================================
@@ -358,7 +326,6 @@ USING (
     OR worker_id = auth.uid()
     OR public.current_user_role() = 'admin'
 );
-
 -- Only employers can send invitations for their own jobs.
 
 CREATE POLICY "Employers send invitations"
@@ -375,7 +342,6 @@ WITH CHECK (
         AND jobs.employer_id = auth.uid()
     )
 );
-
 -- Invited workers can respond to their invitations.
 
 CREATE POLICY "Workers respond to invitations"
@@ -384,8 +350,6 @@ FOR UPDATE
 TO authenticated
 USING (worker_id = auth.uid())
 WITH CHECK (worker_id = auth.uid());
-
-
 -- ==========================================
 -- INDEXES
 -- ==========================================

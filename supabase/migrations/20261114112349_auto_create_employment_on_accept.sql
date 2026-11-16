@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.respond_to_employment_offer(
     p_offer_id UUID,
     p_decision TEXT
@@ -79,8 +78,6 @@ BEGIN
     );
 END;
 $$;
-
 GRANT EXECUTE ON FUNCTION public.respond_to_employment_offer(UUID, TEXT)
 TO authenticated;
-
 NOTIFY pgrst, 'reload schema';

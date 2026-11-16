@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.send_application_interview_invitation(
     p_application_id uuid,
     p_message text DEFAULT NULL::text,

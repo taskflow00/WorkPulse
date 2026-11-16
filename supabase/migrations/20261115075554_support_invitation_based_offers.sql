@@ -1,23 +1,17 @@
-
 BEGIN;
-
 -- Allow an employment offer to originate from either
 -- an accepted application or an accepted direct invitation.
 
 ALTER TABLE public.employment_offers
     ALTER COLUMN application_id DROP NOT NULL;
-
 ALTER TABLE public.employments
     ALTER COLUMN application_id DROP NOT NULL;
-
 -- Add the direct invitation reference.
 
 ALTER TABLE public.employment_offers
     ADD COLUMN invitation_id UUID;
-
 ALTER TABLE public.employments
     ADD COLUMN invitation_id UUID;
-
 -- Link both records to the original invitation.
 
 ALTER TABLE public.employment_offers
@@ -25,13 +19,11 @@ ALTER TABLE public.employment_offers
     FOREIGN KEY (invitation_id)
     REFERENCES public.invitations(id)
     ON DELETE RESTRICT;
-
 ALTER TABLE public.employments
     ADD CONSTRAINT employments_invitation_id_fkey
     FOREIGN KEY (invitation_id)
     REFERENCES public.invitations(id)
     ON DELETE RESTRICT;
-
 -- Every offer and employment must have exactly one source:
 -- application_id OR invitation_id, never both or neither.
 
@@ -42,7 +34,6 @@ ALTER TABLE public.employment_offers
         OR
         (application_id IS NULL AND invitation_id IS NOT NULL)
     );
-
 ALTER TABLE public.employments
     ADD CONSTRAINT employments_source_check
     CHECK (
@@ -50,25 +41,21 @@ ALTER TABLE public.employments
         OR
         (application_id IS NULL AND invitation_id IS NOT NULL)
     );
-
 -- Prevent duplicate offers or employment records
 -- for the same invitation.
 
 ALTER TABLE public.employment_offers
     ADD CONSTRAINT employment_offers_invitation_id_key
     UNIQUE (invitation_id);
-
 ALTER TABLE public.employments
     ADD CONSTRAINT employments_invitation_id_key
     UNIQUE (invitation_id);
-
 -- Replace the employer offer policy.
 -- Employers can send offers only for accepted applications
 -- or accepted invitations belonging to their own jobs.
 
 DROP POLICY IF EXISTS "Employers can send offers"
 ON public.employment_offers;
-
 CREATE POLICY "Employers can send offers"
 ON public.employment_offers
 FOR INSERT
@@ -109,7 +96,6 @@ WITH CHECK (
         )
     )
 );
-
 -- Update the worker's formal-offer response function.
 -- Accepting a valid offer creates an employment record
 -- using the same recruitment source as the offer.
@@ -241,7 +227,5 @@ BEGIN
     );
 END;
 $function$;
-
 NOTIFY pgrst, 'reload schema';
-
 COMMIT;

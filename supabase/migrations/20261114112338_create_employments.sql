@@ -1,4 +1,3 @@
-
 -- Stores the actual employment relationship after an offer is accepted.
 
 CREATE TABLE public.employments (
@@ -42,10 +41,8 @@ CREATE TABLE public.employments (
         (status = 'ended' AND ended_at IS NOT NULL)
     )
 );
-
 -- Enable Row Level Security.
 ALTER TABLE public.employments ENABLE ROW LEVEL SECURITY;
-
 -- Employers and workers can view only their own employment records.
 CREATE POLICY "Users can view their employments"
 ON public.employments
@@ -56,24 +53,18 @@ USING (
     OR worker_id = (SELECT auth.uid())
     OR (SELECT public.current_user_role()) = 'admin'
 );
-
 -- Users can only read employment records directly.
 GRANT SELECT ON public.employments TO authenticated;
-
 REVOKE INSERT, UPDATE, DELETE
 ON public.employments
 FROM authenticated;
-
 -- Lookup indexes.
 CREATE INDEX employments_worker_idx
 ON public.employments(worker_id);
-
 CREATE INDEX employments_employer_idx
 ON public.employments(employer_id);
-
 CREATE INDEX employments_status_idx
 ON public.employments(status);
-
 -- Create records for employment offers already accepted before this table existed.
 INSERT INTO public.employments (
     offer_id,

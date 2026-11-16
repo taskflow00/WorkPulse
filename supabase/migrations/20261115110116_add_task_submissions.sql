@@ -1,4 +1,3 @@
-
 -- =========================================================
 -- WORKPULSE: TASK SUBMISSIONS AND EMPLOYER REVIEW
 -- =========================================================
@@ -46,7 +45,6 @@ CREATE TABLE public.task_submissions (
         )
     )
 );
-
 -- 2. Store screenshot information.
 CREATE TABLE public.task_submission_files (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -61,31 +59,23 @@ CREATE TABLE public.task_submission_files (
 
     uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 -- 3. Add indexes for frequently accessed records.
 CREATE INDEX idx_task_submissions_task
 ON public.task_submissions(task_id, submitted_at DESC);
-
 CREATE INDEX idx_task_submissions_worker
 ON public.task_submissions(worker_id);
-
 CREATE INDEX idx_task_submissions_status
 ON public.task_submissions(status);
-
 CREATE INDEX idx_task_submission_files_submission
 ON public.task_submission_files(submission_id);
-
 -- 4. Enable RLS.
 ALTER TABLE public.task_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_submission_files ENABLE ROW LEVEL SECURITY;
-
 -- 5. Allow authenticated users to read authorized submissions.
 GRANT SELECT ON public.task_submissions TO authenticated;
 GRANT SELECT ON public.task_submission_files TO authenticated;
-
 REVOKE ALL ON public.task_submissions FROM anon;
 REVOKE ALL ON public.task_submission_files FROM anon;
-
 -- Workers can view their own submissions.
 CREATE POLICY "Workers can view their own submissions"
 ON public.task_submissions
@@ -95,7 +85,6 @@ USING (
     public.is_active_user()
     AND worker_id = (SELECT auth.uid())
 );
-
 -- Employers can view submissions for their own tasks.
 CREATE POLICY "Employers can view their task submissions"
 ON public.task_submissions
@@ -110,7 +99,6 @@ USING (
           AND t.employer_id = (SELECT auth.uid())
     )
 );
-
 -- Admins can view all submissions.
 CREATE POLICY "Admins can view all task submissions"
 ON public.task_submissions
@@ -120,7 +108,6 @@ USING (
     public.is_active_user()
     AND public.current_user_role() = 'admin'
 );
-
 -- Workers can view their own submission files.
 CREATE POLICY "Workers can view their submission files"
 ON public.task_submission_files
@@ -135,7 +122,6 @@ USING (
           AND s.worker_id = (SELECT auth.uid())
     )
 );
-
 -- Employers can view files submitted for their own tasks.
 CREATE POLICY "Employers can view task submission files"
 ON public.task_submission_files
@@ -151,7 +137,6 @@ USING (
           AND t.employer_id = (SELECT auth.uid())
     )
 );
-
 -- Admins can view all submission files.
 CREATE POLICY "Admins can view all task submission files"
 ON public.task_submission_files
@@ -161,7 +146,6 @@ USING (
     public.is_active_user()
     AND public.current_user_role() = 'admin'
 );
-
 -- 6. Create the private Storage bucket.
 INSERT INTO storage.buckets (
     id,
@@ -190,7 +174,6 @@ DO UPDATE SET
         'image/jpeg',
         'image/webp'
     ];
-
 -- Storage paths follow:
 -- worker_id/task_id/submission_id/filename.png
 
@@ -213,7 +196,6 @@ WITH CHECK (
           AND t.status = 'in_progress'
     )
 );
-
 -- Only files belonging to a recorded submission can be viewed.
 CREATE POLICY "Authorized users can view task proof screenshots"
 ON storage.objects
@@ -237,7 +219,6 @@ USING (
           )
     )
 );
-
 -- Workers can delete their own unsubmitted uploads
 -- if the submission RPC fails before recording them.
 CREATE POLICY "Workers can clean up unsubmitted task proof files"
@@ -255,7 +236,6 @@ USING (
         WHERE f.file_path = storage.objects.name
     )
 );
-
 -- 7. RPC: worker submits completed work.
 CREATE OR REPLACE FUNCTION public.submit_task_work(
     p_task_id UUID,
@@ -411,7 +391,6 @@ BEGIN
     );
 END;
 $function$;
-
 -- 8. RPC: employer approves or requests revisions.
 CREATE OR REPLACE FUNCTION public.review_task_submission(
     p_submission_id UUID,
@@ -516,7 +495,6 @@ BEGIN
     );
 END;
 $function$;
-
 -- 9. Workers may start tasks but cannot directly complete them.
 CREATE OR REPLACE FUNCTION public.update_task_status(
     p_task_id UUID,
@@ -572,22 +550,16 @@ BEGIN
     );
 END;
 $function$;
-
 -- 10. Restrict RPC execution.
 REVOKE ALL ON FUNCTION public.submit_task_work(UUID, UUID, TEXT, JSONB)
 FROM PUBLIC, anon;
-
 GRANT EXECUTE ON FUNCTION public.submit_task_work(UUID, UUID, TEXT, JSONB)
 TO authenticated;
-
 REVOKE ALL ON FUNCTION public.review_task_submission(UUID, TEXT, TEXT)
 FROM PUBLIC, anon;
-
 GRANT EXECUTE ON FUNCTION public.review_task_submission(UUID, TEXT, TEXT)
 TO authenticated;
-
 REVOKE ALL ON FUNCTION public.update_task_status(UUID, TEXT)
 FROM PUBLIC, anon;
-
 GRANT EXECUTE ON FUNCTION public.update_task_status(UUID, TEXT)
 TO authenticated;

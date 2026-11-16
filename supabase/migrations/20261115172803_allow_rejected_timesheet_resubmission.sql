@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.submit_monthly_timesheet(
     p_employment_id UUID,
     p_month DATE
@@ -186,12 +185,10 @@ BEGIN
 
 END;
 $$;
-
 -- Keep the existing RPC permissions.
 REVOKE ALL ON FUNCTION
 public.submit_monthly_timesheet(UUID, DATE)
 FROM PUBLIC;
-
 GRANT EXECUTE ON FUNCTION
 public.submit_monthly_timesheet(UUID, DATE)
 TO authenticated;

@@ -1,4 +1,3 @@
-
 -- Check whether the currently authenticated user is allowed access.
 CREATE OR REPLACE FUNCTION public.is_active_user()
 RETURNS BOOLEAN
@@ -21,12 +20,9 @@ AS $$
         )
     );
 $$;
-
 -- Allow authenticated users to use the access-check function.
 GRANT EXECUTE ON FUNCTION public.is_active_user()
 TO authenticated;
-
-
 -- Apply an additional restrictive policy to WorkPulse tables.
 DO $$
 DECLARE
@@ -75,12 +71,9 @@ BEGIN
     END LOOP;
 END;
 $$;
-
-
 -- Also protect WorkPulse private storage buckets.
 DROP POLICY IF EXISTS active_account_required_for_workpulse_storage
 ON storage.objects;
-
 CREATE POLICY active_account_required_for_workpulse_storage
 ON storage.objects
 AS RESTRICTIVE

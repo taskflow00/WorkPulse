@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.review_monthly_timesheet(
     p_timesheet_id UUID,
     p_status TEXT,
@@ -94,10 +93,8 @@ BEGIN
     );
 END;
 $$;
-
 -- Allow logged-in users to call the function.
 REVOKE ALL ON FUNCTION public.review_monthly_timesheet(UUID, TEXT, TEXT)
 FROM PUBLIC;
-
 GRANT EXECUTE ON FUNCTION public.review_monthly_timesheet(UUID, TEXT, TEXT)
 TO authenticated;

@@ -1,4 +1,3 @@
-
 -- ==========================================
 -- WORKPULSE AVATARS STORAGE
 -- ==========================================
@@ -28,8 +27,6 @@ DO UPDATE SET
     public = EXCLUDED.public,
     file_size_limit = EXCLUDED.file_size_limit,
     allowed_mime_types = EXCLUDED.allowed_mime_types;
-
-
 -- ==========================================
 -- WORKER AVATAR POLICIES
 -- ==========================================
@@ -45,8 +42,6 @@ WITH CHECK (
     AND current_user_role() = 'worker'
     AND is_active_user()
 );
-
-
 -- Workers can view their own avatar objects
 -- Public visitors can still view images through public URLs
 CREATE POLICY "Workers can view own avatars"
@@ -57,8 +52,6 @@ USING (
     bucket_id = 'avatars'
     AND (storage.foldername(name))[1] = auth.uid()::text
 );
-
-
 -- Workers can replace their own profile pictures
 CREATE POLICY "Workers can update own avatars"
 ON storage.objects
@@ -76,8 +69,6 @@ WITH CHECK (
     AND current_user_role() = 'worker'
     AND is_active_user()
 );
-
-
 -- Workers can delete their own profile pictures
 CREATE POLICY "Workers can delete own avatars"
 ON storage.objects

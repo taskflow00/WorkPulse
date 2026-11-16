@@ -6,8 +6,6 @@ TO authenticated
 USING (
     public.current_user_role() = 'admin'
 );
-
-
 -- Admins can view all timesheets.
 CREATE POLICY "Admins can view all timesheets"
 ON public.timesheets
@@ -16,8 +14,6 @@ TO authenticated
 USING (
     public.current_user_role() = 'admin'
 );
-
-
 -- Admins can view all timesheet entries.
 CREATE POLICY "Admins can view all timesheet entries"
 ON public.timesheet_entries

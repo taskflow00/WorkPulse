@@ -1,4 +1,3 @@
-
 -- =========================================
 -- SUBMIT MONTHLY TIMESHEET
 -- =========================================
@@ -165,7 +164,6 @@ BEGIN
 
 END;
 $$;
-
 -- =========================================
 -- RPC PERMISSIONS
 -- =========================================
@@ -173,7 +171,6 @@ $$;
 REVOKE ALL ON FUNCTION
 public.submit_monthly_timesheet(UUID, DATE)
 FROM PUBLIC;
-
 GRANT EXECUTE ON FUNCTION
 public.submit_monthly_timesheet(UUID, DATE)
 TO authenticated;

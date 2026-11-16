@@ -1,4 +1,3 @@
-
 -- ==========================================
 -- DAILY TIME TRACKING ROLLOVER
 -- Timezone: Asia/Manila
@@ -222,15 +221,12 @@ BEGIN
 
 END;
 $$;
-
 -- ==========================================
 -- PERMISSIONS
 -- ==========================================
 
 REVOKE ALL ON FUNCTION public.rollover_time_tracking_session()
 FROM PUBLIC;
-
 GRANT EXECUTE ON FUNCTION public.rollover_time_tracking_session()
 TO authenticated;
-
 NOTIFY pgrst, 'reload schema';

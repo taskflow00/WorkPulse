@@ -1,16 +1,11 @@
-
 -- =========================================
 -- PRIVATE SCHEMA
 -- =========================================
 
 CREATE SCHEMA IF NOT EXISTS private;
-
 -- Prevent normal users from accessing this schema.
 REVOKE ALL ON SCHEMA private FROM PUBLIC, anon, authenticated;
-
 GRANT USAGE ON SCHEMA private TO postgres;
-
-
 -- =========================================
 -- AUTOMATIC MONTHLY TIMESHEET SUBMISSION
 -- =========================================
@@ -190,8 +185,6 @@ BEGIN
 
 END;
 $$;
-
-
 -- =========================================
 -- FUNCTION PERMISSIONS
 -- =========================================
@@ -199,26 +192,19 @@ $$;
 REVOKE ALL ON FUNCTION
 private.auto_submit_monthly_timesheets(DATE, UUID)
 FROM PUBLIC, anon, authenticated;
-
 GRANT EXECUTE ON FUNCTION
 private.auto_submit_monthly_timesheets(DATE, UUID)
 TO postgres;
-
-
 -- =========================================
 -- ENABLE SUPABASE CRON
 -- =========================================
 
 CREATE EXTENSION IF NOT EXISTS pg_cron
 WITH SCHEMA pg_catalog;
-
 GRANT USAGE ON SCHEMA cron TO postgres;
-
 GRANT ALL PRIVILEGES
 ON ALL TABLES IN SCHEMA cron
 TO postgres;
-
-
 -- =========================================
 -- SCHEDULE AUTOMATIC SUBMISSION
 -- =========================================

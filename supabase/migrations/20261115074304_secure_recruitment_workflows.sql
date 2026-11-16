@@ -1,4 +1,3 @@
-
 -- ============================================
 -- WORKPULSE: SECURE RECRUITMENT WORKFLOWS
 -- ============================================
@@ -10,18 +9,14 @@
 
 ALTER TABLE public.invitations
 DROP CONSTRAINT IF EXISTS invitations_job_id_worker_id_key;
-
 CREATE UNIQUE INDEX IF NOT EXISTS invitations_unique_active_per_job_worker
 ON public.invitations (job_id, worker_id)
 WHERE status IN ('pending', 'accepted');
-
-
 -- Employers can invite workers only to their own
 -- open jobs. New invitations must start as pending.
 
 DROP POLICY IF EXISTS "Employers send invitations"
 ON public.invitations;
-
 CREATE POLICY "Employers send invitations"
 ON public.invitations
 FOR INSERT
@@ -54,14 +49,11 @@ WITH CHECK (
           )
     )
 );
-
-
 -- Workers can respond only to their own pending
 -- invitations, and only with accepted or declined.
 
 DROP POLICY IF EXISTS "Workers respond to invitations"
 ON public.invitations;
-
 CREATE POLICY "Workers respond to invitations"
 ON public.invitations
 FOR UPDATE
@@ -76,20 +68,15 @@ WITH CHECK (
     AND current_user_role() = 'worker'
     AND status IN ('accepted', 'declined')
 );
-
-
 -- Restrict invitation updates to the status column.
 -- This prevents workers from changing the employer,
 -- worker, job, or original invitation message.
 
 REVOKE UPDATE ON TABLE public.invitations
 FROM anon, authenticated;
-
 GRANT UPDATE (status)
 ON TABLE public.invitations
 TO authenticated;
-
-
 -- ============================================
 -- 2. APPLICATIONS
 -- ============================================
@@ -99,7 +86,6 @@ TO authenticated;
 
 DROP POLICY IF EXISTS "Workers submit applications"
 ON public.applications;
-
 CREATE POLICY "Workers submit applications"
 ON public.applications
 FOR INSERT
@@ -116,14 +102,11 @@ WITH CHECK (
           AND j.status = 'open'
     )
 );
-
-
 -- Employers can update applications belonging to
 -- their own jobs. Admins can manage application status.
 
 DROP POLICY IF EXISTS "Employers manage applications"
 ON public.applications;
-
 CREATE POLICY "Employers manage applications"
 ON public.applications
 FOR UPDATE
@@ -160,14 +143,11 @@ WITH CHECK (
         )
     )
 );
-
-
 -- Employers and admins can update only application
 -- status through the authenticated API.
 
 REVOKE UPDATE ON TABLE public.applications
 FROM anon, authenticated;
-
 GRANT UPDATE (status)
 ON TABLE public.applications
 TO authenticated;

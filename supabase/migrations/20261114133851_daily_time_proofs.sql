@@ -1,4 +1,3 @@
-
 -- Store daily screenshots submitted by workers.
 create table public.daily_time_proofs (
     id uuid primary key default gen_random_uuid(),
@@ -49,20 +48,15 @@ create table public.daily_time_proofs (
         )
     )
 );
-
 -- Make daily proof retrieval faster.
 create index daily_time_proofs_employment_date_idx
 on public.daily_time_proofs (employment_id, work_date desc);
-
 create index daily_time_proofs_worker_date_idx
 on public.daily_time_proofs (worker_id, work_date desc);
-
 -- Enable Row Level Security.
 alter table public.daily_time_proofs enable row level security;
-
 -- Allow users to retrieve permitted proof records.
 grant select on public.daily_time_proofs to authenticated;
-
 -- Workers can only insert their own proof information.
 grant insert (
     employment_id,
@@ -72,7 +66,6 @@ grant insert (
     worker_note
 )
 on public.daily_time_proofs to authenticated;
-
 -- Employers can only change review-related fields.
 grant update (
     status,
@@ -81,7 +74,6 @@ grant update (
     reviewed_by
 )
 on public.daily_time_proofs to authenticated;
-
 -- Workers can view their own proofs.
 create policy "Workers can view own daily proofs"
 on public.daily_time_proofs
@@ -90,7 +82,6 @@ to authenticated
 using (
     worker_id = (select auth.uid())
 );
-
 -- Employers can view proofs for their own workers.
 create policy "Employers can view their workers daily proofs"
 on public.daily_time_proofs
@@ -104,7 +95,6 @@ using (
         and e.employer_id = (select auth.uid())
     )
 );
-
 -- Workers can submit proof for their own employment.
 create policy "Workers can submit own daily proofs"
 on public.daily_time_proofs
@@ -129,7 +119,6 @@ with check (
         )
     )
 );
-
 -- Employers can review proofs belonging to their employments.
 create policy "Employers can review their workers daily proofs"
 on public.daily_time_proofs
@@ -155,7 +144,6 @@ with check (
         and e.worker_id = daily_time_proofs.worker_id
     )
 );
-
 -- Create a private bucket for time-proof screenshots.
 insert into storage.buckets (
     id,
@@ -176,7 +164,6 @@ set
     public = false,
     file_size_limit = 5242880,
     allowed_mime_types = array['image/png', 'image/jpeg', 'image/webp'];
-
 -- Workers can upload screenshots only under their own worker/employment folders.
 create policy "Workers can upload own time proof screenshots"
 on storage.objects
@@ -192,7 +179,6 @@ with check (
         and e.worker_id = (select auth.uid())
     )
 );
-
 -- Workers can view their own screenshots.
 create policy "Workers can view own time proof screenshots"
 on storage.objects
@@ -202,7 +188,6 @@ using (
     bucket_id = 'daily-time-proofs'
     and (storage.foldername(name))[1] = (select auth.uid())::text
 );
-
 -- Employers can view screenshots attached to their workers' proof records.
 create policy "Employers can view workers time proof screenshots"
 on storage.objects
@@ -219,7 +204,6 @@ using (
         and e.employer_id = (select auth.uid())
     )
 );
-
 -- Allow workers to clean up an uploaded file if saving its database record fails.
 create policy "Workers can delete unsubmitted time proof screenshots"
 on storage.objects

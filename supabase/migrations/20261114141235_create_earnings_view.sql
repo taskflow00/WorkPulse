@@ -28,5 +28,4 @@ FROM public.timesheets t
 
 INNER JOIN public.employments e
     ON t.employment_id = e.id;
-
 GRANT SELECT ON public.earnings_records TO authenticated;

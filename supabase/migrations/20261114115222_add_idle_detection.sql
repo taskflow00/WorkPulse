@@ -1,4 +1,3 @@
-
 -- =========================================
 -- 1. ADD IDLE TRACKING COLUMNS
 -- =========================================
@@ -6,28 +5,22 @@
 ALTER TABLE public.time_tracking_sessions
 ADD COLUMN IF NOT EXISTS idle_started_at TIMESTAMPTZ,
 ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMPTZ;
-
 -- Give existing running sessions a fresh activity baseline.
 UPDATE public.time_tracking_sessions
 SET last_activity_at = clock_timestamp()
 WHERE status = 'running'
 AND last_activity_at IS NULL;
-
-
 -- =========================================
 -- 2. UPDATE SESSION STATUS CONSTRAINTS
 -- =========================================
 
 ALTER TABLE public.time_tracking_sessions
 DROP CONSTRAINT IF EXISTS time_tracking_sessions_status_check;
-
 ALTER TABLE public.time_tracking_sessions
 DROP CONSTRAINT IF EXISTS time_tracking_sessions_check;
-
 ALTER TABLE public.time_tracking_sessions
 ADD CONSTRAINT time_tracking_sessions_status_check
 CHECK (status IN ('running', 'paused', 'idle', 'stopped'));
-
 ALTER TABLE public.time_tracking_sessions
 ADD CONSTRAINT time_tracking_sessions_state_check
 CHECK (
@@ -59,16 +52,11 @@ CHECK (
         AND idle_started_at IS NULL
     )
 );
-
-
 -- Include idle sessions in the one-active-session rule.
 DROP INDEX IF EXISTS public.one_active_tracking_session_per_worker;
-
 CREATE UNIQUE INDEX one_active_tracking_session_per_worker
 ON public.time_tracking_sessions(worker_id)
 WHERE status IN ('running', 'paused', 'idle');
-
-
 -- =========================================
 -- 3. UPDATE START TRACKING FUNCTION
 -- =========================================
@@ -156,8 +144,6 @@ EXCEPTION
         );
 END;
 $$;
-
-
 -- =========================================
 -- 4. UPDATE PAUSE TRACKING FUNCTION
 -- =========================================
@@ -216,8 +202,6 @@ BEGIN
     );
 END;
 $$;
-
-
 -- =========================================
 -- 5. UPDATE RESUME TRACKING FUNCTION
 -- =========================================
@@ -279,8 +263,6 @@ BEGIN
     );
 END;
 $$;
-
-
 -- =========================================
 -- 6. RECORD WORKER ACTIVITY
 -- =========================================
@@ -317,8 +299,6 @@ BEGIN
     RETURN jsonb_build_object('success', true);
 END;
 $$;
-
-
 -- =========================================
 -- 7. MARK SESSION AS IDLE
 -- =========================================
@@ -397,8 +377,6 @@ BEGIN
     );
 END;
 $$;
-
-
 -- =========================================
 -- 8. UPDATE STOP TRACKING FUNCTION
 -- =========================================
@@ -478,8 +456,6 @@ BEGIN
     );
 END;
 $$;
-
-
 -- =========================================
 -- 9. FUNCTION PERMISSIONS
 -- =========================================
@@ -490,12 +466,10 @@ REVOKE ALL ON FUNCTION public.resume_time_tracking() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.record_time_tracking_activity() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.mark_time_tracking_idle() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.stop_time_tracking() FROM PUBLIC;
-
 GRANT EXECUTE ON FUNCTION public.start_time_tracking(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.pause_time_tracking() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.resume_time_tracking() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.record_time_tracking_activity() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mark_time_tracking_idle() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.stop_time_tracking() TO authenticated;
-
 NOTIFY pgrst, 'reload schema';

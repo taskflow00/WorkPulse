@@ -1,10 +1,8 @@
-
 -- Allow employers to send interview invitations
 -- for applications that are still in the recruitment process.
 
 DROP POLICY IF EXISTS "Employers send invitations"
 ON public.invitations;
-
 CREATE POLICY "Employers send invitations"
 ON public.invitations
 FOR INSERT

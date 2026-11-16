@@ -1,4 +1,3 @@
-
 -- =========================================
 -- TIMESHEETS
 -- =========================================
@@ -38,7 +37,6 @@ CREATE TABLE public.timesheets (
 
     UNIQUE (employment_id, month)
 );
-
 -- =========================================
 -- TIMESHEET DAILY ENTRIES
 -- =========================================
@@ -58,34 +56,28 @@ CREATE TABLE public.timesheet_entries (
 
     UNIQUE (timesheet_id, work_date)
 );
-
 -- =========================================
 -- INDEXES
 -- =========================================
 
 CREATE INDEX idx_timesheets_worker
 ON public.timesheets(worker_id, month DESC);
-
 CREATE INDEX idx_timesheets_employment
 ON public.timesheets(employment_id, month DESC);
-
 CREATE INDEX idx_timesheet_entries_date
 ON public.timesheet_entries(timesheet_id, work_date);
-
 -- =========================================
 -- ROW LEVEL SECURITY
 -- =========================================
 
 ALTER TABLE public.timesheets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.timesheet_entries ENABLE ROW LEVEL SECURITY;
-
 -- Workers can view their own timesheets.
 CREATE POLICY "Workers view own timesheets"
 ON public.timesheets
 FOR SELECT
 TO authenticated
 USING (worker_id = auth.uid());
-
 -- Employers can view timesheets for their employments.
 CREATE POLICY "Employers view employment timesheets"
 ON public.timesheets
@@ -99,7 +91,6 @@ USING (
         AND e.employer_id = auth.uid()
     )
 );
-
 -- Workers can view their own daily entries.
 CREATE POLICY "Workers view own timesheet entries"
 ON public.timesheet_entries
@@ -113,7 +104,6 @@ USING (
         AND t.worker_id = auth.uid()
     )
 );
-
 -- Employers can view daily entries for their employments.
 CREATE POLICY "Employers view timesheet entries"
 ON public.timesheet_entries

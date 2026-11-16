@@ -10,8 +10,6 @@ $active_page = 'find-freelancers';
 $page_styles = ['/assets/css/find-freelancers.css'];
 
 require_once '../../includes/auth.php';
-
-// Email notification files
 require_once '../../includes/send-email.php';
 require_once '../../includes/email-templates.php';
 
@@ -63,9 +61,9 @@ $supabase_request = function ($url, $method = 'GET', $data = null) use ($token) 
     $context = stream_context_create($options);
     $response = @file_get_contents($url, false, $context);
 
-    // Get the HTTP status returned by Supabase.
+    // Read the HTTP status returned by Supabase.
     $http_status = 0;
-    $response_headers = http_get_last_response_headers() ?: [];
+    $response_headers = $http_response_header ?? [];
 
     foreach ($response_headers as $header) {
         if (preg_match('/^HTTP\/\S+\s+(\d{3})/i', $header, $matches)) {
@@ -80,13 +78,13 @@ $supabase_request = function ($url, $method = 'GET', $data = null) use ($token) 
     ];
 };
 
+
 // ============================================
-// 3.1. GET WORKER EMAIL FROM SUPABASE AUTH
+// 4. GET WORKER EMAIL FROM SUPABASE AUTH
 // ============================================
 
 $get_worker_email = function ($worker_id) {
 
-    // Do not continue if the server-side key is missing.
     if (
         !defined('SUPABASE_SERVICE_ROLE_KEY') ||
         SUPABASE_SERVICE_ROLE_KEY === ''
@@ -112,7 +110,6 @@ $get_worker_email = function ($worker_id) {
     ];
 
     $context = stream_context_create($options);
-
     $response = @file_get_contents($url, false, $context);
 
     if ($response === false) {
@@ -127,7 +124,6 @@ $get_worker_email = function ($worker_id) {
         return null;
     }
 
-    // Supabase normally returns the user object directly.
     $email = $data['email'] ?? $data['user']['email'] ?? null;
 
     if (
@@ -143,7 +139,7 @@ $get_worker_email = function ($worker_id) {
 
 
 // ============================================
-// 4. PAGE MESSAGES
+// 5. PAGE MESSAGES AND SEARCH
 // ============================================
 
 $message = $_SESSION['find_workers_message'] ?? '';
@@ -159,11 +155,11 @@ $search = trim($_GET['search'] ?? '');
 $error = '';
 $jobs_error = '';
 $invitations_error = '';
-$offers_error = '';
+$applications_error = '';
 
 
 // ============================================
-// 5. SEND WORKER INVITATION
+// 6. SEND DIRECT JOB INVITATION
 // ============================================
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -180,191 +176,296 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $redirect_url .= '?search=' . urlencode($search);
     }
 
-    // Save a message that will appear after redirecting.
     $set_flash = function ($type, $text) {
         $_SESSION['find_workers_message_type'] = $type;
         $_SESSION['find_workers_message'] = $text;
     };
 
-    // Check the submitted CSRF token.
+    $uuid_pattern = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
+
+    // Validate the submitted CSRF token.
     if (
         !is_string($submitted_token) ||
         !hash_equals($csrf_token, $submitted_token)
     ) {
 
-        $set_flash('danger', 'Your session may have expired. Please try again.');
-
-        // Check the worker and job IDs.
+        $set_flash(
+            'danger',
+            'Your session may have expired. Please try again.'
+        );
     } elseif (
-        !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $worker_id) ||
-        !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $job_id)
+        !preg_match($uuid_pattern, $worker_id) ||
+        !preg_match($uuid_pattern, $job_id)
     ) {
 
-        $set_flash('danger', 'Invalid worker or job information.');
+        $set_flash(
+            'danger',
+            'Invalid worker or job information.'
+        );
     } elseif (strlen($invitation_message) > 2000) {
 
-        $set_flash('warning', 'Your invitation message cannot exceed 2,000 characters.');
+        $set_flash(
+            'warning',
+            'Your invitation message cannot exceed 2,000 characters.'
+        );
     } else {
 
-        // Prepare the invitation data.
-        $invitation_data = [
-            'job_id' => $job_id,
-            'employer_id' => $employer_id,
-            'worker_id' => $worker_id,
-            'message' => $invitation_message !== '' ? $invitation_message : null,
-            'status' => 'pending'
-        ];
+        // --------------------------------------------
+        // Verify that the selected worker is active.
+        // --------------------------------------------
 
-        // Insert the invitation into Supabase.
-        $url = SUPABASE_URL . '/rest/v1/invitations?select=id';
-
-        $result = $supabase_request(
-            $url,
-            'POST',
-            $invitation_data
+        $worker_check = $supabase_request(
+            SUPABASE_URL .
+                '/rest/v1/profiles?select=id,full_name' .
+                '&id=eq.' . rawurlencode($worker_id) .
+                '&role=eq.worker' .
+                '&account_status=eq.active' .
+                '&limit=1'
         );
 
-        $http_status = $result['status'];
-        $api_response = $result['data'];
-
-        if ($result['response'] === false) {
-
-            $set_flash(
-                'danger',
-                'Unable to connect to Supabase. Please try again.'
-            );
-        } elseif ($http_status >= 200 && $http_status < 300) {
-
-            // ============================================
-            // INVITATION SAVED SUCCESSFULLY
-            // ============================================
-
-            // Get the worker's email from Supabase Auth.
-            $worker_email = $get_worker_email($worker_id);
-
-            // Get the employer's name from their profile.
-            $employer_result = $supabase_request(
-                SUPABASE_URL .
-                    '/rest/v1/profiles?select=full_name' .
-                    '&id=eq.' . rawurlencode($employer_id) .
-                    '&limit=1'
-            );
-
-            $employer_name = 'An employer';
-
-            if (
-                $employer_result['status'] >= 200 &&
-                $employer_result['status'] < 300 &&
-                is_array($employer_result['data']) &&
-                !empty($employer_result['data'][0]['full_name'])
-            ) {
-                $employer_name = $employer_result['data'][0]['full_name'];
-            }
-
-            // Get the job title.
-            $job_result = $supabase_request(
-                SUPABASE_URL .
-                    '/rest/v1/jobs?select=title' .
-                    '&id=eq.' . rawurlencode($job_id) .
-                    '&employer_id=eq.' . rawurlencode($employer_id) .
-                    '&limit=1'
-            );
-
-            $job_title = 'a job opportunity';
-
-            if (
-                $job_result['status'] >= 200 &&
-                $job_result['status'] < 300 &&
-                is_array($job_result['data']) &&
-                !empty($job_result['data'][0]['title'])
-            ) {
-                $job_title = $job_result['data'][0]['title'];
-            }
-
-            // ============================================
-            // SEND INVITATION EMAIL
-            // ============================================
-
-            if ($worker_email !== null) {
-
-                $email_message = invitationEmail(
-                    $employer_name,
-                    $job_title,
-                    $invitation_message
-                );
-
-                $email_sent = sendEmail(
-                    $worker_email,
-                    'You have received a job invitation on WorkPulse',
-                    $email_message
-                );
-
-                if ($email_sent) {
-
-                    $set_flash(
-                        'success',
-                        'Invitation successfully sent! An email notification has also been sent to the worker.'
-                    );
-                } else {
-
-                    // The invitation is still saved in Supabase.
-                    $set_flash(
-                        'warning',
-                        'Invitation successfully saved, but the email notification could not be sent.'
-                    );
-                }
-            } else {
-
-                // The invitation is still saved even if email lookup fails.
-                $set_flash(
-                    'warning',
-                    'Invitation successfully saved, but the worker email could not be retrieved. No email notification was sent.'
-                );
-            }
-        } elseif (
-            $http_status === 409 ||
-            (
-                is_array($api_response) &&
-                ($api_response['code'] ?? '') === '23505'
-            )
+        if (
+            $worker_check['status'] < 200 ||
+            $worker_check['status'] >= 300 ||
+            !is_array($worker_check['data']) ||
+            empty($worker_check['data'])
         ) {
 
             $set_flash(
-                'warning',
-                'You already have an active invitation for this worker and job.'
+                'danger',
+                'The selected worker is no longer available.'
             );
         } else {
 
-            // Show the actual error returned by Supabase.
-            $api_message = '';
+            // --------------------------------------------
+            // Verify that the job belongs to this employer
+            // and is still open.
+            // --------------------------------------------
 
-            if (is_array($api_response)) {
-                $api_message =
-                    $api_response['message'] ??
-                    $api_response['details'] ??
-                    $api_response['hint'] ??
-                    '';
-            }
-
-            if ($api_message === '') {
-                $api_message = 'No additional error details were returned.';
-            }
-
-            $set_flash(
-                'danger',
-                "Invitation failed (HTTP {$http_status}): {$api_message}"
+            $job_check = $supabase_request(
+                SUPABASE_URL .
+                    '/rest/v1/jobs?select=id,title' .
+                    '&id=eq.' . rawurlencode($job_id) .
+                    '&employer_id=eq.' . rawurlencode($employer_id) .
+                    '&status=eq.open' .
+                    '&limit=1'
             );
+
+            if (
+                $job_check['status'] < 200 ||
+                $job_check['status'] >= 300 ||
+                !is_array($job_check['data']) ||
+                empty($job_check['data'])
+            ) {
+
+                $set_flash(
+                    'danger',
+                    'The selected job is unavailable or does not belong to your account.'
+                );
+            } else {
+
+                // --------------------------------------------
+                // Check whether the worker already has an
+                // application for this job.
+                // --------------------------------------------
+
+                $application_check = $supabase_request(
+                    SUPABASE_URL .
+                        '/rest/v1/applications?select=id,status' .
+                        '&job_id=eq.' . rawurlencode($job_id) .
+                        '&worker_id=eq.' . rawurlencode($worker_id) .
+                        '&limit=1'
+                );
+
+                if (
+                    $application_check['status'] < 200 ||
+                    $application_check['status'] >= 300
+                ) {
+
+                    $set_flash(
+                        'danger',
+                        'Unable to check the worker recruitment record. Please try again.'
+                    );
+                } elseif (!empty($application_check['data'])) {
+
+                    $set_flash(
+                        'warning',
+                        'This worker already has an application for this job. You can review the candidate in Employer Applications.'
+                    );
+                } else {
+
+                    // --------------------------------------------
+                    // Check for an existing active invitation.
+                    // --------------------------------------------
+
+                    $invitation_check = $supabase_request(
+                        SUPABASE_URL .
+                            '/rest/v1/invitations?select=id,status' .
+                            '&job_id=eq.' . rawurlencode($job_id) .
+                            '&worker_id=eq.' . rawurlencode($worker_id) .
+                            '&employer_id=eq.' . rawurlencode($employer_id) .
+                            '&status=in.(pending,accepted)' .
+                            '&limit=1'
+                    );
+
+                    if (
+                        $invitation_check['status'] < 200 ||
+                        $invitation_check['status'] >= 300
+                    ) {
+
+                        $set_flash(
+                            'danger',
+                            'Unable to check the worker invitation history. Please try again.'
+                        );
+                    } elseif (!empty($invitation_check['data'])) {
+
+                        $set_flash(
+                            'warning',
+                            'An active invitation already exists for this worker and job.'
+                        );
+                    } else {
+
+                        // --------------------------------------------
+                        // Save the direct job invitation.
+                        // This does not create employment or an offer.
+                        // --------------------------------------------
+
+                        $invitation_data = [
+                            'job_id' => $job_id,
+                            'employer_id' => $employer_id,
+                            'worker_id' => $worker_id,
+                            'message' => $invitation_message !== ''
+                                ? $invitation_message
+                                : null,
+                            'status' => 'pending'
+                        ];
+
+                        $insert_result = $supabase_request(
+                            SUPABASE_URL . '/rest/v1/invitations?select=id',
+                            'POST',
+                            $invitation_data
+                        );
+
+                        if ($insert_result['response'] === false) {
+
+                            $set_flash(
+                                'danger',
+                                'Unable to connect to Supabase. Please try again.'
+                            );
+                        } elseif (
+                            $insert_result['status'] >= 200 &&
+                            $insert_result['status'] < 300
+                        ) {
+
+                            // --------------------------------------------
+                            // Invitation saved. Send email notification.
+                            // --------------------------------------------
+
+                            $worker_email = $get_worker_email($worker_id);
+
+                            $employer_result = $supabase_request(
+                                SUPABASE_URL .
+                                    '/rest/v1/profiles?select=full_name' .
+                                    '&id=eq.' . rawurlencode($employer_id) .
+                                    '&limit=1'
+                            );
+
+                            $employer_name = 'An employer';
+
+                            if (
+                                $employer_result['status'] >= 200 &&
+                                $employer_result['status'] < 300 &&
+                                is_array($employer_result['data']) &&
+                                !empty($employer_result['data'][0]['full_name'])
+                            ) {
+                                $employer_name = $employer_result['data'][0]['full_name'];
+                            }
+
+                            $job_title = $job_check['data'][0]['title']
+                                ?? 'a job opportunity';
+
+                            if ($worker_email !== null) {
+
+                                $email_message = invitationEmail(
+                                    $employer_name,
+                                    $job_title,
+                                    $invitation_message
+                                );
+
+                                $email_sent = sendEmail(
+                                    $worker_email,
+                                    'You have received a job invitation on WorkPulse',
+                                    $email_message
+                                );
+
+                                if ($email_sent) {
+
+                                    $set_flash(
+                                        'success',
+                                        'Invitation successfully sent! An email notification has also been sent to the worker.'
+                                    );
+                                } else {
+
+                                    $set_flash(
+                                        'warning',
+                                        'Invitation successfully saved, but the email notification could not be sent.'
+                                    );
+                                }
+                            } else {
+
+                                $set_flash(
+                                    'warning',
+                                    'Invitation successfully saved, but the worker email could not be retrieved. No email notification was sent.'
+                                );
+                            }
+                        } elseif (
+                            $insert_result['status'] === 409 ||
+                            (
+                                is_array($insert_result['data']) &&
+                                ($insert_result['data']['code'] ?? '') === '23505'
+                            )
+                        ) {
+
+                            $set_flash(
+                                'warning',
+                                'An active invitation already exists for this worker and job.'
+                            );
+                        } else {
+
+                            $api_message = '';
+
+                            if (is_array($insert_result['data'])) {
+                                $api_message =
+                                    $insert_result['data']['message'] ??
+                                    $insert_result['data']['details'] ??
+                                    $insert_result['data']['hint'] ??
+                                    '';
+                            }
+
+                            if ($api_message === '') {
+                                $api_message = 'No additional error details were returned.';
+                            }
+
+                            $set_flash(
+                                'danger',
+                                'Invitation failed (HTTP ' .
+                                    $insert_result['status'] .
+                                    '): ' . $api_message
+                            );
+                        }
+                    }
+                }
+            }
         }
     }
 
-    // Prevent duplicate form submission when refreshing.
+    // Prevent duplicate form submissions.
     header('Location: ' . $redirect_url);
     exit;
 }
 
 
 // ============================================
-// 6. GET EMPLOYER'S OPEN JOBS
+// 7. GET EMPLOYER'S OPEN JOBS
 // ============================================
 
 $url = SUPABASE_URL .
@@ -398,7 +499,65 @@ if ($result['response'] === false) {
 
 
 // ============================================
-// 7. GET ACTIVE WORKER PROFILES
+// 8. GET EXISTING APPLICATIONS FOR OPEN JOBS
+// ============================================
+
+$applications = [];
+$application_lookup = [];
+
+if (!empty($jobs)) {
+
+    $job_ids = [];
+
+    foreach ($jobs as $job) {
+        if (!empty($job['id'])) {
+            $job_ids[] = $job['id'];
+        }
+    }
+
+    if (!empty($job_ids)) {
+
+        $job_id_list = implode(
+            ',',
+            array_map('rawurlencode', $job_ids)
+        );
+
+        $url = SUPABASE_URL .
+            '/rest/v1/applications?select=id,job_id,worker_id,status' .
+            '&job_id=in.(' . $job_id_list . ')' .
+            '&limit=2000';
+
+        $result = $supabase_request($url);
+
+        if ($result['response'] === false) {
+
+            $applications_error = 'Unable to retrieve existing applications.';
+        } elseif (
+            $result['status'] < 200 ||
+            $result['status'] >= 300 ||
+            !is_array($result['data'])
+        ) {
+
+            $applications_error = 'Unable to check existing recruitment records.';
+        } else {
+
+            $applications = $result['data'];
+
+            foreach ($applications as $application) {
+
+                $key = $application['job_id'] .
+                    ':' .
+                    $application['worker_id'];
+
+                $application_lookup[$key] = $application;
+            }
+        }
+    }
+}
+
+
+// ============================================
+// 9. GET ACTIVE WORKER PROFILES
 // ============================================
 
 $url = SUPABASE_URL .
@@ -432,7 +591,7 @@ if ($result['response'] === false) {
 
 
 // ============================================
-// 8. GET EMPLOYER'S INVITATION HISTORY
+// 10. GET EMPLOYER'S INVITATION HISTORY
 // ============================================
 
 $url = SUPABASE_URL .
@@ -465,68 +624,20 @@ if ($result['response'] === false) {
 
 
 // ============================================
-// 9. GET EXISTING EMPLOYMENT OFFERS
+// 11. GET THE LATEST INVITATION PER JOB/WORKER
 // ============================================
-
-$url = SUPABASE_URL .
-    '/rest/v1/employment_offers?select=id,invitation_id,status' .
-    '&employer_id=eq.' . rawurlencode($employer_id) .
-    '&invitation_id=not.is.null' .
-    '&order=created_at.desc&limit=500';
-
-$result = $supabase_request($url);
-
-$existing_offers = [];
-
-if ($result['response'] === false) {
-
-    $offers_error = 'Unable to check existing employment offers.';
-} elseif (
-    $result['status'] < 200 ||
-    $result['status'] >= 300 ||
-    !is_array($result['data'])
-) {
-
-    $offers_error = 'Unable to check existing employment offers.';
-
-    if (is_array($result['data'])) {
-        $offers_error .= ' ' . ($result['data']['message'] ?? '');
-    }
-} else {
-
-    $existing_offers = $result['data'];
-}
-
-
-// ============================================
-// 10. GET THE LATEST INVITATION PER JOB/WORKER
-// ============================================
-
-// The API returns invitations newest first.
-// We only need the latest invitation for each pair.
 
 $latest_invitations = [];
 
 foreach ($invitations as $invitation) {
 
-    $key = $invitation['job_id'] . ':' . $invitation['worker_id'];
+    $key = $invitation['job_id'] .
+        ':' .
+        $invitation['worker_id'];
 
+    // Invitations are ordered newest first.
     if (!isset($latest_invitations[$key])) {
         $latest_invitations[$key] = $invitation;
-    }
-}
-
-
-// ============================================
-// 11. MAP EMPLOYMENT OFFERS TO INVITATIONS
-// ============================================
-
-$invitation_offers = [];
-
-foreach ($existing_offers as $offer) {
-
-    if (!empty($offer['invitation_id'])) {
-        $invitation_offers[$offer['invitation_id']] = $offer;
     }
 }
 
@@ -704,6 +815,16 @@ require_once '../../includes/header.php';
         <div class="find-workers-alert find-workers-alert-warning">
             <i class="bi bi-clock-history"></i>
             <span><?php echo htmlspecialchars($invitations_error, ENT_QUOTES, 'UTF-8'); ?></span>
+        </div>
+
+    <?php endif; ?>
+
+
+    <?php if ($applications_error !== ''): ?>
+
+        <div class="find-workers-alert find-workers-alert-warning">
+            <i class="bi bi-people"></i>
+            <span><?php echo htmlspecialchars($applications_error, ENT_QUOTES, 'UTF-8'); ?></span>
         </div>
 
     <?php endif; ?>
@@ -950,7 +1071,6 @@ require_once '../../includes/header.php';
 
                             <?php $worker_has_history = false; ?>
 
-
                             <?php foreach ($jobs as $job): ?>
 
                                 <?php
@@ -977,7 +1097,7 @@ require_once '../../includes/header.php';
                                         </span>
 
                                         <strong class="status-<?php echo htmlspecialchars(
-                                                                    $previous_invitation['status'],
+                                                                    preg_replace('/[^a-z_]/', '', $previous_invitation['status']),
                                                                     ENT_QUOTES,
                                                                     'UTF-8'
                                                                 ); ?>">
@@ -998,32 +1118,23 @@ require_once '../../includes/header.php';
                                             ); ?>
                                         </small>
 
-
                                         <?php if ($previous_invitation['status'] === 'accepted'): ?>
 
-                                            <?php
-                                            $sent_offer =
-                                                $invitation_offers[$previous_invitation['id']] ?? null;
-                                            ?>
+                                            <small>
+                                                Worker accepted the invitation. Review the candidate in Employer Applications.
+                                            </small>
 
-                                            <?php if ($sent_offer !== null): ?>
+                                        <?php elseif ($previous_invitation['status'] === 'pending'): ?>
 
-                                                <small>
-                                                    Employment offer:
-                                                    <?php echo htmlspecialchars(
-                                                        ucfirst($sent_offer['status']),
-                                                        ENT_QUOTES,
-                                                        'UTF-8'
-                                                    ); ?>
-                                                </small>
+                                            <small>
+                                                Waiting for the worker's response.
+                                            </small>
 
-                                            <?php elseif ($offers_error === ''): ?>
+                                        <?php elseif ($previous_invitation['status'] === 'declined'): ?>
 
-                                                <a href="send-offer.php?invitation_id=<?php echo urlencode($previous_invitation['id']); ?>">
-                                                    Send Employment Offer
-                                                </a>
-
-                                            <?php endif; ?>
+                                            <small>
+                                                The worker declined this invitation.
+                                            </small>
 
                                         <?php endif; ?>
 
@@ -1051,15 +1162,6 @@ require_once '../../includes/header.php';
 
                             <?php endif; ?>
 
-
-                            <?php if ($offers_error !== ''): ?>
-
-                                <p class="find-worker-muted">
-                                    Employment offer information is currently unavailable.
-                                </p>
-
-                            <?php endif; ?>
-
                         </div>
 
 
@@ -1070,6 +1172,10 @@ require_once '../../includes/header.php';
                                 <i class="bi bi-send"></i>
                                 Invite This Worker
                             </h4>
+
+                            <p class="find-worker-muted">
+                                An invitation lets the worker express interest and enter your recruitment process. It does not hire the worker or create an employment offer.
+                            </p>
 
 
                             <?php if ($jobs_error !== ''): ?>
@@ -1088,6 +1194,12 @@ require_once '../../includes/header.php';
                                     <i class="bi bi-plus-circle"></i>
                                     Create a Job
                                 </a>
+
+                            <?php elseif ($applications_error !== ''): ?>
+
+                                <p class="find-worker-muted">
+                                    Existing recruitment records could not be checked. Please refresh the page before sending an invitation.
+                                </p>
 
                             <?php else: ?>
 
@@ -1110,7 +1222,6 @@ require_once '../../includes/header.php';
                                         name="search"
                                         value="<?php echo htmlspecialchars($search, ENT_QUOTES, 'UTF-8'); ?>">
 
-
                                     <label for="job_<?php echo htmlspecialchars($worker_id, ENT_QUOTES, 'UTF-8'); ?>">
                                         Select an open job
                                     </label>
@@ -1124,7 +1235,6 @@ require_once '../../includes/header.php';
                                             Choose a job
                                         </option>
 
-
                                         <?php foreach ($jobs as $job): ?>
 
                                             <?php
@@ -1134,7 +1244,13 @@ require_once '../../includes/header.php';
                                             $previous_invitation =
                                                 $latest_invitations[$key] ?? null;
 
-                                            $already_invited =
+                                            $existing_application =
+                                                $application_lookup[$key] ?? null;
+
+                                            $already_in_recruitment =
+                                                $existing_application !== null;
+
+                                            $active_invitation =
                                                 $previous_invitation !== null &&
                                                 in_array(
                                                     $previous_invitation['status'],
@@ -1142,11 +1258,15 @@ require_once '../../includes/header.php';
                                                     true
                                                 );
 
+                                            $option_disabled =
+                                                $already_in_recruitment ||
+                                                $active_invitation;
+
                                             ?>
 
                                             <option
                                                 value="<?php echo htmlspecialchars($job['id'], ENT_QUOTES, 'UTF-8'); ?>"
-                                                <?php echo $already_invited ? 'disabled' : ''; ?>>
+                                                <?php echo $option_disabled ? 'disabled' : ''; ?>>
 
                                                 <?php
 
@@ -1159,12 +1279,15 @@ require_once '../../includes/header.php';
                                                     'UTF-8'
                                                 );
 
-                                                if ($previous_invitation !== null) {
+                                                if ($already_in_recruitment) {
+
+                                                    echo ' (Already in Recruitment)';
+                                                } elseif ($previous_invitation !== null) {
 
                                                     if ($previous_invitation['status'] === 'pending') {
                                                         echo ' (Invitation Pending)';
                                                     } elseif ($previous_invitation['status'] === 'accepted') {
-                                                        echo ' (Already Accepted)';
+                                                        echo ' (Invitation Accepted)';
                                                     } elseif ($previous_invitation['status'] === 'declined') {
                                                         echo ' (Previously Declined - Re-invite)';
                                                     }

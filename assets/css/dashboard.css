@@ -3616,3 +3616,21 @@
         padding: 28px 20px 22px;
     }
 }
+
+
+.wp-invitation-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.wp-invitation-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wp-invitation-tab-panel[hidden] {
+    display: none !important;
+}

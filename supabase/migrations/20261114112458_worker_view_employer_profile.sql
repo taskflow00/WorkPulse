@@ -1,4 +1,3 @@
-
 CREATE POLICY "Workers can view their employers"
 ON public.profiles
 FOR SELECT

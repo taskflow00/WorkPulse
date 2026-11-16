@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.update_task_status(
     p_task_id UUID,
     p_status TEXT
@@ -56,11 +55,8 @@ BEGIN
     );
 END;
 $$;
-
 REVOKE ALL ON FUNCTION public.update_task_status(UUID, TEXT)
 FROM PUBLIC;
-
 GRANT EXECUTE ON FUNCTION public.update_task_status(UUID, TEXT)
 TO authenticated;
-
 NOTIFY pgrst, 'reload schema';

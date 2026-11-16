@@ -1,4 +1,3 @@
-
 -- Workers can respond only to their own pending offers.
 -- The function controls exactly which fields can be changed.
 
@@ -52,10 +51,8 @@ BEGIN
     );
 END;
 $$;
-
 -- Only authenticated users can call this function.
 REVOKE ALL ON FUNCTION public.respond_to_employment_offer(UUID, TEXT)
 FROM PUBLIC;
-
 GRANT EXECUTE ON FUNCTION public.respond_to_employment_offer(UUID, TEXT)
 TO authenticated;

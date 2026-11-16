@@ -1,6 +1,5 @@
 DROP POLICY "Employers can send offers"
 ON public.employment_offers;
-
 CREATE POLICY "Employers can send offers"
 ON public.employment_offers
 FOR INSERT
