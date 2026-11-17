@@ -7,6 +7,16 @@ date_default_timezone_set('Asia/Manila');
 $message = '';
 $message_type = 'danger';
 
+// ==========================================
+// VERIFICATION RESEND SECURITY
+// ==========================================
+
+if (empty($_SESSION['login_verification_csrf'])) {
+    $_SESSION['login_verification_csrf'] = bin2hex(random_bytes(32));
+}
+
+$login_verification_csrf = $_SESSION['login_verification_csrf'];
+
 $status = $_GET['status'] ?? '';
 
 
@@ -26,6 +36,81 @@ if (isset($_GET['verified']) && $_GET['verified'] === '1') {
     $message = 'Your account is temporarily suspended. Please try again later.';
 }
 
+// ==========================================
+// RESEND VERIFICATION CODE FROM LOGIN
+// ==========================================
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST' &&
+    isset($_POST['resend_verification'])
+) {
+    $email = strtolower(trim($_POST['email'] ?? ''));
+    $submitted_csrf = $_POST['csrf_token'] ?? '';
+
+    if (
+        !is_string($submitted_csrf) ||
+        !hash_equals($login_verification_csrf, $submitted_csrf)
+    ) {
+        $message = 'Your request could not be verified. Please refresh the page.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $message = 'Please enter a valid email address.';
+    } else {
+        // Prevent repeated requests in the same session.
+        $last_resend = (int) ($_SESSION['verification_resend_at'] ?? 0);
+        $remaining = 36 - (time() - $last_resend);
+
+        if ($remaining > 0) {
+            $message = "Please wait {$remaining} seconds before requesting another code.";
+            $message_type = 'warning';
+        } else {
+            $url = SUPABASE_URL . '/auth/v1/resend';
+
+            $data = [
+                'type' => 'signup',
+                'email' => $email
+            ];
+
+            $options = [
+                'http' => [
+                    'method' => 'POST',
+                    'header' =>
+                    "Content-Type: application/json\r\n" .
+                        "apikey: " . SUPABASE_KEY . "\r\n",
+                    'content' => json_encode($data),
+                    'ignore_errors' => true,
+                    'timeout' => 15
+                ]
+            ];
+
+            $context = stream_context_create($options);
+            $response = file_get_contents($url, false, $context);
+            $headers = $http_response_header ?? [];
+
+            $http_status = 0;
+
+            foreach ($headers as $header) {
+                if (preg_match('/^HTTP\/\S+\s+(\d+)/i', $header, $matches)) {
+                    $http_status = (int) $matches[1];
+                }
+            }
+
+            if (
+                $response !== false &&
+                $http_status >= 200 &&
+                $http_status < 300
+            ) {
+                // Restore the verification session.
+                $_SESSION['pending_verification_email'] = $email;
+                $_SESSION['verification_resend_at'] = time();
+
+                header('Location: /verify-email.php');
+                exit;
+            } else {
+                $message = 'Unable to resend the verification code. Please try again later.';
+            }
+        }
+    }
+}
 
 // ==========================================
 // LOGIN
@@ -490,6 +575,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 
                 <form method="POST" class="auth-form">
 
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="<?= htmlspecialchars($login_verification_csrf, ENT_QUOTES, 'UTF-8') ?>">
+
                     <div class="auth-field">
 
                         <label for="email">Email address</label>
@@ -547,6 +637,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 
                         Sign In
                         <i class="bi bi-arrow-right"></i>
+
+                    </button>
+
+                    <button
+                        type="submit"
+                        name="resend_verification"
+                        class="auth-submit resend-submit"
+                        formnovalidate>
+
+                        <i class="bi bi-envelope-arrow-up"></i>
+                        Resend Verification Code
 
                     </button>
 
