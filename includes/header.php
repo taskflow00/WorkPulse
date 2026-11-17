@@ -34,6 +34,13 @@ if ($user_role === 'worker') {
 
     <title><?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') ?> | WorkPulse</title>
 
+    <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/img/favicon-16.png">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+
+
     <!-- Bootstrap -->
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
@@ -53,7 +60,7 @@ if ($user_role === 'worker') {
         <?php foreach ($page_styles as $style): ?>
             <link rel="stylesheet" href="<?= htmlspecialchars($style) ?>">
         <?php endforeach; ?>
-    <?php endif; ?> 
+    <?php endif; ?>
 
 </head>
 

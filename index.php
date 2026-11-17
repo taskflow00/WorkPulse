@@ -39,6 +39,12 @@ switch ($role) {
 
     <title>WorkPulse | Work Smarter. Move Forward.</title>
 
+    <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/img/favicon-16.png">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/components.css">
     <link rel="stylesheet" href="assets/css/landing.css">
@@ -51,47 +57,47 @@ switch ($role) {
     <div class="wp-landing">
 
         <!-- NAVIGATION -->
-        
-<!-- NAVIGATION -->
-<nav class="wp-landing-nav">
 
-    <a href="index.php" class="wp-landing-brand">
-        <span class="landing-brand-icon">
-            <i class="bi bi-activity"></i>
-        </span>
-        WorkPulse
-    </a>
+        <!-- NAVIGATION -->
+        <nav class="wp-landing-nav">
 
-    <div class="wp-landing-nav-links">
-
-        <a href="#features">Features</a>
-        <a href="#how-it-works">How It Works</a>
-        <a href="pages/jobs.php">Find Jobs</a>
-
-        <?php if ($is_logged_in): ?>
-
-            <?php if ($dashboard_url !== ''): ?>
-
-                <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>"
-                    class="wp-btn wp-btn-primary">
-                    My Dashboard <i class="bi bi-arrow-up-right"></i>
-                </a>
-
-            <?php endif; ?>
-
-        <?php else: ?>
-
-            <a href="login.php">Sign In</a>
-
-            <a href="register.php" class="wp-btn wp-btn-primary">
-                Get Started <i class="bi bi-arrow-right"></i>
+            <a href="index.php" class="wp-landing-brand">
+                <span class="landing-brand-icon">
+                    <i class="bi bi-activity"></i>
+                </span>
+                WorkPulse
             </a>
 
-        <?php endif; ?>
+            <div class="wp-landing-nav-links">
 
-    </div>
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="pages/jobs.php">Find Jobs</a>
 
-</nav>
+                <?php if ($is_logged_in): ?>
+
+                    <?php if ($dashboard_url !== ''): ?>
+
+                        <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>"
+                            class="wp-btn wp-btn-primary">
+                            My Dashboard <i class="bi bi-arrow-up-right"></i>
+                        </a>
+
+                    <?php endif; ?>
+
+                <?php else: ?>
+
+                    <a href="login.php">Sign In</a>
+
+                    <a href="register.php" class="wp-btn wp-btn-primary">
+                        Get Started <i class="bi bi-arrow-right"></i>
+                    </a>
+
+                <?php endif; ?>
+
+            </div>
+
+        </nav>
 
 
 
@@ -116,30 +122,30 @@ switch ($role) {
                     Your next step starts here.
                 </p>
 
-                
-<div class="wp-hero-actions">
 
-    <a href="pages/jobs.php" class="wp-btn wp-btn-primary">
-        Explore Opportunities
-        <i class="bi bi-arrow-right"></i>
-    </a>
+                <div class="wp-hero-actions">
 
-    <?php if ($is_logged_in && $dashboard_url !== ''): ?>
+                    <a href="pages/jobs.php" class="wp-btn wp-btn-primary">
+                        Explore Opportunities
+                        <i class="bi bi-arrow-right"></i>
+                    </a>
 
-        <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>"
-            class="wp-btn wp-btn-outline">
-            Go to Dashboard
-        </a>
+                    <?php if ($is_logged_in && $dashboard_url !== ''): ?>
 
-    <?php elseif (!$is_logged_in): ?>
+                        <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>"
+                            class="wp-btn wp-btn-outline">
+                            Go to Dashboard
+                        </a>
 
-        <a href="register.php" class="wp-btn wp-btn-outline">
-            Create an Account
-        </a>
+                    <?php elseif (!$is_logged_in): ?>
 
-    <?php endif; ?>
+                        <a href="register.php" class="wp-btn wp-btn-outline">
+                            Create an Account
+                        </a>
 
-</div>
+                    <?php endif; ?>
+
+                </div>
 
 
                 <div class="wp-hero-trust">

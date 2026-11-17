@@ -343,6 +343,12 @@ $alert_icon = $alert_icons[$message_type] ?? 'bi-info-circle-fill';
 
     <title>Create Account | WorkPulse</title>
 
+    <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/img/favicon-16.png">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+
     <link rel="stylesheet" href="/assets/css/auth.css">
 
     <link
